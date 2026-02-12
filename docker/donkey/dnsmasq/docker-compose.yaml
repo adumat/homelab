@@ -1,0 +1,13 @@
+services:
+  dnsmasq:
+    image: dockurr/dnsmasq:2.92
+    container_name: dnsmasq
+    restart: unless-stopped
+    volumes:
+      - ./dnsmasq.conf:/etc/dnsmasq.conf:ro
+      - ../assets:/var/ftpd:ro
+    environment:
+      - DNSMASQ_SHA=${dnsmasq_sha:-unknown}
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN

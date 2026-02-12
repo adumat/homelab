@@ -1,0 +1,21 @@
+---
+# yaml-language-server: $schema=https://github.com/fluxcd-community/flux2-schemas/raw/refs/heads/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: node-feature-discovery
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: node-feature-discovery
+  values:
+    worker:
+      config:
+        core:
+          labelSources:
+            - "system"
+            - "pci"
+            - "usb"
+    prometheus:
+      enable: true

@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+# Blueprint metadata
+version: 1
+metadata:
+  name: homelab-sso-config
+  labels:
+    blueprints.goauthentik.io/system: "true"
+entries: []

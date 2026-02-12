@@ -1,0 +1,240 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app vaultwarden
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      vaultwarden:
+        containers:
+          app:
+            image:
+              repository: vaultwarden/server
+              tag: 1.35.2
+            env:
+              ROCKET_PORT: "8080"
+              ## Allow any user to sign-up: https://github.com/dani-garcia/vaultwarden/wiki/Disable-registration-of-new-users
+              SIGNUPS_ALLOWED: "false"
+              ## Whitelist domains allowed to sign-up. 'allowSignups' is ignored if set.
+              # SIGNUPS_DOMAINS_WHITELIST: {{ join "," .Values.vaultwarden.signupDomains | quote }}
+              ## Verify e-mail before login is enabled. SMTP must be enabled.
+              SIGNUPS_VERIFY: "true"
+              ## When a user logs in an email is required to be sent. If sending the email fails the login attempt will fail. SMTP must be enabled.
+              # REQUIRE_DEVICE_EMAIL: {{ .Values.vaultwarden.requireEmail | quote }}
+              ## Maximum attempts before an email token is reset and a new email will need to be sent.
+              # EMAIL_ATTEMPTS_LIMIT: {{ .Values.vaultwarden.emailAttempts | quote }}
+              ## Email token validity in seconds.
+              # EMAIL_EXPIRATION_TIME: {{ .Values.vaultwarden.emailTokenExpiration | quote }}
+              ## Allow invited users to sign-up even feature is disabled: https://github.com/dani-garcia/vaultwarden/wiki/Disable-invitations
+              INVITATIONS_ALLOWED: "true"
+              ## Number of hours after which an organization invite token, emergency access invite token,
+              ## email verification token and deletion request token will expire
+              # INVITATION_EXPIRATION_HOURS: {{ .Values.vaultwarden.invitationExpiration | quote }}
+              ## Default organization name in invitation e-mails that are not coming from a specific organization.
+              # INVITATION_ORG_NAME: {{ .Values.vaultwarden.defaultInviteName | quote }}
+              ## Allow users to set password hints. Applies to all users.
+              # PASSWORD_HINTS_ALLOWED: {{ .Values.vaultwarden.passwordHintsAllowed | quote }}
+              ## Show password hints: https://github.com/dani-garcia/vaultwarden/wiki/Password-hint-display
+              SHOW_PASSWORD_HINT: "true"
+              # Enable Web Vault (static content). https://github.com/dani-garcia/vaultwarden/wiki/Disabling-or-overriding-the-Vault-interface-hosting
+              WEB_VAULT_ENABLED: "true"
+              ## Enable Bitwarden Sends globally
+              # SENDS_ALLOWED: {{ .Values.vaultwarden.enableSends | quote }}
+              ## Restrict creation of orgs. Options are: 'all', 'none' or a comma-separated list of users.
+              ORG_CREATION_USERS: "all"
+              ## Limit attachment disk usage per organization.
+              # ORG_ATTACHMENT_LIMIT: {{ .Values.vaultwarden.attachmentLimitOrg | quote }}
+              ## Limit attachment disk usage per user.
+              # USER_ATTACHMENT_LIMIT: {{ .Values.vaultwarden.attachmentLimitUser | quote }}
+              ## Limit send disk usage per user.
+              # USER_SEND_LIMIT: {{ .Values.vaultwarden.sendLimitUser | quote }}
+              ## HaveIBeenPwned API Key. Can be purchased at https://haveibeenpwned.com/API/Key.
+              # HIBP_API_KEY: {{ .Values.vaultwarden.hibpApiKey | quote }}
+              ## Number of days to auto-delete trashed items. By default iteams are not auto-deleted.
+              # TRASH_AUTO_DELETE_DAYS: {{ .Values.vaultwarden.autoDeleteDays | quote }}
+              ## Organization event logging
+              # ORG_EVENTS_ENABLED: {{ .Values.vaultwarden.orgEvents | quote }}
+              ## Organization event retation. Leave empty to not delete.
+              # EVENTS_DAYS_RETAIN: {{ .Values.vaultwarden.orgEventsRetention | quote }}
+              ## Allow users to change their email.
+              # EMAIL_CHANGE_ALLOWED: {{ .Values.vaultwarden.emailChangeAllowed | quote }}
+
+              ## Connection retries during startup, 0 for infinite. 1 second between retries.
+              # DB_CONNECTION_RETRIES: {{ .Values.database.retries | quote }}
+              ## Set the size of the database connection pool.
+              # DATABASE_MAX_CONNS: {{ .Values.database.maxConnections | quote }}
+              # Enable DB Write-Ahead-Log for SQLite, disabled for other databases. https://github.com/dani-garcia/vaultwarden/wiki/Running-without-WAL-enabled
+              ENABLE_DB_WAL: "false"
+              ## URL for external databases (mysql://user:pass@host:port/database-name or postgresql://user:pass@host:port/database-name).
+              DATABASE_URL:
+                valueFrom:
+                  secretKeyRef:
+                    name: vaultwarden
+                    key: pg-uri
+
+              ## Set Bitwarden URL, mandatory for invitations over email. Recommended if using a reverse proxy / ingress. Format is https://name or http://name
+              DOMAIN: "https://vault.${DOMAIN}"
+              # Disabling the admin token will make the admin portal accessible to anyone, use carefully: https://github.com/dani-garcia/vaultwarden/wiki/Disable-admin-token
+              DISABLE_ADMIN_TOKEN: "false"
+              ## Token for admin login, will be generated if not defined. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
+              # ADMIN_TOKEN:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: vaultwarden
+              #       key: admin-token
+              ## Allow any user to enable emergency access.
+              EMERGENCY_ACCESS_ALLOWED: "true"
+              ## Schedule to send expiration reminders to emergency access grantors. Cron schedule format.
+              # EMERGENCY_NOTIFICATION_REMINDER_SCHEDULE: {{ .Values.vaultwarden.emergency.reminder | quote }}
+              ## Schedule to grant emergency access requests that have met the required wait time. Cron schedule format.
+              # EMERGENCY_REQUEST_TIMEOUT_SCHEDULE: {{ .Values.vaultwarden.emergency.timeout | quote }}
+
+              ## SMTP hostname, required if SMTP is enabled.
+              SMTP_HOST: "smtp.sendgrid.net"
+              ## SMTP sender e-mail address, required if SMTP is enabled.
+              SMTP_FROM: "${EMAIL_ADDRESS_1}"
+              ## SMTP sender name, defaults to 'Vaultwarden'.
+              SMTP_FROM_NAME: "vault"
+              ## Enable secure SSL connection. Options are: "starttls", "force_tls" and "off"
+              ## Users migrating from 1.24 or lower using ssl/explicitTLS settings:
+              ##   ssl = false -> "off"
+              ##   ssl = true and explicitTLS = false -> "starttls"
+              ##   ssl = true and explicitTLS = true -> "force_tls"
+              SMTP_SSL: "true"
+              SMTP_EXPLICIT_TLS: "false"
+              SMTP_SECURITY: "starttls"
+              ## SMTP port. Defaults depends on security: 465 for "force_tls", 587 for "starttls" and 25 for "off"
+              SMTP_PORT: "587"
+              ## SMTP Authentication Mechanisms. Comma-separated options: 'Plain', 'Login' and 'Xoauth2'. Defaults to 'Plain'.
+              # SMTP_AUTH_MECHANISM: {{ .Values.vaultwarden.smtp.authMechanism | quote }}
+              ## Hostname to be sent for SMTP HELO. Defaults to pod name.
+              # HELO_NAME: {{ .Values.vaultwarden.smtp.heloName | quote }}
+              ## SMTP timeout.
+              SMTP_TIMEOUT: "15"
+              ## Accept SSL session if certificate is valid but hostname doesn't match. DANGEROUS, vulnerable to men-in-the-middle attacks!
+              # SMTP_ACCEPT_INVALID_HOSTNAMES: {{ .Values.vaultwarden.smtp.invalidHostname | quote }}
+              ## Accept invalid certificates. DANGEROUS, vulnerable to men-in-the-middle attacks!
+              # SMTP_ACCEPT_INVALID_CERTS: {{ .Values.vaultwarden.smtp.invalidCertificate | quote }}
+              ## SMTP username.
+              SMTP_USERNAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: vaultwarden
+                    key: smtp-user
+              ## SMTP password. Required is user is specified, ignored if no user provided.
+              SMTP_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: vaultwarden
+                    key: smtp-password
+              ## Embed images as email attachments
+              # SMTP_EMBED_IMAGES: {{ .Values.vaultwarden.smtp.embedImages | quote }}
+
+              ## Enable Yubico OPT authentication. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Yubikey-OTP-authentication
+              ## Yubico server. Defaults to YubiCloud.
+              # YUBICO_SERVER: {{ .Values.vaultwarden.yubico.server | quote }}
+              ## Yubico ID and Secret Key.
+              # YUBICO_CLIENT_ID:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: vaultwarden
+              #       key: yubico-client-id
+              # YUBICO_SECRET_KEY:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: vaultwarden
+              #       key: yubico-secret-key
+
+              ## Logging options. https://github.com/dani-garcia/vaultwarden/wiki/Logging
+              ## Log to file.
+              # LOG_FILE: {{ .Values.vaultwarden.log.file | quote }}
+              # EXTENDED_LOGGING: "true"
+              # Log level. Options are "trace", "debug", "info", "warn", "error" or "off".
+              # LOG_LEVEL: {{ .Values.vaultwarden.log.level | quote }}
+              ## Log timestamp format. See https://docs.rs/chrono/0.4.15/chrono/format/strftime/index.html. Defaults to time in milliseconds.
+              # LOG_TIMESTAMP_FORMAT: {{ .Values.vaultwarden.log.timeFormat | quote }}
+
+              ## Icon download service. "internal" to fetch icons directly, otherwise options are: "bitwarden", "duckduckgo" or "google"
+              # ICON_SERVICE: {{ .Values.vaultwarden.icons.service | quote }}
+              # Disables download of external icons on internal service. Setting to true will still serve icons from cache (/data/icon_cache). TTL will default to zero.
+              DISABLE_ICON_DOWNLOAD: "false"
+              ## Cache time-to-live for icons fetched. 0 means no purging.
+              ICON_CACHE_TTL: "0"
+              ## Cache time-to-live for icons that were not available. 0 means no purging.
+              # ICON_CACHE_NEGTTL: {{ .Values.vaultwarden.icons.cacheFailed }}
+              ## HTTP code for redirect to external icon service
+              # ICON_REDIRECT_CODE: {{ .Values.vaultwarden.icons.redirectCode | quote }}
+
+              ## Push notifications. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Mobile-Client-push-notification
+              ## Installation ID from Bitwarden.
+              PUSH_ENABLED: "true"
+              PUSH_INSTALLATION_ID:
+                valueFrom:
+                  secretKeyRef:
+                    name: vaultwarden
+                    key: push-id
+              ## Installation Key from Bitwarden.
+              PUSH_INSTALLATION_KEY:
+                valueFrom:
+                  secretKeyRef:
+                    name: vaultwarden
+                    key: push-key
+              ## Relay URI
+              PUSH_RELAY_URI: "https://api.bitwarden.eu"
+              ## Identity URI
+              PUSH_IDENTITY_URI: "https://identity.bitwarden.eu"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                memory: 512Mi
+    defaultPodOptions:
+      securityContext:
+        # runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: vaultwarden
+        ports:
+          http:
+            port: &port 8080
+            appProtocol: kubernetes.io/wss
+    route:
+      app:
+        hostnames:
+          - vault.${DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      data:
+        existingClaim: *app

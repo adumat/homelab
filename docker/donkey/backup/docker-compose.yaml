@@ -1,0 +1,19 @@
+services:
+  backup:
+    image: offen/docker-volume-backup:v2.47.0
+    container_name: backup
+    restart: unless-stopped
+    environment:
+      SSH_HOST_NAME: ${BACKUP_TARGET_SERVER}
+      SSH_PORT: ${BACKUP_TARGET_SERVER_PORT}
+      SSH_USER: ${BACKUP_TARGET_SERVER_USER}
+      SSH_PASSWORD: ${BACKUP_TARGET_SERVER_PASSWORD}
+      SSH_REMOTE_PATH: /mnt/user/donkey-backup
+    volumes:
+      - adguard_work:/backup/adguard:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    dns:
+      - 192.168.1.3
+    dns_search: lan
+    depends_on:
+      - adguard

@@ -1,0 +1,166 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app unifi
+  namespace: network
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  driftDetection:
+    mode: enabled
+  values:
+    controllers:
+      unifi:
+        enabled: true
+        type: deployment
+        annotations:
+          reloader.stakater.com/auto: 'true'
+        labels: {}
+        replicas: 1
+        strategy: RollingUpdate
+        rollingUpdate:
+          unavailable: 1
+          surge: 1
+        initContainers:
+          perm-fix:
+            image:
+              repository: busybox
+              tag: latest
+            command: ['sh', '-c', "chown -R 1000:568 /config && chmod -R 775 /config"]
+            securityContext:
+              runAsUser: 0
+        containers:
+          app:
+            image:
+              repository: ghcr.io/linuxserver/unifi-network-application
+              tag: 10.0.162@sha256:1c3667f6f145b49dcbd105b090a3740a6403f2ae02a164ae9231649e073e2f84
+            env:
+              TZ: "Europe/Rome"
+              MEM_LIMIT: '2048'
+              MEM_STARTUP: '1024'
+              PGID: '1000'
+              PUID: '1000'
+              S6_READ_ONLY_ROOT: '1'
+            envFrom:
+              - secretRef:
+                  name: unifi-secret
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /setup/
+                    port: 8080
+              readiness: *probes
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFileSystem: true
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                memory: 2Gi
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+    service:
+      unifi:
+        type: LoadBalancer
+        annotations:
+          lbipam.cilium.io/ips: "192.168.1.44"
+        ports:
+          http:
+            port: 8080
+            protocol: HTTP
+          stun:
+            port: 3478
+            protocol: UDP
+          https:
+            port: 8443
+            protocol: HTTPS
+          secure-redirect:
+            port: 8843
+            protocol: HTTPS
+          http-redirect:
+            port: 8880
+            protocol: HTTP
+          speedtest:
+            port: 6789
+            protocol: TCP
+          unifi-disc:
+            port: 10001
+            protocol: UDP
+          unifi-disc-12:
+            port: 1900
+            protocol: UDP
+          syslog:
+            protocol: UDP
+            port: 5514
+    # This dumb PoS requires application-aware TLS to the UI port
+    # except for localhost connections (even if encryption in
+    # transit is handled elsewhere).
+    # The hidden "unifi.https.redirect=false" option allegedly
+    # allowed for this, but was broken in v8 or v9.
+    #
+    # This is an example of why TLS cargo-culting is bad. Just because
+    # the application isn't aware of TLS encryption, doesn't mean that
+    # it's not in use. Because the unifi devs think that they know
+    # more about my environment than I do, I have to choose to either
+    # give the controller my publicly-trusted cert, or use its
+    # self-signed cert. I don't trust the controller enough to give it
+    # my cert, so now I'm just going to use the self-signed cert and
+    # not know for certain what service I'm connecting to.
+    #
+    # Teleport makes the same mistake, with the same reasoning of "its
+    # better to encrypt connections multiple times than allow users to
+    # secure the service the way they want".
+    # route:
+    #   app:
+    #     hostnames:
+    #       - unifi.${DOMAIN}
+    #     parentRefs:
+    #       - name: envoy-internal
+    #         namespace: kube-system
+    #         sectionName: https
+    #     rules:
+    #       - backendRefs:
+    #           - identifier: app
+    #             port: 8443
+    # ingress:
+    #   main:
+    #     className: internal
+    #     annotations:
+    #       cert-manager.io/cluster-issuer: letsencrypt
+    #       nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    #       nginx.ingress.kubernetes.io/proxy-ssl-verify: "off"
+    #       internal-dns.alpha.kubernetes.io/target: internal.${DOMAIN}
+    #     hosts:
+    #       - host: unifi.${DOMAIN}
+    #         paths:
+    #           - path: /
+    #             service:
+    #               identifier: app
+    #               port: https
+    #     tls:
+    #       - secretName: unifi-tls
+    #         hosts:
+    #           - unifi.${DOMAIN}
+    persistence:
+      config:
+        existingClaim: *app
+        globalMounts:
+          - path: /config
+      logs:
+        type: emptyDir
+        globalMounts:
+          - path: /config/logs
+      s6run:
+        type: emptyDir
+        globalMounts:
+          - path: /run

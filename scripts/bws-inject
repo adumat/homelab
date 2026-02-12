@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# bws-inject: Replace bws://<uuid> placeholders with actual secrets from Bitwarden Secrets Manager
+# Usage: echo "secret: bws://<uuid>" | bws-inject
+#        bws-inject < file.yaml
+#        cat file.yaml | bws-inject
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+
+check_cli bws jq
+
+# Cache for secrets to avoid fetching the same secret multiple times
+declare -A SECRET_CACHE
+
+# Fetch a secret from Bitwarden Secrets Manager
+fetch_secret() {
+    local uuid="$1"
+
+    # Check cache first
+    if [[ -n "${SECRET_CACHE[$uuid]:-}" ]]; then
+        log debug "Cache hit" "uuid=${uuid}"
+        echo "${SECRET_CACHE[$uuid]}"
+        return
+    fi
+
+    log debug "Fetching secret" "uuid=${uuid}"
+
+    local value
+    if ! value=$(bws secret get "$uuid" --output json 2>/dev/null | jq -r '.value'); then
+        log error "Failed to fetch secret" "uuid=${uuid}"
+    fi
+
+    if [[ -z "$value" || "$value" == "null" ]]; then
+        log error "Secret value is empty" "uuid=${uuid}"
+    fi
+
+    # Store in cache
+    SECRET_CACHE[$uuid]="$value"
+    echo "$value"
+}
+
+# Indent all lines of a string with the given prefix
+indent_value() {
+    local value="$1"
+    local indent="$2"
+    local first_line=true
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if $first_line; then
+            echo "$line"
+            first_line=false
+        else
+            echo "${indent}${line}"
+        fi
+    done <<< "$value"
+}
+
+main() {
+    local input
+    input=$(cat)
+
+    # Find all bws:// references
+    local -a uuids
+    mapfile -t uuids < <(echo "$input" | grep -oE 'bws://[a-f0-9-]+' | sed 's|bws://||' | sort -u)
+
+    if [[ ${#uuids[@]} -eq 0 ]]; then
+        log debug "No bws:// references found"
+        echo "$input"
+        return
+    fi
+
+    log debug "Found secrets to inject" "count=${#uuids[@]}"
+
+    # Process line by line to handle indentation for multiline values
+    local output=""
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        for uuid in "${uuids[@]}"; do
+            if [[ "$line" == *"bws://$uuid"* ]]; then
+                # Extract the indentation (everything before bws://)
+                local prefix="${line%%bws://*}"
+                local suffix="${line#*bws://$uuid}"
+                local value
+                value=$(fetch_secret "$uuid")
+
+                # Indent multiline values
+                local indented_value
+                indented_value=$(indent_value "$value" "$prefix")
+
+                line="${prefix}${indented_value}${suffix}"
+                break
+            fi
+        done
+        output+="$line"$'\n'
+    done <<< "$input"
+
+    # Remove trailing newline added by the loop
+    echo -n "$output"
+}
+
+main

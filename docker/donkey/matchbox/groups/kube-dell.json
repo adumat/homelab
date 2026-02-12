@@ -1,0 +1,13 @@
+{
+  "id": "kube-dell",
+  "name": "kube-dell",
+  "profile": "talos-amd64",
+  "selector": {
+    "mac": "e4:b9:7a:eb:57:90"
+  },
+  "metadata": {
+    "arch": "amd64",
+    "address": "192.168.1.31",
+    "install_disk_device": "/dev/sda"
+  }
+}

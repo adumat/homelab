@@ -1,0 +1,43 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-ml-cache
+spec:
+  storageClassName: openebs-hostpath
+  resources:
+    requests:
+      storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/refs/heads/master/master/persistentvolume-v1.json
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: immich-photos
+spec:
+  capacity:
+    storage: 1Mi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: elizabeth.lan
+    path: /mnt/user/immich
+  mountOptions:
+    - nfsvers=4.2
+    - hard
+    - noatime
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: immich-photos
+spec:
+  volumeName: immich-photos
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi

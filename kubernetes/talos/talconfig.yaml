@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
+---
+clusterName: kubernetes
+
+talosVersion: "${talosVersion}"
+kubernetesVersion: "${kubernetesVersion}"
+
+endpoint: https://k8s.clusterone.lan:6443
+additionalApiServerCertSans: &sans
+  - 127.0.0.1 # KubePrism
+  - 192.168.1.40 # Cluster LB
+  - k8s.clusterone.lan
+
+# Disable built-in Flannel to use Cilium
+cniConfig:
+  name: none
+
+clusterPodNets: ["10.42.0.0/16"]
+clusterSvcNets: ["10.43.0.0/16"]
+
+nodes:
+  - hostname: "kube-nuc"
+    ipAddress: "192.168.1.30"
+    installDiskSelector:
+      model: "Samsung SSD 970 EVO Plus 500GB"
+    machineSpec: &x64MachineSpec
+      mode: metal
+      arch: amd64
+      secureboot: false
+      useUKI: false
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "1c:69:7a:a5:93:fc"
+          driver: e1000e
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "192.168.1.40"
+    volumes: &volumes
+      - name: EPHEMERAL
+        provisioning:
+          diskSelector:
+            match: system_disk
+          maxSize: 50GiB
+    userVolumes: &uservolumes
+      - name: local-hostpath
+        provisioning:
+          diskSelector:
+            match: system_disk
+          minSize: 50GiB
+          grow: true
+    schematic: &schematic
+      customization:
+        extraKernelArgs:
+          - -init_on_alloc # Less security, faster puter
+          - -init_on_free # Less security, faster puter
+          - -selinux # Less security, faster puter
+          - apparmor=0 # Less security, faster puter
+          - init_on_alloc=0 # Less security, faster puter
+          - init_on_free=0 # Less security, faster puter
+          - intel_iommu=on # PCI Passthrough
+          - iommu=pt # PCI Passthrough
+          - mitigations=off # Less security, faster puter
+          - security=none # Less security, faster puter
+          - talos.auditd.disabled=1 # Less security, faster puter
+        systemExtensions:
+          officialExtensions:
+            - siderolabs/i915 # Intel iGPU
+            - siderolabs/intel-ucode # Intel iGPU
+            - siderolabs/iscsi-tools # longhorn iSCSI
+            - siderolabs/mei # Intel iGPU
+            - siderolabs/nfsrahead # NFS Performance
+            - siderolabs/nut-client # UPS Shutdown
+            - siderolabs/nvme-cli # longhorn NVMe
+            - siderolabs/util-linux-tools # longhorn
+    certSANs: *sans
+    extensionServices: &extensionServices
+      - name: nut-client
+        configFiles:
+          # default_password is to allow `talhelper gencommand`, but when doing `task talos:generate-config`, it's overridden
+          - content: |-
+              MONITOR ups@elizabeth.lan 1 slaveuser slaveuser secondary
+              SHUTDOWNCMD "/sbin/poweroff"
+            mountPath: /usr/local/etc/nut/upsmon.conf
+    nodeLabels: &controlPlaneLabels
+      intel.feature.node.kubernetes.io/gpu: 'true'
+  # - hostname: "kube-dell"
+  #   ipAddress: "192.168.1.31"
+  #   installDiskSelector:
+  #     model: "SK hynix SC401 S"
+  #   machineSpec: *x64MachineSpec
+  #   controlPlane: false
+  #   networkInterfaces:
+  #     - deviceSelector:
+  #         hardwareAddr: "e4:b9:7a:eb:57:90"
+  #         driver: e1000e
+  #       dhcp: true
+  #       mtu: 1500
+  #   volumes: *volumes
+  #   userVolumes: *uservolumes
+  #   schematic: *schematic
+  #   certSANs: *sans
+  #   extensionServices: *extensionServices
+  #   nodeLabels:
+  #     intel.feature.node.kubernetes.io/gpu: 'true'
+  - hostname: "kube-hp"
+    ipAddress: "192.168.1.32"
+    installDiskSelector:
+      model: "WDC PC SN720 SDAPNTW-256G-1006"
+    machineSpec: *x64MachineSpec
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "f8:b4:6a:a5:87:ed"
+          driver: e1000e
+        dhcp: true
+        mtu: 1500
+        vip:
+          ip: "192.168.1.40"
+    volumes: *volumes
+    userVolumes: *uservolumes
+    schematic: *schematic
+    certSANs: *sans
+    extensionServices: *extensionServices
+    nodeLabels: *controlPlaneLabels
+  - hostname: "kube-ceph-01"
+    ipAddress: "192.168.1.33"
+    installDiskSelector:
+      model: "KINGSTON SA400S3"
+    machineSpec: *x64MachineSpec
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e8:6a:64:a4:89:ca"
+          driver: e1000e
+        dhcp: true
+        mtu: 1500
+    volumes: *volumes
+    userVolumes: *uservolumes
+    schematic: *schematic
+    certSANs: *sans
+    extensionServices: *extensionServices
+    nodeLabels: &cephNodeLabels
+      intel.feature.node.kubernetes.io/gpu: 'true'
+  - hostname: "kube-ceph-02"
+    ipAddress: "192.168.1.34"
+    installDiskSelector:
+      model: "SanDisk SD9TB8W2"
+    machineSpec: *x64MachineSpec
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e8:6a:64:f6:ff:af"
+          driver: e1000e
+        dhcp: true
+        mtu: 1500
+    volumes: *volumes
+    userVolumes: *uservolumes
+    schematic: *schematic
+    certSANs: *sans
+    extensionServices: *extensionServices
+    nodeLabels: *cephNodeLabels
+  - hostname: "kube-ceph-03"
+    ipAddress: "192.168.1.35"
+    installDiskSelector:
+      model: "SanDisk SD9TB8W2"
+    machineSpec: *x64MachineSpec
+    controlPlane: false
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "e8:6a:64:76:2a:18"
+          driver: e1000e
+        dhcp: true
+        mtu: 1500
+    volumes: *volumes
+    userVolumes: *uservolumes
+    schematic: *schematic
+    certSANs: *sans
+    extensionServices: *extensionServices
+    nodeLabels: *cephNodeLabels
+
+# Global patches
+patches:
+  - "@./patches/global/machine-files.yaml"    # spegel/NFS Mount
+  - "@./patches/global/machine-kubelet.yaml"  # kubelet tweaks
+  - "@./patches/global/machine-network.yaml"  # search Domain
+  - "@./patches/global/machine-sysctls.yaml"  # network tweaks
+  - "@./patches/global/machine-longhorn.yaml" # longhorn settings
+
+# Controller patches
+controlPlane:
+  patches:
+    - "@./patches/controller/cluster.yaml"
+    - "@./patches/controller/talos-api-access.yaml"
+

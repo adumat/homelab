@@ -1,0 +1,13 @@
+{
+  "id": "kube-ceph-01",
+  "name": "kube-ceph-01",
+  "profile": "talos-amd64",
+  "selector": {
+    "mac": "e8:6a:64:a4:89:ca"
+  },
+  "metadata": {
+    "arch": "amd64",
+    "address": "192.168.1.33",
+    "install_disk_device": "/dev/sda"
+  }
+}

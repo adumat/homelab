@@ -1,0 +1,85 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app esp-home
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      esphome:
+        initContainers:
+          perm-fix:
+            image:
+              repository: busybox
+              tag: latest
+            command: ['sh', '-c', "chown -R 1000:568 /config && chmod -R 775 /config && chown -R 1000:568 /.platformio && chmod -R 775 /.platformio"]
+            securityContext:
+              runAsUser: 0
+        containers:
+          app:
+            image:
+              repository: esphome/esphome
+              tag: 2026.1.4@sha256:9152801c0bf67a024e55d2c1e54b52f6b4b418b109ec7a7537970e0098755df8
+            env:
+              ESPHOME_DASHBOARD_USE_PING: true
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      securityContext:
+        # runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: esphome
+        ports:
+          http:
+            port: &port 6052
+    route:
+      app:
+        hostnames:
+          - esphome.${DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      config:
+        existingClaim: *app
+      cache:
+        existingClaim: esp-home-cache
+        globalMounts:
+          - path: /config/.esphome
+            subPath: esphome
+          - path: /.platformio
+            subPath: platformio
+          - path: /.local
+            subPath: local
+          - path: /.cache
+            subPath: cache

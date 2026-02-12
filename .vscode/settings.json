@@ -1,0 +1,48 @@
+{
+  "sops.defaults.ageKeyFile": "./age.key",
+  "workbench.colorCustomizations": {
+    "activityBar.activeBackground": "#232323",
+    "activityBar.background": "#232323",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#606020",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "commandCenter.border": "#e7e7e799",
+    "sash.hoverBorder": "#232323",
+    "statusBar.background": "#0a0a0a",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#232323",
+    "statusBarItem.remoteBackground": "#0a0a0a",
+    "statusBarItem.remoteForeground": "#e7e7e7",
+    "titleBar.activeBackground": "#0a0a0a",
+    "titleBar.activeForeground": "#e7e7e7",
+    "titleBar.inactiveBackground": "#0a0a0a99",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "peacock.color": "#0a0a0a",
+  "vscode-kubernetes.log-viewer.autorun": true,
+  "vscode-kubernetes.log-viewer.follow": true,
+  "vscode-kubernetes.log-viewer.timestamp": true,
+  "vscode-kubernetes.log-viewer.wrap": true,
+  "sops.binPath": "/Users/matteo/.local/share/mise/installs/aqua-getsops-sops/3.10.2/sops",
+  "files.watcherExclude": {
+    "**/target": true
+  },
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+	"files.associations": {
+		"**/*.json5": "json5"
+	},
+	"yaml.schemaStore.enable": true,
+	"yaml.schemas": {
+		"Kubernetes": "./kubernetes/**/*.yaml",
+		"https://json.schemastore.org/github-workflow.json": "file://wsl.localhost/archlinux/home/tyler/git/home-ops/.github/workflows/image-pull.yaml"
+	},
+	"vs-kubernetes": {
+		"vs-kubernetes.kubeconfig": "./kubeconfig",
+		"vs-kubernetes.knownKubeconfigs": [
+			"./kubeconfig"
+		]
+	},
+	"yaml.format.singleQuote": true
+}

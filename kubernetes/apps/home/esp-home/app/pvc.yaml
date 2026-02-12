@@ -1,0 +1,13 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.29.0/persistentvolumeclaim-v1.json
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: esp-home-cache
+spec:
+  storageClassName: ceph-block
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

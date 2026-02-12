@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+# User definitions
+# Users will be added here in Git for GitOps management
+version: 1
+entries:
+  - model: authentik_core.user
+    identifiers:
+      username: akadmin
+    attrs:
+      name: Administrator
+      email: admin@${DOMAIN}
+      groups:
+        - !Find [authentik_core.group, [name, admins]]
+  - model: authentik_core.user
+    identifiers:
+      username: matteo
+    attrs:
+      name: Matteo
+      email: ${MATTEO_EMAIL}
+      groups:
+        - !Find [authentik_core.group, [name, admins]]
+        - !Find [authentik_core.group, [name, users]]
+  - model: authentik_core.user
+    identifiers:
+      username: elisa
+    attrs:
+      name: Elisa
+      email: ${ELISA_EMAIL}
+      groups:
+        - !Find [authentik_core.group, [name, users]]

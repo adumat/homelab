@@ -1,0 +1,7 @@
+name: donkey-homelab
+working_dir: docker/donkey/
+auto_discover: true
+auto_discover_opts:
+  depth: 1
+env_files:
+  - secrets.enc.env

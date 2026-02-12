@@ -1,0 +1,97 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/source.toolkit.fluxcd.io/ocirepository_v1.json
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name:  external-dns-adguard
+spec:
+  interval: 1h
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy
+  ref:
+    tag: 1.20.0
+  url: oci://ghcr.io/home-operations/charts-mirror/external-dns
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/helmrelease-helm-v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app external-dns-adguard
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: external-dns-adguard
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    cleanupOnFail: true
+    remediation:
+      strategy: rollback
+      retries: 3
+  values:
+    fullnameOverride: *app
+    provider:
+      name: webhook
+      webhook:
+        image:
+          repository: ghcr.io/muhlba91/external-dns-provider-adguard
+          tag: v11.0.2@sha256:162561ce7af084ee736a4c62c0bd3c0f12a3842d0ca8d96ac3665c15ef05add8
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http-webhook
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http-webhook
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+        env:
+          - name: LOG_LEVEL
+            value: debug
+          - name: ADGUARD_URL
+            valueFrom:
+              secretKeyRef:
+                name: &secret external-dns-adguard-secret
+                key: ADGUARD_URL
+          - name: ADGUARD_USER
+            valueFrom:
+              secretKeyRef:
+                name: *secret
+                key: ADGUARD_USER
+          - name: ADGUARD_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: *secret
+                key: ADGUARD_PASSWORD
+          - name: DRY_RUN
+            value: "false"
+    extraArgs:
+      - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
+      - --crd-source-kind=DNSEndpoint
+      - --gateway-name=envoy-internal
+      - --managed-record-types=A
+      - --managed-record-types=AAAA
+      - --managed-record-types=CNAME
+      - --managed-record-types=TXT
+      - --managed-record-types=SRV
+    triggerLoopOnEvent: true
+    policy: sync
+    sources:
+      # - gateway-tcproute
+      - gateway-tlsroute
+      - gateway-httproute
+      - service
+      - crd
+    txtOwnerId: default
+    txtPrefix: k8s.
+    domainFilters: ["${DOMAIN}"]
+    serviceMonitor:
+      enabled: true
+    podAnnotations:
+      secret.reloader.stakater.com/reload: *secret

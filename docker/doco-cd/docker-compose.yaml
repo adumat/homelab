@@ -1,0 +1,53 @@
+services:
+  doco-cd-donkey:
+    image: ghcr.io/kimdre/doco-cd:latest
+    container_name: doco-cd-donkey
+    restart: unless-stopped
+    profiles: [donkey]
+    environment:
+      TZ: Europe/Rome
+      GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
+      SOPS_AGE_KEY_FILE: /run/secrets/sops_age_key
+      POLL_CONFIG_FILE: /config/poll.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - data:/data
+      - ./poll-donkey.yaml:/config/poll.yaml:ro
+    secrets:
+      - sops_age_key
+    healthcheck:
+      test: ["CMD", "/doco-cd", "healthcheck"]
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  doco-cd-elizabeth:
+    image: ghcr.io/kimdre/doco-cd:latest
+    container_name: doco-cd-elizabeth
+    restart: unless-stopped
+    profiles: [elizabeth]
+    environment:
+      TZ: Europe/Rome
+      GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
+      SOPS_AGE_KEY_FILE: /run/secrets/sops_age_key
+      POLL_CONFIG_FILE: /config/poll.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - data:/data
+      - ./poll-elizabeth.yaml:/config/poll.yaml:ro
+    secrets:
+      - sops_age_key
+    healthcheck:
+      test: ["CMD", "/doco-cd", "healthcheck"]
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  data:
+
+secrets:
+  sops_age_key:
+    file: ./.age.key

@@ -1,0 +1,62 @@
+---
+auth:
+  enabled: false
+mqtt:
+  host: mqtt.${DOMAIN}
+database:
+  path: /data/frigate.db
+ffmpeg:
+  output_args:
+    record: preset-record-ubiquiti
+birdseye:
+  enabled: true
+  mode: continuous
+record:
+  enabled: true
+  retain:
+    days: 7
+    mode: motion
+  alerts:
+    retain:
+      days: 30
+      mode: motion
+  detections:
+    retain:
+      days: 30
+      mode: motion
+snapshots:
+  enabled: true
+  retain:
+    default: 5
+    objects:
+      person: 30
+review:
+  alerts:
+    labels:
+      - car
+      - person
+      - speech
+  detections:
+    labels:
+      - bark
+      - dog
+objects:
+  track:
+    - person
+    - dog
+    - cat
+cameras:
+  sofias-room:
+    ffmpeg:
+      inputs:
+        - path: rtsp://go2rtc.home.svc.cluster.local:554/sofias-room?mp4
+          roles:
+            - record
+            - detect
+  nicolos-room:
+    ffmpeg:
+      inputs:
+        - path: rtsp://go2rtc.home.svc.cluster.local:554/nicolos-room?mp4
+          roles:
+            - record
+            - detect

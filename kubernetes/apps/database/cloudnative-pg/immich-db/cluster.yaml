@@ -1,0 +1,76 @@
+---
+# yaml-language-server: $schema=https://github.com/datreeio/CRDs-catalog/raw/refs/heads/main/postgresql.cnpg.io/cluster_v1.json
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: immich-db
+  annotations:
+    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
+spec:
+  instances: 2
+  # https://github.com/immich-app/immich-charts/issues/149
+  # https://github.com/immich-app/immich/discussions/14280
+  # renovate: datasource=docker depName=ghcr.io/tensorchord/cloudnative-vectorchord
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:17.5-0.4.3
+
+  postgresql:
+    shared_preload_libraries:
+      - "vchord.so"
+
+  managed:
+    services:
+      disabledDefaultServices: ["ro", "r"]
+    roles:
+      - name: immich
+        superuser: true
+        login: true
+        passwordSecret:
+          name: cloudnative-immich-user
+
+  resources:
+    requests:
+      cpu: 500m
+    limits:
+      memory: 4Gi
+
+  storage:
+    size: 10Gi
+    storageClass: openebs-hostpath
+  walStorage:
+    storageClass: openebs-hostpath
+    size: 10Gi
+
+  monitoring:
+    enablePodMonitor: true
+
+  primaryUpdateStrategy: unsupervised
+
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: cloudnative-pg-secret
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: &barmanParameters
+        barmanObjectName: minio-immich
+        serverName: immich-pg17-0
+  externalClusters:
+    - name: source
+      plugin:
+        enabled: true
+        name: barman-cloud.cloudnative-pg.io
+        parameters: *barmanParameters
+  bootstrap:
+    # initdb:
+    #   database: immich
+    #   owner: immich
+    #   secret:
+    #     name: cloudnative-immich-user
+    #   postInitSQL:
+    #     - CREATE EXTENSION IF NOT EXISTS "vector";
+    #     - CREATE EXTENSION IF NOT EXISTS "vchord";
+    #     - CREATE EXTENSION IF NOT EXISTS "cube" CASCADE;
+    #     - CREATE EXTENSION IF NOT EXISTS "earthdistance" CASCADE;
+    recovery:
+      source: source

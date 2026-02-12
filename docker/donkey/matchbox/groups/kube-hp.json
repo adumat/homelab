@@ -1,0 +1,13 @@
+{
+  "id": "kube-hp",
+  "name": "kube-hp",
+  "profile": "talos-amd64",
+  "selector": {
+    "mac": "f8:b4:6a:a5:87:ed"
+  },
+  "metadata": {
+    "arch": "amd64",
+    "address": "192.168.1.32",
+    "install_disk_device": "/dev/nvme0n1"
+  }
+}

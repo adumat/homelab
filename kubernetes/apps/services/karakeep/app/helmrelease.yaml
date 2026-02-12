@@ -1,0 +1,163 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app karakeep
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      karakeep:
+        forceRename: karakeep
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/karakeep-app/karakeep
+              tag: 0.30.0@sha256:2724d4a9a6d13a7fa3babf53b9245767aae56c34f06042a8463ee983c6b41caf
+            env:
+              BROWSER_WEB_URL: http://karakeep-chrome.services.svc.cluster.local:9222
+              CRAWLER_DOWNLOAD_BANNER_IMAGE: true
+              CRAWLER_ENABLE_ADBLOCKER: true
+              CRAWLER_STORE_SCREENSHOT: true
+              CRAWLER_SCREENSHOT_TIMEOUT_SEC: 10
+              DATA_DIR: /data
+              DISABLE_SIGNUPS: false
+              DISABLE_PASSWORD_AUTH: true
+              DISABLE_NEW_RELEASE_CHECK: true
+              COREPACK_INTEGRITY_KEYS: 0
+            envFrom: &envFrom
+              - secretRef:
+                  name: karakeep-secrets
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 1Gi
+      chrome:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: gcr.io/zenika-hub/alpine-chrome
+              tag: 124@sha256:1a0046448e0bb6c275c88f86e01faf0de62b02ec8572901256ada0a8c08be23f
+            command:
+              - chromium-browser
+            args:
+              - --headless
+              - --no-sandbox
+              - --disable-gpu
+              - --disable-dev-shm-usage
+              - --remote-debugging-address=0.0.0.0
+              - --remote-debugging-port=9222
+              - --hide-scrollbars
+            securityContext:
+              capabilities:
+                drop:
+                  - ALL
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 1Gi
+      meilisearch:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          affinity:
+            podAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  podAffinityTerm:
+                    labelSelector:
+                      matchExpressions:
+                        - key: app.kubernetes.io/name
+                          operator: In
+                          values:
+                            - karakeep
+                        - key: app.kubernetes.io/controller
+                          operator: In
+                          values:
+                            - karakeep
+                    topologyKey: kubernetes.io/hostname
+        containers:
+          app:
+            image:
+              repository: docker.io/getmeili/meilisearch
+              tag: v1.35.0@sha256:348ba1c1f61101130304370a9522cc5405e6906b64a426dc2fcd5c428a516a98
+            args:
+              - /bin/meilisearch
+              - --experimental-dumpless-upgrade
+            env:
+              MEILI_NO_ANALYTICS: true
+            envFrom:
+              - secretRef:
+                  name: karakeep-secrets
+            resources:
+              requests:
+                cpu: 10m
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: "OnRootMismatch"
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+    service:
+      app:
+        forceRename: karakeep
+        primary: true
+        controller: karakeep
+        ports:
+          http:
+            port: &port 3000
+      chrome:
+        controller: chrome
+        ports:
+          http:
+            port: 9222
+      meilisearch:
+        controller: meilisearch
+        ports:
+          http:
+            port: 7700
+    route:
+      app:
+        hostnames:
+          - karakeep.${DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      config:
+        existingClaim: *app
+        advancedMounts:
+          karakeep:
+            app:
+              - path: /data
+                subPath: karakeep
+          meilisearch:
+            app:
+              - path: /meili_data
+                subPath: meilisearch

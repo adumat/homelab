@@ -1,0 +1,188 @@
+---
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+# Forward-auth proxy providers for downloads apps
+version: 1
+entries:
+  # ========== Access Policy ==========
+  - model: authentik_policies_expression.expressionpolicy
+    identifiers:
+      name: require-users-group
+    attrs:
+      expression: |
+        return ak_is_group_member(request.user, name="users")
+
+  # ========== Proxy Providers (forward_single mode) ==========
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: sonarr-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://sonarr.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Sonarr (TV Shows)"
+    attrs:
+      slug: sonarr
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, sonarr-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, sonarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: radarr-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://radarr.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Radarr (Movies)"
+    attrs:
+      slug: radarr
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, radarr-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, radarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: prowlarr-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://prowlarr.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Prowlarr (Indexers)"
+    attrs:
+      slug: prowlarr
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, prowlarr-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, prowlarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: readarr-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://readarr.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Readarr (Books)"
+    attrs:
+      slug: readarr
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, readarr-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, readarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: qbittorrent-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://qb.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "qBittorrent (Downloads)"
+    attrs:
+      slug: qbittorrent
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, qbittorrent-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, qbittorrent]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: metube-forward-auth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://metube.${DOMAIN}"
+
+  - model: authentik_core.application
+    identifiers:
+      name: "MeTube (Video Downloads)"
+    attrs:
+      slug: metube
+      provider: !Find [authentik_providers_proxy.proxyprovider, [name, metube-forward-auth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, metube]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ========== Assign providers to embedded outpost ==========
+  - model: authentik_outposts.outpost
+    identifiers:
+      managed: "goauthentik.io/outposts/embedded"
+    attrs:
+      providers:
+        - !Find [authentik_providers_proxy.proxyprovider, [name, sonarr-forward-auth]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, radarr-forward-auth]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, prowlarr-forward-auth]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, readarr-forward-auth]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, qbittorrent-forward-auth]]
+        - !Find [authentik_providers_proxy.proxyprovider, [name, metube-forward-auth]]

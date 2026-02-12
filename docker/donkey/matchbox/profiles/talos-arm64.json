@@ -1,0 +1,20 @@
+{
+  "id": "talos-arm64",
+  "name": "talos-arm64",
+  "boot": {
+    "kernel": "/assets/talos/kernel-arm64",
+    "initrd": ["--name initramfs.xz /assets/talos/initramfs-arm64.xz"],
+    "args": [
+      "talos.platform=metal",
+      "console=ttyAMA0",
+      "console=tty0",
+      "init_on_alloc=1",
+      "slab_nomerge",
+      "pti=on",
+      "consoleblank=0",
+      "nvme_core.io_timeout=4294967295",
+      "printk.devkmsg=on",
+      "initrd=initramfs.xz"
+    ]
+  }
+}

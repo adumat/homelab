@@ -1,0 +1,54 @@
+---
+# yaml-language-server: $schema=https://github.com/datreeio/CRDs-catalog/raw/refs/heads/main/postgresql.cnpg.io/cluster_v1.json
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster18
+  annotations:
+    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
+spec:
+  instances: 2
+  # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6-bookworm
+  # imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+
+  postgresql:
+    parameters:
+      timezone: "Europe/Rome"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  storage:
+    storageClass: openebs-hostpath
+    size: 5Gi
+  walStorage:
+    storageClass: openebs-hostpath
+    size: 5Gi
+
+  monitoring:
+    enablePodMonitor: true
+
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: cloudnative-pg-secret
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters: &barmanParameters
+        barmanObjectName: minio-postgresql
+        serverName: postgres18-0
+  externalClusters:
+    - name: source
+      plugin:
+        enabled: true
+        name: barman-cloud.cloudnative-pg.io
+        parameters: *barmanParameters
+  bootstrap:
+    recovery:
+      source: source

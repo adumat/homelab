@@ -1,0 +1,17 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: security
+configMapGenerator:
+  - name: authentik-blueprints
+    files:
+      - 00-meta.yaml
+      - 10-groups.yaml
+      - 20-users.yaml
+      - 30-flows.yaml
+      - 40-applications-oidc.yaml
+      - 50-policies.yaml
+      - 60-forward-auth.yaml
+generatorOptions:
+  disableNameSuffixHash: true

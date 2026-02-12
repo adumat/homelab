@@ -1,0 +1,6 @@
+---
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+# Access control policies
+# Will be populated in Week 2
+version: 1
+entries: []

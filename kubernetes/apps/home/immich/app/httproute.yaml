@@ -1,0 +1,30 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/gateway.networking.k8s.io/httproute_v1.json
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: &app_name immich-server
+  labels:
+    k8s-app: *app_name
+    app.kubernetes.io/part-of: immich
+spec:
+  hostnames:
+    - photos.${DOMAIN}
+  parentRefs:
+    - name: envoy-external
+      namespace: network
+      sectionName: https
+    - name: envoy-internal
+      namespace: network
+      sectionName: https
+  rules:
+    - backendRefs:
+        - name: *app_name
+          port: 2283
+      timeouts:
+        request: 0s # websocket, never time out
+        backendRequest: 0s # websocket, never time out
+      matches:
+        - path:
+            type: PathPrefix
+            value: /

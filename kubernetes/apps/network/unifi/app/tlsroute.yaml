@@ -1,0 +1,16 @@
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: unifi-tls-route
+spec:
+  hostnames:
+    - unifi.${DOMAIN}
+  parentRefs:
+    - name: envoy-internal
+      namespace: network
+      sectionName: tls
+  rules:
+    - backendRefs:
+        - name: unifi
+          port: 8443

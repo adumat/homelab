@@ -1,0 +1,168 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app paperless
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      paperless:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          securityContext:
+            supplementalGroups:
+              - 65542
+              - 568
+              - 1000
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 18
+            envFrom: &envFrom
+              - secretRef:
+                  name: paperless-secrets
+        containers:
+          app:
+            image:
+              repository: ghcr.io/paperless-ngx/paperless-ngx
+              tag: 2.20.6
+            env:
+              # Configure application
+              PAPERLESS_URL: https://paperless.${DOMAIN}
+              PAPERLESS_PORT: &port 8000
+              PAPERLESS_TIME_ZONE: "Europe/Rome"
+              PAPERLESS_WEBSERVER_WORKERS: "1"
+              PAPERLESS_TASK_WORKERS: "1"
+              # Configure Authentik OIDC auth
+              PAPERLESS_APPS: allauth.socialaccount.providers.openid_connect
+              PAPERLESS_DISABLE_REGULAR_LOGIN: "true"
+              PAPERLESS_ACCOUNT_ALLOW_SIGNUPS: "false"
+              PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS: "true"
+              PAPERLESS_SOCIALACCOUNT_AUTO_SIGNUP: "true"
+              PAPERLESS_SOCIALACCOUNT_EMAIL_AUTHENTICATION: "true"
+              PAPERLESS_ACCOUNT_DEFAULT_HTTP_PROTOCOL: "https"
+              PAPERLESS_OCR_USER_ARGS: '{"invalidate_digital_signatures": true}'
+              # Configure folders
+              PAPERLESS_CONSUMPTION_DIR: /data/nas/incoming
+              PAPERLESS_DATA_DIR: /data/local/data
+              PAPERLESS_EXPORT_DIR: /data/nas/export
+              PAPERLESS_MEDIA_ROOT: /data/local/media
+              # Configure folder importer
+              PAPERLESS_CONSUMER_POLLING: "60"
+              PAPERLESS_CONSUMER_RECURSIVE: "true"
+              PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+              # Configure OCR
+              PAPERLESS_OCR_LANGUAGES: ita eng
+              PAPERLESS_OCR_LANGUAGE: ita
+              # optional integrations
+              PAPERLESS_TIKA_ENABLED: 1
+              PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://localhost:3000
+              PAPERLESS_TIKA_ENDPOINT: http://localhost:9998
+              # Configure redis integration
+              PAPERLESS_REDIS: redis://dragonfly.database.svc.cluster.local:6379
+              # Configure user permissions
+              USERMAP_UID: "1000"
+              USERMAP_GID: "1000"
+            envFrom: *envFrom
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 60
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 100m
+                memory: 768Mi
+              limits:
+                memory: 2Gi
+          gotenberg:
+            image:
+              repository: docker.io/gotenberg/gotenberg
+              tag: 8.26.0
+            ports:
+              - containerPort: 3000
+            command:
+              - 'gotenberg'
+              - '--chromium-disable-javascript=true'
+              - '--chromium-allow-list=file:///tmp/.*'
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 10m
+                memory: 256Mi
+          tika:
+            image:
+              repository: docker.io/apache/tika
+              tag: 3.2.3.0-full@sha256:21d8052de04e491ccf66e8680ade4da6f3d453a56d59f740b4167e54167219b7
+            ports:
+              - containerPort: 9998
+            resources:
+              limits:
+                memory: 512Mi
+              requests:
+                cpu: 10m
+                memory: 256Mi
+    defaultPodOptions:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: Paperless
+          gethomepage.dev/icon: paperless.png
+          gethomepage.dev/description: Document OCR Software
+          gethomepage.dev/widget.type: paperlessngx
+          gethomepage.dev/widget.url: https://paperless.${DOMAIN}
+          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PAPERLESS_TOKEN}}` }}"
+        hostnames:
+          - paperless.${DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      data:
+        existingClaim: *app
+        advancedMounts:
+          paperless:
+            app:
+              - path: /data/local
+      media:
+        existingClaim: paperless-media
+        globalMounts:
+          - path: /data/nas

@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
+# Group definitions
+version: 1
+entries:
+  - model: authentik_core.group
+    identifiers:
+      name: default_created_users
+    attrs:
+      is_superuser: false
+
+  - model: authentik_core.group
+    identifiers:
+      name: users
+    attrs:
+      is_superuser: false
+      parents:
+        - !Find [authentik_core.group, [name, default_created_users]]
+
+  - model: authentik_core.group
+    identifiers:
+      name: admins
+    attrs:
+      is_superuser: true
+      parents:
+        - !Find [authentik_core.group, [name, users]]
+
+  - model: authentik_core.group
+    identifiers:
+      name: external_users
+    attrs:
+      is_superuser: false
+      parents:
+        - !Find [authentik_core.group, [name, default_created_users]]

@@ -1,0 +1,55 @@
+services:
+  nut-init:
+    image: alpine:latest
+    container_name: nut-init
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        cat > /output/upsd.users <<USERS
+        [admin]
+        password = $${NUT_ADMIN_PASSWORD}
+        actions = set
+        actions = fsd
+        instcmds = all
+
+        [monuser]
+        password = $${NUT_MONITOR_PASSWORD}
+        upsmon master
+
+        [slaveuser]
+        password = $${NUT_SLAVE_PASSWORD}
+        upsmon slave
+        USERS
+    environment:
+      - NUT_ADMIN_PASSWORD=${NUT_ADMIN_PASSWORD}
+      - NUT_MONITOR_PASSWORD=${NUT_MONITOR_PASSWORD}
+      - NUT_SLAVE_PASSWORD=${NUT_SLAVE_PASSWORD}
+    volumes:
+      - ./conf/generated:/output
+
+  nut-server:
+    image: instantlinux/nut-upsd:latest
+    container_name: nut-server
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Rome
+      - NAME=ups
+      - DRIVER=dummy-ups
+      - PORT=dummy.dev
+      - DESC=Primary UPS
+      - API_USER=monuser
+      - API_PASSWORD=${NUT_MONITOR_PASSWORD}
+    ports:
+      - '3493:3493'
+    volumes:
+      - ./conf/generated/upsd.users:/etc/nut/upsd.users:ro
+      - ./conf/dummy.dev:/etc/nut/dummy.dev
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb
+    dns:
+      - 192.168.1.3
+    dns_search: lan
+    depends_on:
+      nut-init:
+        condition: service_completed_successfully

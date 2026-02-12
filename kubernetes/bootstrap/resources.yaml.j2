@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-deploy-key
+  namespace: flux-system
+stringData:
+  identity: |
+    bws://a99f3bca-cfe5-4904-b11a-b3df01205e5b
+  known_hosts: |
+    bws://8a208bc3-1821-40b3-bd6e-b3df0120908f
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sops-age
+  namespace: flux-system
+stringData:
+  age.agekey: bws://c26e9d84-2735-4317-9564-b3df011ffd26

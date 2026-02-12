@@ -1,0 +1,23 @@
+services:
+  adguard:
+    image: adguard/adguardhome:v0.107.71
+    container_name: adguard
+    restart: unless-stopped
+    volumes:
+      - adguard_work:/opt/adguardhome/work
+      - ./conf/AdGuardHome.enc.yaml:/opt/adguardhome/conf/AdGuardHome.yaml:ro
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "853:853/udp"
+      - "853:853/tcp"
+      - "5443:5443/udp"
+      - "5443:5443/tcp"
+      - "6060:6060/tcp"
+      - "8080:80/tcp"
+    depends_on:
+      - dnsmasq
+volumes:
+  adguard_work:
+    name: adguard_volume
+    external: true

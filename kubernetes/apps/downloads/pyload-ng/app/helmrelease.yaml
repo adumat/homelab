@@ -1,0 +1,100 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pyload-ng
+spec:
+  interval: 1h
+  timeout: 10m
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      pyload-ng:
+        annotations:
+          secret.reloader.stakater.com/reload: pyload-ng-secret
+        containers:
+          app:
+            nameOverride: pyload-ng
+            image:
+              repository: ghcr.io/home-operations/pyload-ng
+              tag: sha256-81a868a3ffb804e07e7762e87f01b5506eb36450361331400832740cf368262e
+            env:
+              PUID: 1000
+              PGID: 1000
+              TZ: Europe/Rome
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 150m
+                memory: 2Gi
+              limits:
+                memory: 5Gi
+            securityContext:
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      securityContext:
+        # runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [10000]
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: pyload-ng
+        ports:
+          http:
+            port: &port 8000
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: pyLoad-NG
+          gethomepage.dev/icon: pyload-ng.png
+          gethomepage.dev/description: Torrent/NZB Client
+          gethomepage.dev/widget.type: pyload-ng
+          gethomepage.dev/widget.url: https://pyload.${DOMAIN}
+          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PYLOAD_NG_TOKEN}}` }}"
+        hostnames:
+          - pyload.${DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      config:
+        enabled: true
+        existingClaim: pyload-ng
+        advancedMounts:
+          pyload-ng:
+            app:
+              - path: /config
+      media:
+        type: persistentVolumeClaim
+        existingClaim: nas-downloads-media
+        advancedMounts:
+          pyload-ng:
+            app:
+              - path: /media
+                subPath: pyload-ng

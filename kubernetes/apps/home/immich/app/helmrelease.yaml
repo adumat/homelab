@@ -1,0 +1,96 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app immich
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: *app
+  values:
+    controllers:
+      main:
+        containers:
+          main:
+            env:
+              REDIS_HOSTNAME: dragonfly.database.svc.cluster.local
+              REDIS_PORT: "6379"
+              REDIS_DBINDEX: "1"
+              DB_HOSTNAME: immich-db-rw.database.svc.cluster.local
+              DB_DATABASE_NAME: immich
+              DB_USERNAME:
+                valueFrom:
+                  secretKeyRef:
+                    name: cloudnative-immich-user
+                    key: username
+              DB_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: cloudnative-immich-user
+                    key: password
+    immich:
+      metrics:
+        enabled: true
+      logLevel: 'log'
+      concurrency:
+        backgroundTask: 10
+        smartSearch: 5
+        metadataExtraction: 10
+        faceDetection: 5
+        search: 5
+        sidecar: 5
+        library: 5
+        migration: 5
+        thumbnailGeneration: 10
+        videoConversion: 1
+      enablePasswordLogin: true
+      persistence:
+        library:
+          existingClaim: immich-photos
+    image:
+      # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
+      tag: v2.5.5
+    valkey:
+      enabled: false
+    server:
+      controllers:
+        main:
+          containers:
+            main:
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 2Gi
+    machine-learning:
+      controllers:
+        main:
+          replicas: 1
+          strategy: Recreate
+          containers:
+            main:
+              securityContext:
+                privileged: true
+              resources:
+                requests:
+                  cpu: 300m
+                  memory: 2G
+                limits:
+                  memory: 5G
+              probes:
+                liveness:
+                  enabled: false
+                  spec:
+                    initialDelaySeconds: 90
+                readiness:
+                  enabled: false
+                  spec:
+                    initialDelaySeconds: 90
+                startup:
+                  enabled: false
+                  spec:
+                    initialDelaySeconds: 90
+      persistence:
+        cache:
+          type: persistentVolumeClaim
+          existingClaim: immich-ml-cache

@@ -1,0 +1,136 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cloudnative-pg
+  namespace: &namespace database
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+  interval: 1h
+  path: ./kubernetes/apps/database/cloudnative-pg/app
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  postBuild:
+    substitute:
+      APP: *app
+      VOLSYNC_CAPACITY: 5Gi
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: true
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cloudnative-pg-barman-cloud
+  namespace: &namespace database
+spec:
+  dependsOn:
+    - name: cert-manager
+      namespace: security
+  path: ./kubernetes/apps/database/cloudnative-pg/barman-cloud
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  prune: true
+  wait: true
+  interval: 1h
+  retryInterval: 1m
+  timeout: 5m
+  postBuild:
+    substitute:
+      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar
+      SIDECAR_IMAGE_VERSION: v0.11.0
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  targetNamespace: *namespace
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cloudnative-pg-cluster
+  namespace: &namespace database
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: cloudnative-pg
+      namespace: database
+    - name: cloudnative-pg-barman-cloud
+      namespace: database
+    - name: openebs
+      namespace: openebs-system
+  interval: 1h
+  path: ./kubernetes/apps/database/cloudnative-pg/cluster
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  postBuild:
+    substitute:
+      APP: *app
+      VOLSYNC_CAPACITY: 5Gi
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: false
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app cloudnative-immich-db
+  namespace: &namespace database
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: cloudnative-pg
+      namespace: database
+    - name: cloudnative-pg-barman-cloud
+      namespace: database
+    - name: openebs
+      namespace: openebs-system
+  interval: 1h
+  path: ./kubernetes/apps/database/cloudnative-pg/immich-db
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  postBuild:
+    substitute:
+      APP: *app
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: false

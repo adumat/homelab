@@ -1,0 +1,190 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: qbittorrent
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      qbittorrent:
+        annotations:
+          configmap.reloader.stakater.com/reload: qbittorrent-scripts,qbittorrent-dnsdist
+          secret.reloader.stakater.com/reload: qbittorrent
+        pod:
+          terminationGracePeriodSeconds: 120
+        initContainers:
+          dnsdist:
+            image:
+              repository: docker.io/powerdns/dnsdist-19
+              tag: 1.9.11@sha256:720091e8702abcc863a1ad6fe8667c62f82797f33cd4924a2e49c57d5da5b451
+            restartPolicy: Always
+          gluetun:
+            dependsOn:
+              - dnsdist
+            image:
+              repository: ghcr.io/qdm12/gluetun
+              tag: v3.41.0@sha256:6b54856716d0de56e5bb00a77029b0adea57284cf5a466f23aad5979257d3045
+            env:
+              DOT: "off"
+              DNS_ADDRESS: "127.0.0.2"
+              VPN_SERVICE_PROVIDER: mullvad
+              VPN_TYPE: wireguard
+              VPN_INTERFACE: wg0
+              WIREGUARD_ENDPOINT_PORT: 51820
+              VPN_PORT_FORWARDING: off
+              # VPN_PORT_FORWARDING_PROVIDER: protonvpn
+              FIREWALL_INPUT_PORTS: 8080
+              FIREWALL_OUTBOUND_SUBNETS: 10.42.0.0/16,10.43.0.0/16 # Allow access to k8s subnets
+            envFrom:
+              - secretRef:
+                  name: qbittorrent-secret
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - "/bin/sh"
+                    - "-c"
+                    - "(ip rule del table 51820; ip -6 rule del table 51820) || true"
+            resources:
+              limits:
+                squat.ai/tun: "1"
+            restartPolicy: Always
+            securityContext:
+              runAsUser: 0
+              capabilities:
+                add:
+                  - NET_ADMIN
+              allowPrivilegeEscalation: false
+        containers:
+          app:
+            nameOverride: qbittorrent
+            image:
+              repository: ghcr.io/home-operations/qbittorrent
+              tag: 5.1.4@sha256:e9c2c24ad2b39fa0ee44de682bf26b14bf23cffea1de9e1f082f26caed4277f9
+            env:
+              UMASK: "022"
+              QBT_WEBUI_PORT: &port 8080
+              CROSS_SEED_ENABLED: false
+              # XSEED_HOST: cross-seed.downloads.svc.cluster.local
+              # XSEED_PORT: 2468
+              # XSEED_APIKEY:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: sabnzbd-secret
+              #       key: XSEED_API_KEY
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 30
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 150m
+                memory: 2Gi
+              limits:
+                memory: 5Gi
+            securityContext:
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+          port-forward:
+            image:
+              repository: ghcr.io/bjw-s-labs/gluetun-qb-port-sync
+              tag: 0.0.4@sha256:14ce24f2e054abf06f695f35c8c33612e49d6d0fe80a33896403d85b09a9d329
+            env:
+              GLUETUN_CONTROL_SERVER_HOST: localhost
+              GLUETUN_CONTROL_SERVER_PORT: 8000
+              QBITTORRENT_HOST: localhost
+              QBITTORRENT_WEBUI_PORT: *port
+              CRON_ENABLED: true
+              CRON_SCHEDULE: "*/5 * * * *"
+              LOG_TIMESTAMP: false
+            securityContext:
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                  - ALL
+    defaultPodOptions:
+      securityContext:
+        # runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [10000]
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        controller: qbittorrent
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Downloads
+          gethomepage.dev/name: QBittorrent
+          gethomepage.dev/icon: qbittorrent.png
+          gethomepage.dev/description: Torrent/NZB Client
+          gethomepage.dev/widget.type: qbittorrent
+          gethomepage.dev/widget.url: https://qb.${DOMAIN}
+          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_QBITTORRENT_TOKEN}}` }}"
+        hostnames:
+          - qb.${DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      config:
+        enabled: true
+        existingClaim: qbittorrent
+        advancedMounts:
+          qbittorrent:
+            app:
+              - path: /config
+      empty-config:
+        type: emptyDir
+        advancedMounts:
+          qbittorrent:
+            port-forward:
+              - path: /config
+      media:
+        type: nfs
+        server: elizabeth.lan
+        path: /mnt/user/media/torrent
+      dnsdist:
+        type: configMap
+        name: qbittorrent-dnsdist
+        advancedMounts:
+          qbittorrent:
+            dnsdist:
+              - path: /etc/dnsdist/dnsdist.conf
+                subPath: dnsdist.conf
+                readOnly: true
+      # scripts:
+      #   type: configMap
+      #   name: qbittorrent-scripts
+      #   defaultMode: 0775
+      #   advancedMounts:
+      #     qbittorrent:
+      #       app:
+      #         - path: /config/scripts

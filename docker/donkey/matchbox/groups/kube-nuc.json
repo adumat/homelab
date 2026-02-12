@@ -1,0 +1,13 @@
+{
+  "id": "kube-nuc",
+  "name": "kube-nuc",
+  "profile": "talos-amd64",
+  "selector": {
+    "mac": "1c:69:7a:a5:93:fc"
+  },
+  "metadata": {
+    "arch": "amd64",
+    "address": "192.168.1.30",
+    "install_disk_device": "/dev/nvme0n1"
+  }
+}
