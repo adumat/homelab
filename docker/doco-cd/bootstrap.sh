@@ -20,24 +20,24 @@ Usage: $(basename "$0") [OPTIONS]
 Bootstrap doco-cd on the current host.
 
 Options:
-  --age-key <key>     SOPS age key value (saved to ${SCRIPT_DIR}/.age.key)
-  --token <value>     GitHub access token (saved to ${SCRIPT_DIR}/.env)
-  -h, --help          Show this help message
+  --bws-token <value>   Bitwarden Secrets Manager access token (saved to ${SCRIPT_DIR}/.env)
+  --token <value>       GitHub access token (saved to ${SCRIPT_DIR}/.env)
+  -h, --help            Show this help message
 
-On first run, both --age-key and --token are required.
+On first run, both --bws-token and --token are required.
 On subsequent runs, saved credentials are reused automatically.
 EOF
     exit 0
 }
 
 function parse_args() {
-    AGE_KEY=""
+    BWS_TOKEN=""
     GIT_TOKEN=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --age-key)
-                AGE_KEY="${2:?--age-key requires a value}"
+            --bws-token)
+                BWS_TOKEN="${2:?--bws-token requires a value}"
                 shift 2
                 ;;
             --token)
@@ -66,27 +66,25 @@ function detect_profile() {
     log error "Unknown hostname '${hostname}', expected one of: ${!HOST_PROFILES[*]}"
 }
 
-function setup_age_key() {
-    local target="${SCRIPT_DIR}/.age.key"
-
-    if [[ -n "${AGE_KEY}" ]]; then
-        echo "${AGE_KEY}" >"${target}"
-        log info "Saved age key" "path=${target}"
-    elif [[ ! -f "${target}" ]]; then
-        log error "Age key not found at ${target}, provide it with --age-key <key>"
-    else
-        log debug "Age key already exists" "path=${target}"
-    fi
-}
-
 function setup_env() {
     local target="${SCRIPT_DIR}/.env"
 
-    if [[ -n "${GIT_TOKEN}" ]]; then
-        echo "GIT_ACCESS_TOKEN=${GIT_TOKEN}" >"${target}"
-        log info "Saved git access token" "path=${target}"
+    if [[ -n "${GIT_TOKEN}" || -n "${BWS_TOKEN}" ]]; then
+        # Build env file with provided values, preserving existing ones
+        local git_val="${GIT_TOKEN}" bws_val="${BWS_TOKEN}"
+
+        if [[ -f "${target}" ]]; then
+            [[ -z "${git_val}" ]] && git_val=$(grep -oP '^GIT_ACCESS_TOKEN=\K.*' "${target}" 2>/dev/null || true)
+            [[ -z "${bws_val}" ]] && bws_val=$(grep -oP '^BWS_ACCESS_TOKEN=\K.*' "${target}" 2>/dev/null || true)
+        fi
+
+        cat >"${target}" <<EOF
+GIT_ACCESS_TOKEN=${git_val}
+BWS_ACCESS_TOKEN=${bws_val}
+EOF
+        log info "Saved credentials" "path=${target}"
     elif [[ ! -f "${target}" ]]; then
-        log error "Env file not found at ${target}, provide the token with --token <value>"
+        log error "Env file not found at ${target}, provide credentials with --token and --bws-token"
     else
         log debug "Env file already exists" "path=${target}"
     fi
@@ -101,7 +99,6 @@ function main() {
 
     check_cli docker
 
-    setup_age_key
     setup_env
 
     log info "Starting doco-cd" "profile=${profile}"

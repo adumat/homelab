@@ -7,16 +7,17 @@ services:
     environment:
       TZ: Europe/Rome
       GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
-      SOPS_AGE_KEY_FILE: /run/secrets/sops_age_key
+      SECRET_PROVIDER: bitwarden_sm
+      SECRET_PROVIDER_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN}
+      SECRET_PROVIDER_API_URL: https://vault.bitwarden.eu/api
+      SECRET_PROVIDER_IDENTITY_URL: https://vault.bitwarden.eu/identity
       POLL_CONFIG_FILE: /config/poll.yaml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - data:/data
       - ./poll-donkey.yaml:/config/poll.yaml:ro
-    secrets:
-      - sops_age_key
     healthcheck:
-      test: ["CMD", "/doco-cd", "healthcheck"]
+      test: ['CMD', '/doco-cd', 'healthcheck']
       start_period: 15s
       interval: 30s
       timeout: 5s
@@ -30,16 +31,17 @@ services:
     environment:
       TZ: Europe/Rome
       GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
-      SOPS_AGE_KEY_FILE: /run/secrets/sops_age_key
+      SECRET_PROVIDER: bitwarden_sm
+      SECRET_PROVIDER_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN}
+      SECRET_PROVIDER_API_URL: https://vault.bitwarden.eu/api
+      SECRET_PROVIDER_IDENTITY_URL: https://vault.bitwarden.eu/identity
       POLL_CONFIG_FILE: /config/poll.yaml
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - data:/data
       - ./poll-elizabeth.yaml:/config/poll.yaml:ro
-    secrets:
-      - sops_age_key
     healthcheck:
-      test: ["CMD", "/doco-cd", "healthcheck"]
+      test: ['CMD', '/doco-cd', 'healthcheck']
       start_period: 15s
       interval: 30s
       timeout: 5s
@@ -47,7 +49,3 @@ services:
 
 volumes:
   data:
-
-secrets:
-  sops_age_key:
-    file: ./.age.key
