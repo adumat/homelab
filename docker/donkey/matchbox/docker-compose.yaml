@@ -11,13 +11,18 @@ services:
         /scripts/check-certs.sh
     volumes:
       - ../assets:/assets
-      - ./certs:/certs
+      - matchbox-certs:/certs
       - ./scripts:/scripts:ro
+      - ./certs/openssl.conf:/certs/openssl.conf:ro
+      - ./certs/generate-certs.sh:/certs/generate-certs.sh:ro
 
   matchbox:
     image: quay.io/poseidon/matchbox:v0.11.0
     container_name: matchbox
     restart: unless-stopped
+    depends_on:
+      matchbox-init:
+        condition: service_completed_successfully
     command:
       - -address=0.0.0.0:8085
       - -rpc-address=0.0.0.0:8989
@@ -30,12 +35,13 @@ services:
       - ./profiles:/var/lib/matchbox/profiles:ro
       - ./groups:/var/lib/matchbox/groups:ro
       - ../assets:/var/lib/matchbox/assets:ro
-      - ./certs/server.crt:/etc/matchbox/cert/server.crt:ro
-      - ./certs/server.key:/etc/matchbox/cert/server.key:ro
-      - ./certs/ca.crt:/etc/matchbox/cert/ca.crt:ro
+      - matchbox-certs:/etc/matchbox/cert:ro
     ports:
       - '8085:8085/tcp'
       - '8989:8989/tcp'
     dns:
       - 192.168.1.3
     dns_search: lan
+
+volumes:
+  matchbox-certs:
