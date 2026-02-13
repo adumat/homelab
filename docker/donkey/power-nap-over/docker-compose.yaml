@@ -4,7 +4,7 @@ services:
     container_name: power-nap-over-init
     command: /scripts/generate-config.sh
     volumes:
-      - ./:/work/power-nap-over
+      - power-nap-over-config:/work/power-nap-over
       - ../dnsmasq:/work/dnsmasq:ro
       - ../../../kubernetes/talos:/work/talos:ro
       - ./scripts:/scripts:ro
@@ -13,15 +13,21 @@ services:
     build: ./app
     container_name: power-nap-over
     restart: unless-stopped
+    depends_on:
+      power-nap-over-init:
+        condition: service_completed_successfully
     environment:
       - TZ=Europe/Rome
       - PUSHOVER_TOKEN=${PUSHOVER_TOKEN}
       - PUSHOVER_USER=${PUSHOVER_USER}
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
+      - power-nap-over-config:/app/config:ro
       - ./logs:/app/logs
     logging:
       driver: 'json-file'
       options:
         max-size: '10m'
         max-file: '3'
+
+volumes:
+  power-nap-over-config:

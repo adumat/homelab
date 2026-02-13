@@ -119,7 +119,7 @@ class PushoverNotifier:
 
 
 class PowerNapOver:
-    def __init__(self, config_path: str = '/app/config.yaml'):
+    def __init__(self, config_path: str = '/app/config/config.yaml'):
         """Initialize monitor with configuration from YAML file"""
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
@@ -426,5 +426,5 @@ class PowerNapOver:
             time.sleep(self.monitoring_config['check_interval'])
 
 if __name__ == "__main__":
-    monitor = PowerNapOver('/app/config.yaml')
+    monitor = PowerNapOver('/app/config/config.yaml')
     monitor.run()
