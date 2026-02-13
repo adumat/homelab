@@ -43,8 +43,8 @@ services:
       - DRIVER=dummy-ups
       - PORT=dummy.dev
       - DESC=Primary UPS
-      # - API_USER=monuser
-      # - API_PASSWORD=${NUT_MONITOR_PASSWORD}
+      - API_USER=monuser
+      - API_PASSWORD=${NUT_MONITOR_PASSWORD}
     ports:
       - '3493:3493'
     volumes:
