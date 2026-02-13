@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     volumes:
       - adguard_work:/opt/adguardhome/work
-      - ./conf/AdGuardHome.enc.yaml:/opt/adguardhome/conf/AdGuardHome.yaml:ro
+      - ./conf/AdGuardHome.enc.yaml:/opt/adguardhome/conf/AdGuardHome.yaml
     ports:
       - '53:53/udp'
       - '53:53/tcp'
