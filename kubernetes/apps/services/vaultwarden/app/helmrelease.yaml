@@ -16,7 +16,7 @@ spec:
           app:
             image:
               repository: vaultwarden/server
-              tag: 1.35.2
+              tag: 1.35.3
             env:
               ROCKET_PORT: "8080"
               ## Allow any user to sign-up: https://github.com/dani-garcia/vaultwarden/wiki/Disable-registration-of-new-users
