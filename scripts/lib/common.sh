@@ -51,15 +51,14 @@ function log() {
         done
     fi
 
-    # Determine output stream based on log level
-    local output_stream="/dev/stdout"
+    # Print the log message (stderr for errors, stdout otherwise)
     if [[ "$level" == "error" ]]; then
-        output_stream="/dev/stderr"
+        printf "%s %b%s%b %s %b\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            "${color}" "${level^^}" "\033[0m" "${msg}" "${data}" >&2
+    else
+        printf "%s %b%s%b %s %b\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+            "${color}" "${level^^}" "\033[0m" "${msg}" "${data}"
     fi
-
-    # Print the log message
-    printf "%s %b%s%b %s %b\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
-        "${color}" "${level^^}" "\033[0m" "${msg}" "${data}" >"${output_stream}"
 
     # Exit if the log level is error
     if [[ "$level" == "error" ]]; then
