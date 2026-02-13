@@ -12,6 +12,5 @@ configMapGenerator:
       - 30-flows.yaml
       - 40-applications-oidc.yaml
       - 50-policies.yaml
-      - 60-forward-auth.yaml
 generatorOptions:
   disableNameSuffixHash: true

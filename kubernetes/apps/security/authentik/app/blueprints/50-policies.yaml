@@ -1,6 +1,11 @@
 ---
 # yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
 # Access control policies
-# Will be populated in Week 2
 version: 1
-entries: []
+entries:
+  - model: authentik_policies_expression.expressionpolicy
+    identifiers:
+      name: require-users-group
+    attrs:
+      expression: |
+        return ak_is_group_member(request.user, name="users")

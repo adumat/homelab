@@ -147,3 +147,239 @@ entries:
       slug: karakeep
       provider: !Find [authentik_providers_oauth2.oauth2provider, [name, karakeep-oauth]]
       policy_engine_mode: all
+
+  # ========== Downloads Apps (Envoy Gateway OIDC) ==========
+
+  # ---------- Sonarr ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: sonarr-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: sonarr
+      client_secret: !Env SONARR_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://sonarr.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Sonarr (TV Shows)"
+    attrs:
+      slug: sonarr
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, sonarr-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, sonarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ---------- Radarr ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: radarr-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: radarr
+      client_secret: !Env RADARR_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://radarr.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Radarr (Movies)"
+    attrs:
+      slug: radarr
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, radarr-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, radarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ---------- Prowlarr ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: prowlarr-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: prowlarr
+      client_secret: !Env PROWLARR_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://prowlarr.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Prowlarr (Indexers)"
+    attrs:
+      slug: prowlarr
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, prowlarr-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, prowlarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ---------- Readarr ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: readarr-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: readarr
+      client_secret: !Env READARR_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://readarr.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "Readarr (Books)"
+    attrs:
+      slug: readarr
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, readarr-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, readarr]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ---------- qBittorrent ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: qbittorrent-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: qbittorrent
+      client_secret: !Env QBITTORRENT_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://qb.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "qBittorrent (Downloads)"
+    attrs:
+      slug: qbittorrent
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, qbittorrent-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, qbittorrent]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30
+
+  # ---------- MeTube ----------
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: metube-oauth
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: metube
+      client_secret: !Env METUBE_OIDC_CLIENT_SECRET
+      redirect_uris:
+        - url: "https://metube.${DOMAIN}/oauth2/callback"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "MeTube (Video Downloads)"
+    attrs:
+      slug: metube
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, metube-oauth]]
+      policy_engine_mode: all
+
+  - model: authentik_policies.policybinding
+    identifiers:
+      order: 0
+      target: !Find [authentik_core.application, [slug, metube]]
+    attrs:
+      policy: !Find [authentik_policies_expression.expressionpolicy, [name, require-users-group]]
+      enabled: true
+      negate: false
+      timeout: 30

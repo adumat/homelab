@@ -5,24 +5,22 @@ kind: SecurityPolicy
 metadata:
   name: ${APP}
 spec:
-  extAuth:
-    failOpen: false
-    headersToExtAuth:
-      - X-Forwarded-For # this is here so we can get the real IP
-      - X-Forwarded-Proto
-      - X-Forwarded-Host
-      - authorization
-      - proxy-authorization
-      - accept
-      - cookie
-    http:
+  oidc:
+    provider:
+      issuer: "https://auth.${DOMAIN}/application/o/${APP}/"
       backendRefs:
         - group: ""
           kind: Service
           name: authentik-server
           namespace: security
           port: 80
-      path: /outpost.goauthentik.io/auth/envoy
+    clientID: ${APP}
+    clientSecret:
+      name: ${APP}-oidc-secret
+    scopes:
+      - openid
+      - email
+      - profile
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
