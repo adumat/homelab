@@ -4,6 +4,8 @@ services:
     container_name: adguard-init
     user: '0:0'
     entrypoint: sh
+    env_file:
+      - ../secrets.enc.env
     command:
       - -c
       - |
@@ -24,6 +26,8 @@ services:
     volumes:
       - adguard_work:/opt/adguardhome/work
       - adguard_conf:/opt/adguardhome/conf
+    env_file:
+      - ../secrets.enc.env
     ports:
       - '53:53/udp'
       - '53:53/tcp'
