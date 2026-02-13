@@ -2,6 +2,7 @@ services:
   adguard-init:
     image: mikefarah/yq:latest
     container_name: adguard-init
+    user: '0:0'
     entrypoint: sh
     command:
       - -c
