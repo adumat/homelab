@@ -18,8 +18,6 @@ services:
     image: quay.io/poseidon/matchbox:v0.11.0
     container_name: matchbox
     restart: unless-stopped
-    env_file:
-      - certs.env
     command:
       - -address=0.0.0.0:8085
       - -rpc-address=0.0.0.0:8989
