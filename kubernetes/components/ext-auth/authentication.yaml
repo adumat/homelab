@@ -10,6 +10,7 @@ spec:
     headersToExtAuth:
       - X-Forwarded-For # this is here so we can get the real IP
       - X-Forwarded-Proto
+      - X-Forwarded-Host
       - authorization
       - proxy-authorization
       - accept
