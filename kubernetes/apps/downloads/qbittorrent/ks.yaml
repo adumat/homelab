@@ -9,7 +9,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/persistence
-    - ../../../../components/ext-auth
+    - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/qbittorrent/app
   dependsOn:
