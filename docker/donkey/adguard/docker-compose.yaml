@@ -15,7 +15,7 @@ services:
       - ADGUARD_PASSWORD_HASH=${ADGUARD_PASSWORD_HASH}
     volumes:
       - ./conf/AdGuardHome.yaml:/input/AdGuardHome.yaml:ro
-      - ./conf/generated:/output
+      - adguard_conf:/output
 
   adguard:
     image: adguard/adguardhome:v0.107.71
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
     volumes:
       - adguard_work:/opt/adguardhome/work
-      - ./conf/generated:/opt/adguardhome/conf
+      - adguard_conf:/opt/adguardhome/conf
     ports:
       - '53:53/udp'
       - '53:53/tcp'
@@ -41,3 +41,4 @@ volumes:
   adguard_work:
     name: adguard_volume
     external: true
+  adguard_conf:
