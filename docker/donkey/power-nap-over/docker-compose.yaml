@@ -29,6 +29,3 @@ services:
       options:
         max-size: '10m'
         max-file: '3'
-    depends_on:
-      power-nap-over-init:
-        condition: service_completed_successfully
