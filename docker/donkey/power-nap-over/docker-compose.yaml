@@ -1,12 +1,8 @@
 services:
   power-nap-over-init:
-    image: mikefarah/yq:latest
+    build: ./init
     container_name: power-nap-over-init
-    entrypoint: sh
-    command:
-      - -c
-      - |
-        /scripts/generate-config.sh
+    command: /scripts/generate-config.sh
     volumes:
       - ./:/work/power-nap-over
       - ../dnsmasq:/work/dnsmasq:ro

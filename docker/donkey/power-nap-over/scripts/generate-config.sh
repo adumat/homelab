@@ -26,7 +26,7 @@ elizabeth_ip=$(grep "host-record=elizabeth.lan" "$DNSMASQ_CONF" | cut -d',' -f2)
 control_plane_nodes=""
 worker_nodes=""
 
-while IFS=',' read -r hostname ip mac is_cp; do
+parse_talconfig | while IFS=',' read -r hostname ip mac is_cp; do
     entry="      - name: \"$hostname\"
         ip: \"$ip\"
         mac: \"$mac\""
@@ -48,7 +48,7 @@ $entry"
             worker_nodes="$entry"
         fi
     fi
-done < <(parse_talconfig)
+done
 
 # Format node sections: use [] for empty, or include the nodes
 if [ -z "$control_plane_nodes" ]; then
