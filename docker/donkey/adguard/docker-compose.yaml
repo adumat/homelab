@@ -1,11 +1,28 @@
 services:
+  adguard-init:
+    image: mikefarah/yq:latest
+    container_name: adguard-init
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        yq '
+          .users = [{"name": env(ADGUARD_USERNAME), "password": env(ADGUARD_PASSWORD_HASH)}]
+        ' /input/AdGuardHome.yaml > /output/AdGuardHome.yaml
+    environment:
+      - ADGUARD_USERNAME=${ADGUARD_USERNAME}
+      - ADGUARD_PASSWORD_HASH=${ADGUARD_PASSWORD_HASH}
+    volumes:
+      - ./conf/AdGuardHome.yaml:/input/AdGuardHome.yaml:ro
+      - ./conf/generated:/output
+
   adguard:
     image: adguard/adguardhome:v0.107.71
     container_name: adguard
     restart: unless-stopped
     volumes:
       - adguard_work:/opt/adguardhome/work
-      - ./conf/AdGuardHome.enc.yaml:/opt/adguardhome/conf/AdGuardHome.yaml
+      - ./conf/generated/AdGuardHome.yaml:/opt/adguardhome/conf/AdGuardHome.yaml
     ports:
       - '53:53/udp'
       - '53:53/tcp'
@@ -15,6 +32,10 @@ services:
       - '5443:5443/tcp'
       - '6060:6060/tcp'
       - '8080:80/tcp'
+    depends_on:
+      adguard-init:
+        condition: service_completed_successfully
+
 volumes:
   adguard_work:
     name: adguard_volume

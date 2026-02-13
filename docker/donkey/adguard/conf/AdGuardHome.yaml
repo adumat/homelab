@@ -4,9 +4,7 @@ http:
         enabled: false
     address: 0.0.0.0:80
     session_ttl: 720h
-users:
-    - name: ENC[AES256_GCM,data:bQn32w==,iv:lEmzrOYCAh3iSL051znhHUuPyExOaSGzJrQ/DgtpS6c=,tag:9RPmSSHJeK/4cHTuH64kfQ==,type:str]
-      password: ENC[AES256_GCM,data:zzfZjPqEfiuWlf7C77oTj6AY6NbPpF8z8+G/ljqAGNogyM4JjkKJuzFoUEh7LUxgMLYs3CNUNBHhZZLw,iv:2WY9VM3l4/fHb/WSvnCzLSrBYqqgU4mCHBelDlPgvYo=,tag:gXqR3RU8gdD83sip2/8KCw==,type:str]
+users: []
 auth_attempts: 5
 block_auth_min: 15
 http_proxy: ""
@@ -189,19 +187,3 @@ os:
     user: ""
     rlimit_nofile: 0
 schema_version: 31
-sops:
-    age:
-        - recipient: age175fpp0mqvuhmfddz9f5gcvxaxv9x70mgrd0nfcnl2ypq2whckcsqtjds5v
-          enc: |
-            -----BEGIN AGE ENCRYPTED FILE-----
-            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB1ZzlFNno5UkdMNFFzL2dn
-            cGFxdk5uRlJJZm5STStQbkdGdkpWcU9QZlIwClN5QmlaRGE5KzBtOUUwMDhUem56
-            NzJtUkw3SEtIakY3T0UyK01RK0JTZFEKLS0tIDAyUXg2dlNqZU81SE1KcWljZCtX
-            bmVuWVFKSWJJcEtuUFRLUms0NzUxamcKoOQeLwexb3N3jTY07pCWmDmeBeB8eKL+
-            isaG5CkDm+F/sU9xuOlFDHeUPT0/RIX8Mh6SiUKQsgxORJ+ZD2dM3g==
-            -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-01-03T17:01:38Z"
-    mac: ENC[AES256_GCM,data:omEPUJtxfbjS8XUa0SRJ/SSM4trGpQgzusIj0Kt5AKTQ62S2EcpgWOq0VMabvi+OB7kCAI1ZbZPpFAL+qlSIffZOZCU2BWC9K3vlYaZ0CpY/x6WWENVeDoMi/KSe4fjPjj3X3QDgW614f7ZJXOkjwVyVEP/0q0fzywNI24gCKmg=,iv:hfx3EQvED+TvsR5FcPV80/olWXXfTZWBp1bV29D9XYE=,tag:64F0Sax7/fFilo10zlB/Vg==,type:str]
-    encrypted_regex: ^(users)$
-    mac_only_encrypted: true
-    version: 3.11.0
