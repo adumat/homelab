@@ -50,6 +50,3 @@ services:
     dns:
       - 192.168.1.3
     dns_search: lan
-    depends_on:
-      nut-init:
-        condition: service_completed_successfully
