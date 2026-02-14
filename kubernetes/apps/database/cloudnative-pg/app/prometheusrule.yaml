@@ -71,7 +71,7 @@ spec:
             description: Last database backup failed
             summary: Checks for failed backups
           expr: |-
-            cnpg_collector_last_failed_backup_timestamp > 0
+            cnpg_collector_last_failed_backup_timestamp > cnpg_collector_last_successful_backup_timestamp
         # - alert: DatabaseNoBackup # seems broken with plugin-barman-cloud, only updates for manual backups, not scheduled ones
         #   annotations:
         #     description: No database backup within the last 48 hours
