@@ -28,4 +28,5 @@ services:
     environment:
       - ADGUARD_USERNAME=${ADGUARD_USERNAME}
       - ADGUARD_PASSWORD=${ADGUARD_PASSWORD}
-    command: sh -c "wget -q --post-data='' --user=$$ADGUARD_USERNAME --password=$$ADGUARD_PASSWORD http://localhost:8080/control/cache_clear -O /dev/null"
+    command: >-
+      sh -c 'wget -q --post-data="" --header="Authorization: Basic $(echo -n $$ADGUARD_USERNAME:$$ADGUARD_PASSWORD | base64)" http://localhost:8080/control/cache_clear -O /dev/null'
