@@ -36,6 +36,7 @@ spec:
               OCIS_INSECURE: false
               OCIS_URL: https://files.${DOMAIN}
               OCIS_EXCLUDE_RUN_SERVICES: idp
+              STORAGE_USERS_OCIS_ROOT: /data/ocis
               IDM_CREATE_DEMO_USERS: false
 
               PROXY_TLS: false

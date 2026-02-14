@@ -50,9 +50,9 @@ spec:
               PAPERLESS_ACCOUNT_DEFAULT_HTTP_PROTOCOL: "https"
               PAPERLESS_OCR_USER_ARGS: '{"invalidate_digital_signatures": true}'
               # Configure folders
-              PAPERLESS_CONSUMPTION_DIR: /data/nas/incoming
+              PAPERLESS_CONSUMPTION_DIR: /data/paperless/incoming
               PAPERLESS_DATA_DIR: /data/local/data
-              PAPERLESS_EXPORT_DIR: /data/nas/export
+              PAPERLESS_EXPORT_DIR: /data/paperless/export
               PAPERLESS_MEDIA_ROOT: /data/local/media
               PAPERLESS_FILENAME_FORMAT: "{created_year}/{correspondent}/{title}"
               # Configure folder importer
