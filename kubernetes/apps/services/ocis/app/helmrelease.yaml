@@ -130,12 +130,13 @@ spec:
             subPath: data
           - path: /etc/ocis
             subPath: config
-      nas:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/cloud/ocis
+      media:
+        existingClaim: ocis-media
         globalMounts:
-          - path: /nas-data
+          - path: /data/paperless
+            subPath: paperless
+          - path: /data/ocis
+            subPath: ocis
       tmpfs:
         type: emptyDir
         globalMounts:
