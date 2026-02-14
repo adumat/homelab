@@ -12,7 +12,7 @@ services:
     cap_add:
       - NET_ADMIN
     healthcheck:
-      test: ["CMD-SHELL", "nslookup donkey.lan 127.0.0.1 -port=53053 > /dev/null 2>&1"]
+      test: ["CMD-SHELL", "echo | nc -w 2 127.0.0.1 53053"]
       interval: 10s
       timeout: 3s
       retries: 3
