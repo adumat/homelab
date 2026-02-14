@@ -3,7 +3,6 @@ FROM python:3.14-slim
 # Install system dependencies
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
-  nut-client \
   iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 

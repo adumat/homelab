@@ -92,10 +92,11 @@ server_groups:
 
 # UPS configuration (Network UPS Tools)
 ups:
-  host: "upsmon.lan"     # NUT server IP address
-  name: "ups"            # UPS name in NUT configuration
-  port: 3493             # NUT port (default: 3493)
-  min_charge: 50         # Minimum battery charge % before recovery
+  host: "nut-server-room.lan"   # NUT server IP address
+  name: "ups"                   # UPS name in NUT configuration
+  port: 3493                    # NUT port (default: 3493)
+  username: "monuser"           # NUT monitor username
+  min_charge: 50                # Minimum battery charge % before recovery
 
 # Monitoring configuration
 monitoring:
