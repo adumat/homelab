@@ -25,6 +25,29 @@ entries:
                 groups.append(ocis_role_map[group.name])
         return {"groups": groups}
 
+  # Duplicate of the groups mapping but bound to the "profile" scope.
+  # Mobile/desktop apps don't request the non-standard "groups" scope,
+  # so we embed groups into "profile" which they always request.
+  - model: authentik_providers_oauth2.scopemapping
+    identifiers:
+      managed: goauthentik.io/providers/oauth2/scope-ocis-groups-via-profile
+    attrs:
+      name: "OCIS: groups via profile scope"
+      scope_name: profile
+      description: "Include OCIS group roles when profile scope is requested"
+      expression: |
+        ocis_role_map = {
+            "admins": "ocisAdmin",
+            "users": "ocisUser",
+            "external_users": "ocisGuest",
+        }
+        groups = []
+        for group in request.user.ak_groups.all():
+            groups.append(group.name)
+            if group.name in ocis_role_map:
+                groups.append(ocis_role_map[group.name])
+        return {"groups": groups}
+
   # ========== OCIS (ownCloud Infinite Scale) ==========
   # Public client - no client secret required
   - model: authentik_providers_oauth2.oauth2provider
@@ -86,6 +109,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-ocis-groups-via-profile"]]
 
   - model: authentik_core.application
     identifiers:
@@ -117,6 +141,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-ocis-groups-via-profile"]]
 
   - model: authentik_core.application
     identifiers:
@@ -150,6 +175,7 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [managed, "goauthentik.io/providers/oauth2/scope-ocis-groups-via-profile"]]
 
   - model: authentik_core.application
     identifiers:
