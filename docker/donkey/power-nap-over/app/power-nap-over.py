@@ -163,28 +163,70 @@ class PowerNapOver:
             return False
 
     def get_ups_status(self) -> Optional[Dict]:
-        """Query UPS status from NUT server"""
+        """Query UPS status from NUT server using the NUT network protocol"""
+        host = self.ups_config['host']
+        port = self.ups_config.get('port', 3493)
+        ups_name = self.ups_config['name']
+        username = self.ups_config.get('username')
+        password = os.getenv('NUT_MONITOR_PASSWORD', '')
+
         try:
-            ups_query = f"{self.ups_config['name']}@{self.ups_config['host']}"
-            if self.ups_config.get('port') != 3493:
-                ups_query += f":{self.ups_config['port']}"
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(5)
+            sock.connect((host, port))
 
-            result = subprocess.run(
-                ['upsc', ups_query],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            def send_cmd(cmd: str) -> str:
+                sock.sendall(f"{cmd}\n".encode())
+                response = b""
+                while True:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    response += chunk
+                    if b"\n" in chunk:
+                        break
+                return response.decode().strip()
 
-            if result.returncode != 0:
-                print(f"Error querying UPS: {result.stderr}")
-                return None
+            def send_cmd_multiline(cmd: str) -> str:
+                sock.sendall(f"{cmd}\n".encode())
+                response = b""
+                while True:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    response += chunk
+                    if b"END LIST VAR" in response or b"ERR" in response:
+                        break
+                return response.decode()
+
+            # Authenticate if credentials are configured
+            if username and password:
+                resp = send_cmd(f"USERNAME {username}")
+                if resp.startswith("ERR"):
+                    print(f"NUT auth error (USERNAME): {resp}")
+                    sock.close()
+                    return None
+                resp = send_cmd(f"PASSWORD {password}")
+                if resp.startswith("ERR"):
+                    print(f"NUT auth error (PASSWORD): {resp}")
+                    sock.close()
+                    return None
+
+            # List all variables
+            raw = send_cmd_multiline(f"LIST VAR {ups_name}")
+
+            send_cmd("LOGOUT")
+            sock.close()
 
             status = {}
-            for line in result.stdout.split('\n'):
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    status[key.strip()] = value.strip()
+            for line in raw.split('\n'):
+                # Format: VAR <ups> <name> "<value>"
+                if line.startswith('VAR '):
+                    parts = line.split('"')
+                    if len(parts) >= 2:
+                        var_name = line.split()[2]
+                        var_value = parts[1]
+                        status[var_name] = var_value
 
             return status
         except Exception as e:
