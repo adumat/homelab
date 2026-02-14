@@ -5,10 +5,14 @@ set -Eeuo pipefail
 # Usage: echo "secret: bws://<uuid>" | bws-inject
 #        bws-inject < file.yaml
 #        cat file.yaml | bws-inject
+#
+# Supports optional yq path extraction:
+#   bws://<uuid>              - inject entire secret value
+#   bws://<uuid>/<yq-path>    - inject a specific field from a YAML secret (e.g. bws://<uuid>/.cluster.id)
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
 
-check_cli bws jq
+check_cli bws jq yq
 
 # Cache for secrets to avoid fetching the same secret multiple times
 declare -A SECRET_CACHE
@@ -56,32 +60,61 @@ indent_value() {
     done <<< "$value"
 }
 
+# Extract a field from a YAML value using yq
+extract_field() {
+    local value="$1"
+    local yq_path="$2"
+
+    local extracted
+    if ! extracted=$(echo "$value" | yq -e "$yq_path" 2>/dev/null); then
+        log error "Failed to extract path from secret" "path=${yq_path}"
+    fi
+
+    echo "$extracted"
+}
+
 main() {
     local input
     input=$(cat)
 
-    # Find all bws:// references
-    local -a uuids
-    mapfile -t uuids < <(echo "$input" | grep -oE 'bws://[a-f0-9-]+' | sed 's|bws://||' | sort -u)
+    # Find all bws:// references (with optional /yq-path suffix)
+    local -a refs
+    mapfile -t refs < <(echo "$input" | grep -oE 'bws://[a-f0-9-]+(\/\.[a-zA-Z0-9_.]+)?' | sort -u)
 
-    if [[ ${#uuids[@]} -eq 0 ]]; then
+    if [[ ${#refs[@]} -eq 0 ]]; then
         log debug "No bws:// references found"
         echo "$input"
         return
     fi
 
-    log debug "Found secrets to inject" "count=${#uuids[@]}"
+    log debug "Found secrets to inject" "count=${#refs[@]}"
 
     # Process line by line to handle indentation for multiline values
     local output=""
     while IFS= read -r line || [[ -n "$line" ]]; do
-        for uuid in "${uuids[@]}"; do
-            if [[ "$line" == *"bws://$uuid"* ]]; then
+        for ref in "${refs[@]}"; do
+            if [[ "$line" == *"$ref"* ]]; then
+                # Parse uuid and optional yq path from ref (strip bws:// prefix)
+                local ref_body="${ref#bws://}"
+                local uuid yq_path=""
+
+                if [[ "$ref_body" == */* ]]; then
+                    uuid="${ref_body%%/*}"
+                    yq_path="${ref_body#*/}"
+                else
+                    uuid="$ref_body"
+                fi
+
                 # Extract the indentation (everything before bws://)
                 local prefix="${line%%bws://*}"
-                local suffix="${line#*bws://$uuid}"
+                local suffix="${line#*$ref}"
                 local value
                 value=$(fetch_secret "$uuid")
+
+                # Extract specific field if yq path is provided
+                if [[ -n "$yq_path" ]]; then
+                    value=$(extract_field "$value" "$yq_path")
+                fi
 
                 # Indent multiline values
                 local indented_value
