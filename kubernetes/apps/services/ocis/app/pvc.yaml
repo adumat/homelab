@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: paperless-media
+  name: ocis-media
 spec:
   capacity:
     storage: 1Mi
@@ -20,9 +20,9 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: paperless-media
+  name: ocis-media
 spec:
-  volumeName: paperless-media
+  volumeName: ocis-media
   storageClassName: ""
   accessModes:
     - ReadWriteMany
