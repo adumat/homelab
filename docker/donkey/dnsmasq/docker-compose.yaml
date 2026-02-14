@@ -11,3 +11,21 @@ services:
     network_mode: "host"
     cap_add:
       - NET_ADMIN
+    healthcheck:
+      test: ["CMD-SHELL", "nslookup donkey.lan 127.0.0.1 -port=53053 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  dnsmasq-cache-flush:
+    image: alpine:latest
+    container_name: dnsmasq-cache-flush
+    network_mode: "host"
+    depends_on:
+      dnsmasq:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      - ADGUARD_USERNAME=${ADGUARD_USERNAME}
+      - ADGUARD_PASSWORD=${ADGUARD_PASSWORD}
+    command: sh -c "wget -q --post-data='' --user=$$ADGUARD_USERNAME --password=$$ADGUARD_PASSWORD http://localhost:8080/control/cache_clear -O /dev/null"
