@@ -60,6 +60,105 @@ entries:
       provider: !Find [authentik_providers_oauth2.oauth2provider, [name, ocis-oauth]]
       policy_engine_mode: all
 
+  # ========== OCIS Mobile & Desktop Clients ==========
+  # These use hardcoded client_ids published by ownCloud
+  # See: https://doc.owncloud.com/ocis/next/deployment/services/s-list/idp.html
+
+  # --- OCIS iOS App ---
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: ocis-ios
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: mxd5OQDk6es5LzOzRvidJNfXLUZS2oN3oUFeXPP8LpPrhx3UroJFduGEYIBOxkY1
+      client_secret: KFeFWWEZO9TkisIQzR3fo7hfiMXlOpaqP8CFuTbSHzV1TUuGECglPxpiVKJfOXIx
+      redirect_uris:
+        - url: "oc://ios.owncloud.com"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "OCIS iOS"
+    attrs:
+      slug: ocis-ios
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, ocis-ios]]
+      policy_engine_mode: all
+
+  # --- OCIS Android App ---
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: ocis-android
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: e4rAsNUSIUs0lF4nbv9FmCeUkTlV9GdgTLDH1b5uie7syb90SzEVrbN7HIpmWJeD
+      client_secret: dInFYGV33xKzhbRmpqQltYNdfLdJIfJ9L5ISoKhNoT9qZftpdWSP71VrpGR9pmoD
+      redirect_uris:
+        - url: "oc://android.owncloud.com"
+          matching_mode: "strict"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "OCIS Android"
+    attrs:
+      slug: ocis-android
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, ocis-android]]
+      policy_engine_mode: all
+
+  # --- OCIS Desktop App ---
+  - model: authentik_providers_oauth2.oauth2provider
+    identifiers:
+      name: ocis-desktop
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      client_type: confidential
+      client_id: xdXOt13JKxym1B1QcEncf2XDkLAexMBFwiT9j6EfhhHFJhs2KM9jbjTmf8JBXE69
+      client_secret: UBntmLjC2yYCeHwsyj73Uwo9TAaecAetRwMw0xYcvNL9yRdLSUi0hUAHfvCHFeFh
+      redirect_uris:
+        - url: "http://127\\.0\\.0\\.1(:\\d+)?/.*"
+          matching_mode: "regex"
+        - url: "http://localhost(:\\d+)?/.*"
+          matching_mode: "regex"
+      sub_mode: hashed_user_id
+      include_claims_in_id_token: true
+      signing_key: !Find [authentik_crypto.certificatekeypair, [name, "authentik Self-signed Certificate"]]
+      property_mappings:
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
+        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
+
+  - model: authentik_core.application
+    identifiers:
+      name: "OCIS Desktop"
+    attrs:
+      slug: ocis-desktop
+      provider: !Find [authentik_providers_oauth2.oauth2provider, [name, ocis-desktop]]
+      policy_engine_mode: all
+
   # ========== Grafana ==========
   - model: authentik_providers_oauth2.oauth2provider
     identifiers:
