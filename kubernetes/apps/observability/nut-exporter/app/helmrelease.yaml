@@ -19,7 +19,7 @@ spec:
               tag: 3.2.3@sha256:cea69628d46bf8d47eb093ad7304991c9987c551f92658e10f5f47f641c470cc
             env:
               TZ: Europe/Rome
-              NUT_EXPORTER_SERVER: upsmon.lan
+              NUT_EXPORTER_SERVER: nut-server-room.lan
             envFrom:
               - secretRef:
                   name: nut-exporter
