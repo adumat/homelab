@@ -22,6 +22,9 @@ services:
         password = $${NUT_SLAVE_PASSWORD}
         upsmon slave
         USERS
+        cat > /output/upsmon.conf <<UPSMON
+        MONITOR ups@localhost 1 monuser $${NUT_MONITOR_PASSWORD} primary
+        UPSMON
     environment:
       - NUT_ADMIN_PASSWORD=${NUT_ADMIN_PASSWORD}
       - NUT_MONITOR_PASSWORD=${NUT_MONITOR_PASSWORD}
