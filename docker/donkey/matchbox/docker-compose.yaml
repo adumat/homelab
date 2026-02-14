@@ -6,13 +6,14 @@ services:
     command:
       - -c
       - |
-        apk add --no-cache curl openssl bash
+        apk add --no-cache curl openssl bash yq
         /scripts/download-assets.sh
         /scripts/check-certs.sh
     volumes:
       - ../assets:/assets
       - matchbox-certs:/certs
       - ./scripts:/scripts:ro
+      - ../../../kubernetes/talos:/work/talos:ro
       - ./certs/openssl.conf:/certs/openssl.conf:ro
       - ./certs/generate-certs.sh:/certs/generate-certs.sh:ro
 
