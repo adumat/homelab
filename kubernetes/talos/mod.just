@@ -23,16 +23,17 @@ download-image version schematic:
 
 [doc('Generate schematic ID from Talos schematic')]
 gen-schematic-id:
-    yq -e '.nodes[0].schematic' "{{ talos_dir }}/talconfig.yaml.j2" | curl -sX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -r '.id'
+    yq -e '.nodes[0].schematic' "{{ talos_dir }}/talconfig.yaml" | curl -sX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -r '.id'
 
 [doc('Generate Talos config')]
 gen-config:
-    just template "{{ talos_dir }}/talconfig.yaml.j2" > "{{ talos_dir }}/talconfig.yaml"
-    talhelper genconfig
+    just template "{{ talos_dir }}/talsecret.yaml.j2" > "{{ talos_dir }}/talsecret.yaml"
+    just template "{{ talos_dir }}/talenv.secrets.yaml.j2" > "{{ talos_dir }}/talenv.secrets.yaml"
+    talhelper genconfig -e "{{ talos_dir }}/talenv.yaml" -e "{{ talos_dir }}/talenv.secrets.yaml"
 
 [doc('Render Talos config for a node')]
 render-config node:
-    bat "{{ talos_dir }}/clusterconfig/main-$(yq -e ".nodes[] | select(.ipAddress == "{{ node }}") | .hostname" "{{ talos_dir }}/talconfig.yaml.j2").yaml"
+    bat "{{ talos_dir }}/clusterconfig/main-$(yq -e ".nodes[] | select(.ipAddress == "{{ node }}") | .hostname" "{{ talos_dir }}/talconfig.yaml").yaml"
 
 [doc('Reboot a node')]
 reboot-node node:
