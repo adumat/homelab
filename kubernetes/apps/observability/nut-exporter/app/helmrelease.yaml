@@ -19,7 +19,7 @@ spec:
               tag: 3.2.3@sha256:cea69628d46bf8d47eb093ad7304991c9987c551f92658e10f5f47f641c470cc
             env:
               TZ: Europe/Rome
-              NUT_EXPORTER_SERVER: ups@elizabeth.lan
+              NUT_EXPORTER_SERVER: elizabeth.lan
               NUT_EXPORTER_USERNAME: slaveuser
               NUT_EXPORTER_PASSWORD: slaveuser
             args:
@@ -54,4 +54,4 @@ spec:
             scheme: http
             interval: 60s
             scrapeTimeout: 10s
-            path: /ups_metrics
+            path: /ups_metrics?ups=ups
