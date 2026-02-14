@@ -33,4 +33,4 @@ services:
       - -c
       - |
         AUTH=$$(printf '%s' "$$ADGUARD_USERNAME:$$ADGUARD_PASSWORD" | base64)
-        wget -q --post-data="" --header="Authorization: Basic $$AUTH" http://localhost:8080/control/cache_clear -O /dev/null
+        wget -q --post-data="" --header="Authorization: Basic $$AUTH" --header="Content-Type: application/json" http://localhost:8080/control/cache_clear -O /dev/null
