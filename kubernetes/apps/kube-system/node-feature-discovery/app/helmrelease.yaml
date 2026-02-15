@@ -10,12 +10,32 @@ spec:
     kind: OCIRepository
     name: node-feature-discovery
   values:
+    master:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
     worker:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 64Mi
+        limits:
+          memory: 128Mi
       config:
         core:
           labelSources:
             - "system"
             - "pci"
             - "usb"
+    gc:
+      resources:
+        requests:
+          cpu: 5m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
     prometheus:
       enable: true
