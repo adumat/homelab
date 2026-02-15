@@ -28,7 +28,7 @@ spec:
           cpu: 50m # 100m
           memory: 128Mi # 128Mi
         limits:
-          memory: 1Gi # 1Gi
+          memory: 256Mi # 1Gi
     cephClusterSpec:
       cephConfig:
         global:
@@ -78,13 +78,13 @@ spec:
           requests:
             cpu: 100m # 500m
           limits:
-            memory: 2Gi
+            memory: 1Gi
         mon:
           requests:
             cpu: 35m # 1000m
-            memory: 512Mi
+            memory: 256Mi
           limits:
-            memory: 768Mi
+            memory: 512Mi
         osd:
           requests:
             cpu: 100m # 1000m
@@ -166,9 +166,9 @@ spec:
             resources:
               requests:
                 cpu: 100m
-                memory: 1Gi
+                memory: 128Mi
               limits:
-                memory: 4Gi
+                memory: 512Mi
         storageClass:
           enabled: true
           isDefault: false
