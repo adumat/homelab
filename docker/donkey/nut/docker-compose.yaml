@@ -6,7 +6,6 @@ services:
     command:
       - -c
       - |
-        cp /input/dummy.dev /output/dummy.dev
         cat > /output/upsd.users <<USERS
         [admin]
         password = $${NUT_ADMIN_PASSWORD}
@@ -31,7 +30,6 @@ services:
       - NUT_SLAVE_PASSWORD=${NUT_SLAVE_PASSWORD}
     volumes:
       - nut-generated:/output
-      - ./conf/dummy.dev:/input/dummy.dev:ro
 
   nut-server:
     image: instantlinux/nut-upsd:latest
@@ -43,8 +41,8 @@ services:
     environment:
       - TZ=Europe/Rome
       - NAME=ups
-      - DRIVER=dummy-ups
-      - PORT=dummy.dev
+      - DRIVER=usbhid-ups
+      - PORT=auto
       - DESC=Primary UPS
       - API_USER=monuser
       - API_PASSWORD=${NUT_MONITOR_PASSWORD}
@@ -52,8 +50,8 @@ services:
       - '3493:3493'
     volumes:
       - nut-generated:/etc/nut
-    # devices:
-    #   - /dev/bus/usb:/dev/bus/usb
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
     dns:
       - 192.168.1.3
     dns_search: lan
