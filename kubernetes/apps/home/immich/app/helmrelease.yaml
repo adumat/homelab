@@ -61,7 +61,9 @@ spec:
               resources:
                 requests:
                   cpu: 50m
-                  memory: 2Gi
+                  memory: 768Mi
+                limits:
+                  memory: 1Gi
     machine-learning:
       controllers:
         main:
@@ -74,9 +76,9 @@ spec:
               resources:
                 requests:
                   cpu: 300m
-                  memory: 2G
+                  memory: 512Mi
                 limits:
-                  memory: 5G
+                  memory: 1G
               probes:
                 liveness:
                   enabled: false
