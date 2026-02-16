@@ -91,6 +91,12 @@ spec:
             port: 8080
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: Zigbee2MQTT
+          gethomepage.dev/icon: zigbee2mqtt.png
+          gethomepage.dev/description: Zigbee Device Bridge
         hostnames:
           - zigbee2mqtt.${DOMAIN}
         parentRefs:

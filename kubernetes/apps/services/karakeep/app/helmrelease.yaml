@@ -137,6 +137,12 @@ spec:
             port: 7700
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Karakeep
+          gethomepage.dev/icon: karakeep.png
+          gethomepage.dev/description: Bookmark Manager
         hostnames:
           - karakeep.${DOMAIN}
         parentRefs:

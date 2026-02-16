@@ -56,6 +56,12 @@ spec:
     route:
       app:
         enabled: true
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: Frigate
+          gethomepage.dev/icon: frigate.png
+          gethomepage.dev/description: NVR & Object Detection
         hostnames:
           - frigate.${DOMAIN}
         parentRefs:

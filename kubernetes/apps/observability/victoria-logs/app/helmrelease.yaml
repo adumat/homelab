@@ -19,6 +19,12 @@ spec:
         size: 20Gi
       route:
         enabled: true
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Observability
+          gethomepage.dev/name: Victoria Logs
+          gethomepage.dev/icon: victoriametrics.png
+          gethomepage.dev/description: Log Aggregation
         hostnames:
           - victoria-logs.${DOMAIN}
         parentRefs:

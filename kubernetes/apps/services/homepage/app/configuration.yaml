@@ -11,15 +11,6 @@ data:
         - Discord:
             - icon: discord.png
               href: "https://discord.com/app"
-        - Gmail:
-            - icon: gmail.png
-              href: "http://gmail.com"
-        - Google Calendar:
-            - icon: google-calendar.png
-              href: "https://calendar.google.com"
-        - Outlook:
-            - icon: https://raw.githubusercontent.com/joryirving/home-ops/main/docs/src/assets/icons/outlook.png
-              href: "https://outlook.com"
     - Media:
         - YouTube:
             - icon: youtube.png
@@ -27,35 +18,16 @@ data:
         - Spotify:
             - icon: spotify.png
               href: "http://open.spotify.com"
-        - Youtube Music:
-            - icon: https://raw.githubusercontent.com/joryirving/home-ops/main/docs/src/assets/icons/youtube-music.png
-              href: "https://music.youtube.com"
-    - Reading:
-        - Zwame:
-            - icon: https://i.imgur.com/192X5MO.png
-              href: "https://forum.zwame.pt/"
         - Reddit:
             - icon: reddit.png
               href: "https://reddit.com"
-    - Git:
+    - Dev:
         - kubesearch:
             - icon: kubernetes-dashboard.png
               href: "https://kubesearch.dev/"
-        - home-ops:
+        - GitHub:
             - icon: github.png
-              href: "https://github.com/rafaribe/home-ops"
-        - containers:
-            - icon: github.png
-              href: "https://github.com/rafaribe/containers"
-        - onedr0p-home-ops:
-            - icon: github.png
-              href: "https://github.com/onedr0p/home-ops"
-        - bjw-s-home-ops:
-            - icon: github.png
-              href: "https://github.com/bjw-s/home-ops"
-        - bjw-s-helm-charts:
-            - icon: github.png
-              href: "https://github.com/bjw-s/helm-charts"
+              href: "https://github.com/adumat/homelab"
   docker.yaml: ""
   kubernetes.yaml: |
     mode: cluster
@@ -64,63 +36,71 @@ data:
   services.yaml: |
     - Network:
       - Cloudflared:
-            href: https://dash.cloudflare.com/
-            icon: cloudflare-zero-trust.png
-            description: Cloudflared Tunnel Status
-            widget:
-              type: cloudflared
-              accountid: {{HOMEPAGE_VAR_CLOUDFLARED_ACCOUNTID}}
-              tunnelid: {{HOMEPAGE_VAR_CLOUDFLARED_TUNNELID}}
-              key: {{HOMEPAGE_VAR_CLOUDFLARED_API_TOKEN}}
-      - OPNSense:
-            href: http://10.0.0.1
-            description: OPNSense
-            widget:
-              type: opnsense
-              url: http://10.0.0.1
-              username: {{HOMEPAGE_VAR_OPNSENSE_USERNAME}}
-              password: {{HOMEPAGE_VAR_OPNSENSE_PASSWORD}}
+          href: https://dash.cloudflare.com/
+          icon: cloudflare-zero-trust.png
+          description: Cloudflare Tunnel
+          widget:
+            type: cloudflared
+            accountid: {{HOMEPAGE_VAR_CLOUDFLARED_ACCOUNTID}}
+            tunnelid: {{HOMEPAGE_VAR_CLOUDFLARED_TUNNELID}}
+            key: {{HOMEPAGE_VAR_CLOUDFLARED_API_TOKEN}}
       - Unifi:
-          href: https://10.0.0.254:8443
-          description: Unifi Controller
-          ping: 10.0.0.254
-          siteMonitor: https://10.0.0.254:8443
+          href: https://192.168.1.44:8443
+          icon: unifi.png
+          description: Network Controller
           widget:
             type: unifi
-            url: https://10.0.0.254:8443
+            url: https://192.168.1.44:8443
             username: {{HOMEPAGE_VAR_UNIFI_USERNAME}}
             password: {{HOMEPAGE_VAR_UNIFI_PASSWORD}}
+      - AdGuard:
+          href: http://donkey.lan:8080
+          icon: adguard-home.png
+          description: DNS Filtering
+          widget:
+            type: adguard
+            url: http://donkey.lan:8080
+            username: {{HOMEPAGE_VAR_ADGUARD_USERNAME}}
+            password: {{HOMEPAGE_VAR_ADGUARD_PASSWORD}}
     - Infrastructure:
-      - TrueNAS:
-          href: http://truenas.rafaribe.com
-          icon: truenas.png
-          description: TrueNAS Scale
+      - Unraid:
+          href: http://elizabeth.lan
+          icon: unraid.png
+          description: NAS Storage
           widget:
-            type: truenas
-            url: http://truenas.rafaribe.com # Internal Only
-            key: {{HOMEPAGE_VAR_TRUENAS_APIKEY}}
-            enablePools: true
-      - Pihole:
-          href: http://pihole.rafaribe.com/admin
-          icon: https://static-00.iconduck.com/assets.00/pihole-icon-174x256-w2exgm2v.png
-          description: DNS Server
-          ping: 10.0.0.254
-          siteMonitor: http://10.0.0.254
+            type: unraid
+            url: http://elizabeth.lan
+            key: {{HOMEPAGE_VAR_UNRAID_APIKEY}}
+    - Observability:
+      - Prometheus:
+          href: https://prometheus.${DOMAIN}
+          icon: prometheus.png
+          description: Metrics Collection
+      - Ceph Health:
+          icon: mdi-database
+          description: Storage Cluster
           widget:
-            type: pihole
-            url: http://pihole.rafaribe.com/
-            #version: 6
-            key: {{HOMEPAGE_VAR_PIHOLE_API_KEY}}
-      - Proxmox:
-          href: https://10.0.0.2:8006
-          icon: https://www.45drives.com/solutions/proxmox/img/proxmox_Logo.png
-          description: Virtualized Router
+            type: prometheusmetric
+            url: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+            query: ceph_health_status
+            label: Ceph Status
+            format:
+              type: text
+              options:
+                map:
+                  0: Healthy
+                  1: Warning
+                  2: Error
+      - Active Alerts:
+          icon: mdi-alert
+          description: Firing Alerts
           widget:
-            type: proxmox
-            url: https://10.0.0.2:8006
-            username: {{HOMEPAGE_VAR_PROXMOX_API_USER}}
-            password: {{HOMEPAGE_VAR_PROXMOX_API_USER_KEY}}
-            node: router
+            type: prometheusmetric
+            url: http://kube-prometheus-stack-prometheus.observability.svc.cluster.local:9090
+            query: count(ALERTS{alertstate="firing"}) OR vector(0)
+            label: Firing Alerts
+            format:
+              type: number
 
   settings.yaml: |
     title: Dashboard
@@ -142,40 +122,34 @@ data:
         style: row
         columns: 3
         icon: mdi-network
-      Calendar:
-        style: column
-        icon: mdi-calendar
-      Video:
-        style: column
-        icon: mdi-play-circle
-      Books:
-        style: row
-        columns: 2
-        icon: mdi-book
       Infrastructure:
         style: row
-        columns: 5
+        columns: 2
         icon: mdi-server
-      Observability:
-        style: row
-        columns: 5
-        icon: mdi-chart-line
       Home:
         style: row
-        columns: 3
+        columns: 4
         icon: mdi-home-analytics
+      Media:
+        style: row
+        columns: 4
+        icon: mdi-television-play
       Downloads:
         style: row
-        columns: 3
+        columns: 5
         icon: mdi-download-circle
       Services:
         style: row
         columns: 5
         icon: mdi-tools
-      Media:
+      Observability:
         style: row
-        columns: 3
-        icon: mdi-television-play
+        columns: 5
+        icon: mdi-chart-line
+      Database:
+        style: row
+        columns: 2
+        icon: mdi-database
   widgets.yaml: |
     - logo:
         icon: https://sundayguardianlive.com/wp-content/uploads/2020/07/Untitled-design-9.png
@@ -185,7 +159,7 @@ data:
         target: _blank
     - greeting:
         text_size: xl
-        text: "Hey Rafael, how are you doing today?"
+        text: "Hey Matthew, how are you doing today?"
     - kubernetes:
         cluster:
             cpu: true
@@ -195,13 +169,13 @@ data:
         nodes:
             cpu: true
             memory: true
-            show: false
+            show: true
             showLabel: true
     - openmeteo:
         label: Home
         latitude: {{HOMEPAGE_VAR_LATITUDE}}
         longitude: {{HOMEPAGE_VAR_LONGITUDE}}
-        timezone: Europe/Lisbon
+        timezone: Europe/Rome
         units: metric
         cache: 5
         format:

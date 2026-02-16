@@ -222,6 +222,12 @@ spec:
             appProtocol: kubernetes.io/wss
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Vaultwarden
+          gethomepage.dev/icon: vaultwarden.png
+          gethomepage.dev/description: Password Manager
         hostnames:
           - vault.${DOMAIN}
         parentRefs:

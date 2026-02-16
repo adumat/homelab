@@ -74,6 +74,12 @@ spec:
     route:
       app:
         enabled: true
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: go2rtc
+          gethomepage.dev/icon: go2rtc.png
+          gethomepage.dev/description: Camera Streaming
         hostnames:
           - go2rtc.${DOMAIN}
         parentRefs:
