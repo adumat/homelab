@@ -9,6 +9,7 @@ resources:
   - ./flaresolverr/ks.yaml
   - ./metube/ks.yaml
   - ./prowlarr/ks.yaml
+  - ./pyload-ng/ks.yaml
   - ./qbittorrent/ks.yaml
   - ./radarr/ks.yaml
   - ./sonarr/ks.yaml

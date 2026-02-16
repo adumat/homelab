@@ -1,3 +1,5 @@
+---
+# yaml-language-server: $schema=https://kube-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
@@ -8,21 +10,26 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/volsync
+    - ../../../../components/persistence
+    - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/pyload-ng/app
   dependsOn:
     - name: external-secrets-store
       namespace: security
+    - name: authentik
+      namespace: security
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
     - name: volsync
-      namespace: storage
-    - name: common-pvc
+      namespace: volsync-system
   postBuild:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
     substitute:
       APP: *app
+      VOLSYNC_CAPACITY: 2Gi
   prune: true
   retryInterval: 2m
   sourceRef:
