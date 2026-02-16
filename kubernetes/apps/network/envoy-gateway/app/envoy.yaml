@@ -117,14 +117,17 @@ spec:
         certificateRefs:
           - kind: Secret
             name: ${DOMAIN/./-}-tls
-    - name: tls
+    - name: mqtts
       protocol: TLS
-      port: 6443
+      port: 8883
       allowedRoutes:
         namespaces:
           from: All
       tls:
-        mode: Passthrough
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: ${DOMAIN/./-}-tls
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/envoyproxy/gateway/refs/heads/main/charts/gateway-helm/crds/generated/gateway.envoyproxy.io_clienttrafficpolicies.yaml
 apiVersion: gateway.envoyproxy.io/v1alpha1

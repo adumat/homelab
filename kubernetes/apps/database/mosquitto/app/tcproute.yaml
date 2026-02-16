@@ -1,16 +1,14 @@
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TLSRoute
+kind: TCPRoute
 metadata:
-  name: unifi-tls-route
+  name: mosquitto
 spec:
-  hostnames:
-    - unifi.${DOMAIN}
   parentRefs:
     - name: envoy-internal
       namespace: network
-      sectionName: tls
+      sectionName: mqtts
   rules:
     - backendRefs:
-        - name: unifi
-          port: 8443
+        - name: mosquitto
+          port: 1883
