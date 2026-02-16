@@ -17,7 +17,7 @@ spec:
           reloader.stakater.com/auto: 'true'
         labels: {}
         replicas: 1
-        strategy: RollingUpdate
+        strategy: Recreate
         containers:
           app:
             image:
