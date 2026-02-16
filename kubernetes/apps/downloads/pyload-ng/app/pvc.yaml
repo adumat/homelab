@@ -1,0 +1,31 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/refs/heads/master/master/persistentvolume-v1.json
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pyload-ng-media
+spec:
+  capacity:
+    storage: 1Mi
+  accessModes:
+    - ReadWriteMany
+  nfs:
+    server: elizabeth.lan
+    path: /mnt/user/media
+  mountOptions:
+    - nfsvers=4
+    - soft
+    - timeo=30
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pyload-ng-media
+spec:
+  volumeName: pyload-ng-media
+  storageClassName: ""
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Mi

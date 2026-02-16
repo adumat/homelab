@@ -76,7 +76,7 @@ spec:
         existingClaim: metube-media
         globalMounts:
           - path: /downloads
-            subPath: metube
+            subPath: downloads
       cache:
         type: emptyDir
         globalMounts:

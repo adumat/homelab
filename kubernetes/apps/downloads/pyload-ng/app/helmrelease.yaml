@@ -6,7 +6,6 @@ metadata:
   name: pyload-ng
 spec:
   interval: 1h
-  timeout: 10m
   chartRef:
     kind: OCIRepository
     name: app-template
@@ -14,16 +13,56 @@ spec:
     controllers:
       pyload-ng:
         annotations:
+          configmap.reloader.stakater.com/reload: pyload-ng-dnsdist
           secret.reloader.stakater.com/reload: pyload-ng-secret
+        initContainers:
+          dnsdist:
+            image:
+              repository: docker.io/powerdns/dnsdist-19
+              tag: 1.9.11@sha256:720091e8702abcc863a1ad6fe8667c62f82797f33cd4924a2e49c57d5da5b451
+            restartPolicy: Always
+          gluetun:
+            dependsOn:
+              - dnsdist
+            image:
+              repository: ghcr.io/qdm12/gluetun
+              tag: v3.41.1@sha256:1a5bf4b4820a879cdf8d93d7ef0d2d963af56670c9ebff8981860b6804ebc8ab
+            env:
+              DOT: "off"
+              DNS_ADDRESS: "127.0.0.2"
+              VPN_SERVICE_PROVIDER: mullvad
+              VPN_TYPE: wireguard
+              VPN_INTERFACE: wg0
+              WIREGUARD_ENDPOINT_PORT: 51820
+              FIREWALL_INPUT_PORTS: 8000
+              FIREWALL_OUTBOUND_SUBNETS: 10.42.0.0/16,10.43.0.0/16 # Allow access to k8s subnets
+            envFrom:
+              - secretRef:
+                  name: pyload-ng-secret
+            lifecycle:
+              postStart:
+                exec:
+                  command:
+                    - "/bin/sh"
+                    - "-c"
+                    - "(ip rule del table 51820; ip -6 rule del table 51820) || true"
+            resources:
+              limits:
+                squat.ai/tun: "1"
+            restartPolicy: Always
+            securityContext:
+              runAsUser: 0
+              capabilities:
+                add:
+                  - NET_ADMIN
+              allowPrivilegeEscalation: false
         containers:
           app:
             nameOverride: pyload-ng
             image:
               repository: ghcr.io/home-operations/pyload-ng
-              tag: sha256-81a868a3ffb804e07e7762e87f01b5506eb36450361331400832740cf368262e
+              tag: 2024.09.17@sha256:81a868a3ffb804e07e7762e87f01b5506eb36450361331400832740cf368262e
             env:
-              PUID: 1000
-              PGID: 1000
               TZ: Europe/Rome
             probes:
               liveness:
@@ -37,10 +76,10 @@ spec:
                   periodSeconds: 5
             resources:
               requests:
-                cpu: 150m
-                memory: 2Gi
+                cpu: 50m
+                memory: 256Mi
               limits:
-                memory: 5Gi
+                memory: 512Mi
             securityContext:
               runAsNonRoot: true
               allowPrivilegeEscalation: false
@@ -48,7 +87,6 @@ spec:
               capabilities: { drop: ["ALL"] }
     defaultPodOptions:
       securityContext:
-        # runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
@@ -68,10 +106,7 @@ spec:
           gethomepage.dev/group: Downloads
           gethomepage.dev/name: pyLoad-NG
           gethomepage.dev/icon: pyload-ng.png
-          gethomepage.dev/description: Torrent/NZB Client
-          gethomepage.dev/widget.type: pyload-ng
-          gethomepage.dev/widget.url: https://pyload.${DOMAIN}
-          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PYLOAD_NG_TOKEN}}` }}"
+          gethomepage.dev/description: Download Manager
         hostnames:
           - pyload.${DOMAIN}
         parentRefs:
@@ -84,17 +119,36 @@ spec:
                 port: *port
     persistence:
       config:
-        enabled: true
         existingClaim: pyload-ng
         advancedMounts:
           pyload-ng:
             app:
               - path: /config
       media:
-        type: persistentVolumeClaim
-        existingClaim: nas-downloads-media
+        existingClaim: pyload-ng-media
         advancedMounts:
           pyload-ng:
             app:
-              - path: /media
-                subPath: pyload-ng
+              - path: /downloads
+                subPath: downloads
+      dnsdist:
+        type: configMap
+        name: pyload-ng-dnsdist
+        advancedMounts:
+          pyload-ng:
+            dnsdist:
+              - path: /etc/dnsdist/dnsdist.conf
+                subPath: dnsdist.conf
+                readOnly: true
+      gluetun-data:
+        type: emptyDir
+        advancedMounts:
+          pyload-ng:
+            gluetun:
+              - path: /tmp/gluetun
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          pyload-ng:
+            app:
+              - path: /tmp
