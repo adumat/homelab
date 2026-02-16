@@ -56,10 +56,9 @@ spec:
           gethomepage.dev/group: Downloads
           gethomepage.dev/name: Metube
           gethomepage.dev/icon: metube.png
-          gethomepage.dev/description: eBook Downloads
+          gethomepage.dev/description: YouTube Downloads
           gethomepage.dev/widget.type: metube
           gethomepage.dev/widget.url: https://metube.${DOMAIN}
-          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_READARR_TOKEN}}` }}"
         hostnames:
           - metube.${DOMAIN}
         parentRefs:

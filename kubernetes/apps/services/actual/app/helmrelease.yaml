@@ -56,6 +56,12 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Actual
+          gethomepage.dev/icon: actual.png
+          gethomepage.dev/description: Budget Management
         hostnames:
           - actual.${DOMAIN}
         parentRefs:

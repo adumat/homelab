@@ -90,6 +90,15 @@ spec:
                 key: HASS_LONG_LIVED_TOKEN
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: Home Assistant
+          gethomepage.dev/icon: home-assistant.png
+          gethomepage.dev/description: Smart Home Control
+          gethomepage.dev/widget.type: homeassistant
+          gethomepage.dev/widget.url: https://ha.${DOMAIN}
+          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_HASS_TOKEN}}` }}"
         hostnames:
           - ha.${DOMAIN}
         parentRefs:

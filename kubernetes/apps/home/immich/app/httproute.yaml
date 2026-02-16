@@ -7,6 +7,15 @@ metadata:
   labels:
     k8s-app: *app_name
     app.kubernetes.io/part-of: immich
+  annotations:
+    gethomepage.dev/enabled: "true"
+    gethomepage.dev/group: Home
+    gethomepage.dev/name: Immich
+    gethomepage.dev/icon: immich.png
+    gethomepage.dev/description: Photo Library
+    gethomepage.dev/widget.type: immich
+    gethomepage.dev/widget.url: https://photos.${DOMAIN}
+    gethomepage.dev/widget.key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
 spec:
   hostnames:
     - photos.${DOMAIN}

@@ -44,6 +44,12 @@ spec:
             port: &port 1880
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: Node-RED
+          gethomepage.dev/icon: node-red.png
+          gethomepage.dev/description: Flow-based Automation
         hostnames:
           - nodered.${DOMAIN}
         parentRefs:

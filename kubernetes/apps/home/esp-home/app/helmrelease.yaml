@@ -59,6 +59,12 @@ spec:
             port: &port 6052
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Home
+          gethomepage.dev/name: ESPHome
+          gethomepage.dev/icon: esphome.png
+          gethomepage.dev/description: ESP Device Management
         hostnames:
           - esphome.${DOMAIN}
         parentRefs:

@@ -103,6 +103,12 @@ spec:
             port: &port 9200
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: ownCloud
+          gethomepage.dev/icon: owncloud.png
+          gethomepage.dev/description: File Sync & Share
         hostnames:
           - files.${DOMAIN}
         parentRefs:

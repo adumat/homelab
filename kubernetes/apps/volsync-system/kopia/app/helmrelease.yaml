@@ -65,6 +65,12 @@ spec:
             port: *port
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Kopia
+          gethomepage.dev/icon: kopia.png
+          gethomepage.dev/description: Backup Repository
         hostnames:
           - kopia.${DOMAIN}
         parentRefs:

@@ -49,6 +49,12 @@ spec:
             port: &port 8080
     route:
       app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: IT-Tools
+          gethomepage.dev/icon: it-tools.png
+          gethomepage.dev/description: Developer Utilities
         hostnames:
           - it-tools.${DOMAIN}
         parentRefs:
