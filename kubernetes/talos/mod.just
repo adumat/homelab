@@ -33,7 +33,7 @@ gen-config:
 
 [doc('Render Talos config for a node')]
 render-config node:
-    bat "{{ talos_dir }}/clusterconfig/main-$(yq -e ".nodes[] | select(.ipAddress == "{{ node }}") | .hostname" "{{ talos_dir }}/talconfig.yaml").yaml"
+    bat "{{ talos_dir }}/clusterconfig/kubernetes-$(yq -e '.nodes[] | select(.ipAddress == "{{ node }}") | .hostname' "{{ talos_dir }}/talconfig.yaml").yaml"
 
 [doc('Reboot a node')]
 reboot-node node:
