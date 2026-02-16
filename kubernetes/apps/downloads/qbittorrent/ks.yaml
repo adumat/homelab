@@ -36,34 +36,36 @@ spec:
   targetNamespace: *namespace
   timeout: 5m
   wait: false
-# ---
-# apiVersion: kustomize.toolkit.fluxcd.io/v1
-# kind: Kustomization
-# metadata:
-#   name: downloads-qbittorrent-tools
-#   namespace: &namespace downloads
-# spec:
-#   commonMetadata:
-#     labels:
-#       app.kubernetes.io/name: *app
-#   interval: 1h
-#   path: ./kubernetes/apps/downloads/qbittorrent/tools
-#   dependsOn:
-#     - name: longhorn
-#       namespace: storage
-#   postBuild:
-#     substituteFrom:
-#       - name: cluster-secrets
-#         kind: Secret
-#     substitute:
-#       APP: *app
-#   prune: true
-#   retryInterval: 2m
-#   sourceRef:
-#     kind: GitRepository
-#     name: flux-system
-#     namespace: flux-system
-#   targetNamespace: *namespace
-#   timeout: 5m
-#   wait: false
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: downloads-qbittorrent-tools
+  namespace: &namespace downloads
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  interval: 1h
+  path: ./kubernetes/apps/downloads/qbittorrent/tools
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: qbittorrent
+      namespace: downloads
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+    substitute:
+      APP: *app
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: false
 
