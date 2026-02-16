@@ -29,6 +29,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
+      OIDC_SECRET_KEY: pyloadng
       VOLSYNC_CAPACITY: 2Gi
   prune: true
   retryInterval: 2m
