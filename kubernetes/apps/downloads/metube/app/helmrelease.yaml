@@ -74,12 +74,14 @@ spec:
       config:
         existingClaim: *app
       downloads:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/media
+        existingClaim: metube-media
         globalMounts:
           - path: /downloads
             subPath: metube
+      cache:
+        type: emptyDir
+        globalMounts:
+          - path: /.cache
       tmp:
         type: emptyDir
         globalMounts:
