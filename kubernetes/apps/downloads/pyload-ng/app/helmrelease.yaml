@@ -60,10 +60,12 @@ spec:
           app:
             nameOverride: pyload-ng
             image:
-              repository: ghcr.io/home-operations/pyload-ng
-              tag: 2024.09.17@sha256:81a868a3ffb804e07e7762e87f01b5506eb36450361331400832740cf368262e
+              repository: ghcr.io/linuxserver/pyload-ng
+              tag: 0.5.0@sha256:bdcdc150a4a55a746542e21eeef5ccb39f22c84c0bd920d3e3e2ff0a7aa40e43
             env:
               TZ: Europe/Rome
+              PUID: "1000"
+              PGID: "1000"
             probes:
               liveness:
                 enabled: true
@@ -81,14 +83,9 @@ spec:
               limits:
                 memory: 512Mi
             securityContext:
-              runAsNonRoot: true
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
     defaultPodOptions:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
         supplementalGroups: [10000]
@@ -146,9 +143,3 @@ spec:
           pyload-ng:
             gluetun:
               - path: /tmp/gluetun
-      tmp:
-        type: emptyDir
-        advancedMounts:
-          pyload-ng:
-            app:
-              - path: /tmp
