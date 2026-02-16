@@ -37,7 +37,7 @@ spec:
     namespace: flux-system
   targetNamespace: *namespace
   timeout: 5m
-  wait: false
+  wait: true
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1
@@ -54,6 +54,8 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/network/unifi/app
   dependsOn:
+    - name: unifi-mongo
+      namespace: network
     - name: external-secrets-store
       namespace: security
     - name: rook-ceph-cluster
