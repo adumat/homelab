@@ -170,8 +170,8 @@ class PowerNapOver:
         username = self.ups_config.get('username')
         password = os.getenv('NUT_MONITOR_PASSWORD', '')
 
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(5)
             sock.connect((host, port))
 
@@ -204,19 +204,16 @@ class PowerNapOver:
                 resp = send_cmd(f"USERNAME {username}")
                 if resp.startswith("ERR"):
                     print(f"NUT auth error (USERNAME): {resp}")
-                    sock.close()
                     return None
                 resp = send_cmd(f"PASSWORD {password}")
                 if resp.startswith("ERR"):
                     print(f"NUT auth error (PASSWORD): {resp}")
-                    sock.close()
                     return None
 
             # List all variables
             raw = send_cmd_multiline(f"LIST VAR {ups_name}")
 
             send_cmd("LOGOUT")
-            sock.close()
 
             status = {}
             for line in raw.split('\n'):
@@ -232,6 +229,8 @@ class PowerNapOver:
         except Exception as e:
             print(f"Exception querying UPS: {e}")
             return None
+        finally:
+            sock.close()
 
     def is_ups_online_and_ready(self) -> tuple[bool, Optional[str], Optional[float]]:
         """Check if UPS is on line power and has sufficient charge
