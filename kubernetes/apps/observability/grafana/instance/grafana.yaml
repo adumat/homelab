@@ -9,41 +9,41 @@ metadata:
 spec:
   config:
     analytics:
-      check_for_updates: "false"
-      check_for_plugin_updates: "false"
-      feedback_links_enabled: "false"
-      reporting_enabled: "false"
+      check_for_updates: 'false'
+      check_for_plugin_updates: 'false'
+      feedback_links_enabled: 'false'
+      reporting_enabled: 'false'
     auth:
-      disable_login_form: "false"
+      disable_login_form: 'false'
     auth.anonymous:
-      enabled: "false"
+      enabled: 'false'
     auth.basic:
-      enabled: "true"
+      enabled: 'false'
     auth.generic_oauth:
-      enabled: "true"
-      name: "Authentik"
-      client_id: "grafana"
-      client_secret: "$__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}"
-      scopes: "openid profile email groups offline_access"
-      use_refresh_token: "true"
-      auth_url: "https://auth.${DOMAIN}/application/o/authorize/"
-      token_url: "https://auth.${DOMAIN}/application/o/token/"
-      api_url: "https://auth.${DOMAIN}/application/o/userinfo/"
+      enabled: 'true'
+      name: 'Authentik'
+      client_id: 'grafana'
+      client_secret: '$__env{GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}'
+      scopes: 'openid profile email groups offline_access'
+      use_refresh_token: 'true'
+      auth_url: 'https://auth.${DOMAIN}/application/o/authorize/'
+      token_url: 'https://auth.${DOMAIN}/application/o/token/'
+      api_url: 'https://auth.${DOMAIN}/application/o/userinfo/'
       role_attribute_path: "contains(groups, 'admins') && 'Admin' || 'Viewer'"
-      allow_sign_up: "true"
-      use_pkce: "true"
+      allow_sign_up: 'true'
+      use_pkce: 'true'
     log:
       mode: console
     metrics:
-      enabled: "true"
+      enabled: 'true'
     news:
-      news_feed_enabled: "false"
+      news_feed_enabled: 'false'
     plugins:
-      plugin_admin_enabled: "false"
+      plugin_admin_enabled: 'false'
     security:
-      angular_support_enabled: "true"
+      angular_support_enabled: 'true'
     server:
-      enable_gzip: "true"
+      enable_gzip: 'true'
       root_url: https://grafana.${DOMAIN}
   deployment:
     spec:
@@ -67,7 +67,7 @@ spec:
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
-                capabilities: { drop: ["ALL"] }
+                capabilities: { drop: ['ALL'] }
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
