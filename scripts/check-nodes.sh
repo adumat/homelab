@@ -37,7 +37,7 @@ check_talos_node() {
   [[ "$role" == "true" ]] && label="control-plane" || label="worker"
 
   local prefix
-  prefix=$(printf "%-14s %-18s %-14s" "$name" "($ip)" "[$label]")
+  prefix=$(printf "%-14s %-18s %-16s" "$name" "($ip)" "[$label]")
 
   # Ping check (fast gate)
   if ! ping -c1 -W1 "$ip" &>/dev/null; then
@@ -82,7 +82,7 @@ check_talos_node() {
 check_host() {
   local name="$1" host="$2"
   local prefix
-  prefix=$(printf "%-14s %-18s %-14s" "$name" "($host)" "[host]")
+  prefix=$(printf "%-14s %-18s %-16s" "$name" "($host)" "[host]")
 
   if ping -c1 -W1 "$host" &>/dev/null; then
     printf "%s  \e[32m[ OK ]\e[0m ping=ok\e[K\n" "$prefix"
