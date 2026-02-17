@@ -18,7 +18,7 @@ services:
       retries: 3
 
   dnsmasq-cache-flush:
-    image: alpine:latest
+    image: curlimages/curl:latest
     container_name: dnsmasq-cache-flush
     network_mode: "host"
     depends_on:
@@ -32,5 +32,4 @@ services:
       - sh
       - -c
       - |
-        AUTH=$$(printf '%s' "$$ADGUARD_USERNAME:$$ADGUARD_PASSWORD" | base64)
-        wget -q --post-data="" --header="Authorization: Basic $$AUTH" --header="Content-Type: application/json" http://localhost:8080/control/cache_clear -O /dev/null
+        curl -sf -u "$$ADGUARD_USERNAME:$$ADGUARD_PASSWORD" -X POST http://localhost:8080/control/cache_clear
