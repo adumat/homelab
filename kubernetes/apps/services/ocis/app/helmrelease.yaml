@@ -57,7 +57,7 @@ spec:
               WEB_OIDC_METADATA_URL: https://auth.${DOMAIN}/application/o/ocis/.well-known/openid-configuration
               # see https://doc.owncloud.com/ocis/next/deployment/services/s-list/proxy.html#automatic-role-assignments for group name info
               WEB_OIDC_CLIENT_ID: ocis
-              WEB_OIDC_SCOPE: openid profile email groups
+              WEB_OIDC_SCOPE: openid profile email groups offline_access
 
               SETTINGS_SETUP_DEFAULT_ASSIGNMENTS: false
               GRAPH_ASSIGN_DEFAULT_USER_ROLE: false
