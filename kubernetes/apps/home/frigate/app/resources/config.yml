@@ -3,6 +3,8 @@ auth:
   enabled: false
 mqtt:
   host: mqtt.${DOMAIN}
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
 database:
   path: /data/frigate.db
 ffmpeg:
