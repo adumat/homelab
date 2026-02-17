@@ -14,7 +14,7 @@ spec:
       tqm:
         type: cronjob
         cronjob:
-          schedule: "@hourly"
+          schedule: '@hourly'
           concurrencyPolicy: Forbid
           successfulJobsHistory: 1
           failedJobsHistory: 1
@@ -73,9 +73,9 @@ spec:
           tqm:
             retag:
               - path: /.config/tqm/config.yaml
-                subPath: config.yaml
+                subPath: config
                 readOnly: true
             app:
               - path: /.config/tqm/config.yaml
-                subPath: config.yaml
+                subPath: config
                 readOnly: true
