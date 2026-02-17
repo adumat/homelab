@@ -82,6 +82,8 @@ nodes:
               MONITOR ups@nut-server-room.lan 1 slaveuser ${NUT_MONITOR_PASSWORD} secondary
               SHUTDOWNCMD "/sbin/poweroff"
             mountPath: /usr/local/etc/nut/upsmon.conf
+    patches:
+      - "@./patches/nodes/kube-nuc-ethernet.yaml"
     nodeLabels: &controlPlaneLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   # - hostname: "kube-dell"
@@ -122,6 +124,8 @@ nodes:
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
+    patches:
+      - "@./patches/nodes/kube-hp-ethernet.yaml"
     nodeLabels: *controlPlaneLabels
   - hostname: "kube-ceph-01"
     ipAddress: "192.168.1.33"
@@ -140,6 +144,8 @@ nodes:
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
+    patches:
+      - "@./patches/nodes/kube-ceph-01-ethernet.yaml"
     nodeLabels: &cephNodeLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "kube-ceph-02"
@@ -159,6 +165,8 @@ nodes:
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
+    patches:
+      - "@./patches/nodes/kube-ceph-02-ethernet.yaml"
     nodeLabels: *cephNodeLabels
   - hostname: "kube-ceph-03"
     ipAddress: "192.168.1.35"
@@ -177,6 +185,8 @@ nodes:
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
+    patches:
+      - "@./patches/nodes/kube-ceph-03-ethernet.yaml"
     nodeLabels: *cephNodeLabels
 
 # Global patches

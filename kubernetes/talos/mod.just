@@ -54,6 +54,10 @@ shutdown-node node:
 upgrade-k8s version:
     talosctl -n "{{ controller }}" upgrade-k8s --to {{ version }}
 
+[doc('Check TSO status on all e1000e nodes')]
+check-tso:
+    "{{ talos_dir }}/check-tso.sh"
+
 [doc('Upgrade Talos version on a node')]
 upgrade-node node version *args:
     talosctl -n "{{ node }}" upgrade -i "factory.talos.dev/metal-installer-secureboot/$(just talos gen-schematic-id):v{{ version }}" -m powercycle --timeout=10m {{ args }}
