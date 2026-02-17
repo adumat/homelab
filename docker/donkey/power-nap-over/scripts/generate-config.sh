@@ -92,7 +92,7 @@ server_groups:
 
 # UPS configuration (Network UPS Tools)
 ups:
-  host: "nut-server-room.lan"   # NUT server IP address
+  host: "localhost"              # NUT runs on donkey (host networking)
   name: "ups"                   # UPS name in NUT configuration
   port: 3493                    # NUT port (default: 3493)
   username: "monuser"           # NUT monitor username
