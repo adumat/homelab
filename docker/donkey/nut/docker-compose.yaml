@@ -6,6 +6,13 @@ services:
     command:
       - -c
       - |
+        cat > /output/ups.conf <<'UPS'
+        [ups]
+          driver = usbhid-ups
+          port = auto
+          desc = "Primary UPS"
+          override.battery.charge.low = 30
+        UPS
         cat > /output/upsd.users <<USERS
         [admin]
         password = $${NUT_ADMIN_PASSWORD}
@@ -23,7 +30,35 @@ services:
         USERS
         cat > /output/upsmon.conf <<UPSMON
         MONITOR ups@localhost 1 monuser $${NUT_MONITOR_PASSWORD} primary
+        NOTIFYCMD /usr/sbin/upssched
+        NOTIFYFLAG ONLINE SYSLOG+EXEC
+        NOTIFYFLAG ONBATT SYSLOG+EXEC
+        NOTIFYFLAG LOWBATT SYSLOG+EXEC
+        NOTIFYFLAG FSD SYSLOG+EXEC
+        NOTIFYFLAG COMMOK SYSLOG+EXEC
+        NOTIFYFLAG COMMBAD SYSLOG+EXEC
+        NOTIFYFLAG SHUTDOWN SYSLOG+EXEC
         UPSMON
+        cat > /output/upssched.conf <<'SCHED'
+        CMDSCRIPT /etc/nut/upssched-cmd
+        PIPEFN /tmp/upssched.pipe
+        LOCKFN /tmp/upssched.lock
+        AT ONBATT * START-TIMER onbatt_shutdown 300
+        AT ONLINE * CANCEL-TIMER onbatt_shutdown power_restored
+        AT LOWBATT * EXECUTE lowbatt_shutdown
+        AT COMMBAD * START-TIMER commbad 30
+        AT COMMOK * CANCEL-TIMER commbad
+        SCHED
+        cat > /output/upssched-cmd <<'CMD'
+        #!/bin/sh
+        case $1 in
+          onbatt_shutdown) logger -t upssched-cmd "Battery timeout (300s) - initiating FSD"; /sbin/upsmon -c fsd ;;
+          lowbatt_shutdown) logger -t upssched-cmd "Low battery - immediate FSD"; /sbin/upsmon -c fsd ;;
+          power_restored) logger -t upssched-cmd "Power restored - shutdown cancelled" ;;
+          *) logger -t upssched-cmd "Unrecognized: $1" ;;
+        esac
+        CMD
+        chmod 755 /output/upssched-cmd
     environment:
       - NUT_ADMIN_PASSWORD=${NUT_ADMIN_PASSWORD}
       - NUT_MONITOR_PASSWORD=${NUT_MONITOR_PASSWORD}
@@ -40,10 +75,6 @@ services:
         condition: service_completed_successfully
     environment:
       - TZ=Europe/Rome
-      - NAME=ups
-      - DRIVER=usbhid-ups
-      - PORT=auto
-      - DESC=Primary UPS
       - API_USER=monuser
       - API_PASSWORD=${NUT_MONITOR_PASSWORD}
     ports:
