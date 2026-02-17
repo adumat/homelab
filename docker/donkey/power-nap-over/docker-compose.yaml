@@ -13,6 +13,7 @@ services:
     build: ./app
     container_name: power-nap-over
     restart: unless-stopped
+    network_mode: "host"
     depends_on:
       power-nap-over-init:
         condition: service_completed_successfully
@@ -21,9 +22,6 @@ services:
       - PUSHOVER_TOKEN=${PUSHOVER_TOKEN}
       - PUSHOVER_USER=${PUSHOVER_USER}
       - NUT_MONITOR_PASSWORD=${NUT_MONITOR_PASSWORD}
-    dns:
-      - 192.168.1.3
-    dns_search: lan
     volumes:
       - power-nap-over-config:/app/config:ro
       - ./logs:/app/logs
