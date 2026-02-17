@@ -12,6 +12,27 @@ spec:
   values:
     controllers:
       mosquitto:
+        annotations:
+          secret.reloader.stakater.com/reload: mosquitto-secret
+        initContainers:
+          init-passwd:
+            image:
+              repository: public.ecr.aws/docker/library/eclipse-mosquitto
+              tag: 2.0.22@sha256:6852da90a65dfff7aa3a1c8b249e92bb83c17ea8bbcce56bedff8707332a1a29
+            command: ['sh', '-c']
+            args:
+              - |
+                mosquitto_passwd -c -b /config/passwd "$MQTT_USER_1" "$MQTT_PASS_1"
+                mosquitto_passwd -b /config/passwd "$MQTT_USER_2" "$MQTT_PASS_2"
+                mosquitto_passwd -b /config/passwd "$MQTT_USER_3" "$MQTT_PASS_3"
+                mosquitto_passwd -b /config/passwd "$MQTT_USER_4" "$MQTT_PASS_4"
+            envFrom:
+              - secretRef:
+                  name: mosquitto-secret
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
         containers:
           app:
             image:
@@ -45,7 +66,8 @@ spec:
       config:
         data:
           mosquitto.conf: |-
-            allow_anonymous true
+            allow_anonymous false
+            password_file /config/passwd
             autosave_interval 60
             connection_messages false
             listener 1883
