@@ -11,6 +11,10 @@ mod talos "kubernetes/talos"
 default:
     just -l
 
+[doc('Check node health: ping, Talos API, Kubernetes status')]
+check-nodes:
+    "{{ justfile_dir() }}/scripts/check-nodes.sh"
+
 [private]
 log lvl msg *args:
     gum log -t rfc3339 -s -l "{{ lvl }}" "{{ msg }}" {{ args }}
