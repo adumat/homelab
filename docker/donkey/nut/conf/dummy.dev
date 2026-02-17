@@ -1,9 +1,0 @@
-ups.status: OL
-ups.load: 25
-battery.charge: 100
-battery.voltage: 13.6
-input.voltage: 230
-output.voltage: 230
-ups.mfr: Dummy Manufacturer
-ups.model: Dummy UPS
-ups.serial: 000000001
