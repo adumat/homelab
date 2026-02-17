@@ -43,7 +43,7 @@ services:
         CMDSCRIPT /etc/nut/upssched-cmd
         PIPEFN /tmp/upssched.pipe
         LOCKFN /tmp/upssched.lock
-        AT ONBATT * START-TIMER onbatt_shutdown 300
+        AT ONBATT * START-TIMER onbatt_shutdown 120
         AT ONLINE * CANCEL-TIMER onbatt_shutdown power_restored
         AT LOWBATT * EXECUTE lowbatt_shutdown
         AT COMMBAD * START-TIMER commbad 30
