@@ -6,4 +6,5 @@ resources:
   - ./helmrelease.yaml
   - ./pvc.yaml
   - ./tcproute.yaml
+  - ./dnsendpoint.yaml
   - ./externalsecret.yaml
