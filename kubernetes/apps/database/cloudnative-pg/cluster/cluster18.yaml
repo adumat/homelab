@@ -5,7 +5,7 @@ kind: Cluster
 metadata:
   name: cluster18
   annotations:
-    cnpg.io/skipEmptyWalArchiveCheck: "enabled"
+    cnpg.io/skipEmptyWalArchiveCheck: 'enabled'
 spec:
   instances: 2
   # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
@@ -14,15 +14,14 @@ spec:
 
   postgresql:
     parameters:
-      timezone: "Europe/Rome"
+      timezone: 'Europe/Rome'
 
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
       cpu: 500m
-      memory: 1Gi
+      memory: 512Mi
+    limits:
+      memory: 2Gi
   storage:
     storageClass: openebs-hostpath
     size: 5Gi
