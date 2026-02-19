@@ -11,7 +11,7 @@ metadata:
     gethomepage.dev/icon: grafana.png
     gethomepage.dev/description: Monitoring Dashboards
     gethomepage.dev/widget.type: grafana
-    gethomepage.dev/widget.url: https://grafana.${DOMAIN}
+    gethomepage.dev/widget.url: http://grafana-service.observability.svc.cluster.local:3000
     gethomepage.dev/widget.username: "{{HOMEPAGE_VAR_GRAFANA_USERNAME}}"
     gethomepage.dev/widget.password: "{{HOMEPAGE_VAR_GRAFANA_PASSWORD}}"
 spec:

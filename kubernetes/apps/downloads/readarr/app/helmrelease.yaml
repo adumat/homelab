@@ -101,7 +101,7 @@ spec:
           gethomepage.dev/icon: readarr.png
           gethomepage.dev/description: eBook Downloads
           gethomepage.dev/widget.type: readarr
-          gethomepage.dev/widget.url: https://readarr.${DOMAIN}
+          gethomepage.dev/widget.url: http://readarr.downloads.svc.cluster.local:80
           gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_READARR_TOKEN}}` }}"
         hostnames:
           - readarr.${DOMAIN}

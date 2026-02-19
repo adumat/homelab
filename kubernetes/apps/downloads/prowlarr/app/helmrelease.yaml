@@ -83,7 +83,7 @@ spec:
           gethomepage.dev/icon: prowlarr.png
           gethomepage.dev/description: Torrent/NZB Indexer Management
           gethomepage.dev/widget.type: prowlarr
-          gethomepage.dev/widget.url: http://prowlarr.${DOMAIN}
+          gethomepage.dev/widget.url: http://prowlarr.downloads.svc.cluster.local:80
           gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_PROWLARR_TOKEN}}` }}"
         hostnames:
           - prowlarr.${DOMAIN}

@@ -57,8 +57,6 @@ spec:
           gethomepage.dev/name: Metube
           gethomepage.dev/icon: metube.png
           gethomepage.dev/description: YouTube Downloads
-          gethomepage.dev/widget.type: metube
-          gethomepage.dev/widget.url: https://metube.${DOMAIN}
         hostnames:
           - metube.${DOMAIN}
         parentRefs:

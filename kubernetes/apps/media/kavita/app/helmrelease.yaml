@@ -69,7 +69,7 @@ spec:
           gethomepage.dev/icon: kavita.png
           gethomepage.dev/description: Comic/Ebook Web Reader
           gethomepage.dev/widget.type: kavita
-          gethomepage.dev/widget.url: https://comics.${DOMAIN}
+          gethomepage.dev/widget.url: http://kavita.media.svc.cluster.local:5000
           gethomepage.dev/widget.username: "{{ `{{HOMEPAGE_VAR_KAVITA_USERNAME}}` }}"
           gethomepage.dev/widget.password: "{{ `{{HOMEPAGE_VAR_KAVITA_PASSWORD}}` }}"
         hostnames:

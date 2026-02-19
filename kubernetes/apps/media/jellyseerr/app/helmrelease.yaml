@@ -60,7 +60,7 @@ spec:
           gethomepage.dev/icon: jellyseerr.png
           gethomepage.dev/description: Media Request Management
           gethomepage.dev/widget.type: jellyseerr
-          gethomepage.dev/widget.url: https://requests.${DOMAIN}
+          gethomepage.dev/widget.url: http://jellyseerr.media.svc.cluster.local:80
           gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_JELLYSEERR_TOKEN}}` }}"
           hajimari.io/icon: mdi:jellyfish-outline
         hostnames:

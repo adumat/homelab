@@ -141,8 +141,9 @@ spec:
           gethomepage.dev/icon: qbittorrent.png
           gethomepage.dev/description: Torrent/NZB Client
           gethomepage.dev/widget.type: qbittorrent
-          gethomepage.dev/widget.url: https://qb.${DOMAIN}
-          gethomepage.dev/widget.key: "{{ `{{HOMEPAGE_VAR_QBITTORRENT_TOKEN}}` }}"
+          gethomepage.dev/widget.url: http://qbittorrent.downloads.svc.cluster.local:8080
+          gethomepage.dev/widget.username: "{{ `{{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}` }}"
+          gethomepage.dev/widget.password: "{{ `{{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}` }}"
         hostnames:
           - qb.${DOMAIN}
         parentRefs:
