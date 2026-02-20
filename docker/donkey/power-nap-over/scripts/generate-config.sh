@@ -22,14 +22,18 @@ parse_talconfig() {
 
 # Download talosctl matching cluster version
 download_talosctl() {
-    local talos_version
+    local talos_version arch
     talos_version=$(yq eval '.talosVersion' "$TALENV")
-    echo "Downloading talosctl ${talos_version}..."
+    case "$(uname -m)" in
+        aarch64|arm64) arch="arm64" ;;
+        *)             arch="amd64" ;;
+    esac
+    echo "Downloading talosctl ${talos_version} (${arch})..."
     mkdir -p "$BIN_DIR"
-    curl -fsSL "https://github.com/siderolabs/talos/releases/download/${talos_version}/talosctl-linux-amd64" \
+    curl -fsSL "https://github.com/siderolabs/talos/releases/download/${talos_version}/talosctl-linux-${arch}" \
         -o "${BIN_DIR}/talosctl"
     chmod +x "${BIN_DIR}/talosctl"
-    echo "Installed talosctl ${talos_version} to ${BIN_DIR}/talosctl"
+    echo "Installed talosctl ${talos_version} (${arch}) to ${BIN_DIR}/talosctl"
 }
 
 # Get elizabeth (NAS) from dnsmasq
