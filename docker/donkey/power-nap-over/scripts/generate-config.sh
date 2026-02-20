@@ -48,7 +48,8 @@ while IFS=',' read -r hostname ip mac is_cp; do
     entry="      - name: \"$hostname\"
         ip: \"$ip\"
         mac: \"$mac\"
-        type: \"talos\""
+        type: \"talos\"
+        auto_wake_on_crash: false"
 
     if [ "$is_cp" = "true" ]; then
         if [ -n "$control_plane_nodes" ]; then
@@ -102,6 +103,7 @@ server_groups:
         ip: "$elizabeth_ip"
         mac: "$elizabeth_mac"
         type: "nas"
+        auto_wake_on_crash: true
 
   - name: "Kubernetes Control Plane"
     priority: 2
@@ -135,7 +137,6 @@ monitoring:
   grace_period_duration: 60     # How long to verify after quick OB->OL (60s)
   shutdown_wait_timeout: 600    # Max time waiting for all nodes to power off (600s)
   fsd_timer_duration: 120       # Must match NUT upssched ONBATT timer (120s)
-  auto_wake_on_crash: false     # Auto-WOL servers that crash (no power event)
 
 # Talos API configuration
 talos:

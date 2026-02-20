@@ -575,17 +575,23 @@ class PowerNapOver:
 
             if offline and power_status == UPSPowerStatus.ONLINE:
                 # Crash scenario - servers down but no power event
-                auto_wake = self.monitoring.get('auto_wake_on_crash', False)
+                wakeable = [s for s in offline if s.get('auto_wake_on_crash', False)]
+                notify_only = [s for s in offline if not s.get('auto_wake_on_crash', False)]
+
                 if not self._notified_crash:
                     print(f"Crash detected: {len(offline)} server(s) down, UPS is online")
-                    self.notifier.notify_crash_detected(offline, auto_wake)
+                    self.notifier.notify_crash_detected(offline, bool(wakeable))
                     self._notified_crash = True
 
-                if auto_wake:
-                    print("Auto-wake on crash enabled, starting WOL sequence...")
-                    self.notifier.notify_servers_down(offline, total)
-                    self._transition(AppState.WAKING)
-                    return
+                if wakeable:
+                    print(f"Auto-wake on crash: waking {len(wakeable)} server(s)...")
+                    if notify_only:
+                        print(f"  ({len(notify_only)} server(s) with auto_wake_on_crash=false, skipping)")
+                    self.notifier.notify_servers_down(wakeable, total)
+                    # Only wake servers with auto_wake_on_crash=true
+                    for server in wakeable:
+                        self._wake_server(server)
+                    self.notifier.notify_recovery_completed(len(wakeable))
             elif not offline:
                 self._notified_crash = False
                 print("All servers online. No recovery needed.\n")
@@ -808,7 +814,8 @@ class PowerNapOver:
         print(f"Full check interval: {self.monitoring['check_interval']}s")
         print(f"FSD timer: {self.monitoring.get('fsd_timer_duration', 120)}s")
         print(f"Talos monitoring: {'enabled' if self.talos.is_available else 'disabled'}")
-        print(f"Auto-wake on crash: {self.monitoring.get('auto_wake_on_crash', False)}")
+        crash_wake_servers = [s['name'] for s in self._all_servers if s.get('auto_wake_on_crash', False)]
+        print(f"Auto-wake on crash: {', '.join(crash_wake_servers) if crash_wake_servers else 'none'}")
         print(f"Pushover: {'enabled' if self.notifier.enabled else 'disabled'}")
         print(f"\nConfigured groups ({len(self.server_groups)}):")
         for group in self.server_groups:
