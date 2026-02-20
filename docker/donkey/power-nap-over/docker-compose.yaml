@@ -22,6 +22,7 @@ services:
       - PUSHOVER_TOKEN=${PUSHOVER_TOKEN}
       - PUSHOVER_USER=${PUSHOVER_USER}
       - NUT_MONITOR_PASSWORD=${NUT_MONITOR_PASSWORD}
+      - TALOSCONFIG=${TALOSCONFIG}
     volumes:
       - power-nap-over-config:/app/config:ro
       - ./logs:/app/logs

@@ -55,7 +55,7 @@ The script will:
 ### Project configuration
 
 - `.doco-cd.yaml` (repo root) — auto-discovers stacks in `docker/donkey/` at depth 1,
-  uses `secrets.enc.env` for encrypted environment variables
+  uses external secrets through bitwarden secrets manager
 - `.doco-cd.elizabeth.yaml` (repo root) — auto-discovers stacks in `docker/elizabeth/` at depth 1
 
 ### Adding a new service

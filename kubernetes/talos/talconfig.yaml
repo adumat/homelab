@@ -81,6 +81,7 @@ nodes:
           - content: |-
               MONITOR ups@nut-server-room.lan 1 slaveuser ${NUT_MONITOR_PASSWORD} secondary
               SHUTDOWNCMD "/sbin/poweroff --force"
+              DEADTIME 120
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
       - "@./patches/nodes/kube-nuc-ethernet.yaml"

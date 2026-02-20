@@ -4,7 +4,9 @@ set -euo pipefail
 # Paths inside the init container
 DNSMASQ_CONF="/work/dnsmasq/dnsmasq.conf"
 TALCONFIG="/work/talos/talconfig.yaml"
+TALENV="/work/talos/talenv.yaml"
 OUTPUT="/work/power-nap-over/config.yaml"
+BIN_DIR="/work/power-nap-over/bin"
 
 # Function to get MAC address from dnsmasq.conf for a given hostname
 get_mac_from_dnsmasq() {
@@ -18,6 +20,18 @@ parse_talconfig() {
     yq eval '.nodes[] | [.hostname, .ipAddress, .networkInterfaces[0].deviceSelector.hardwareAddr, .controlPlane] | @csv' "$TALCONFIG" | tr -d '"'
 }
 
+# Download talosctl matching cluster version
+download_talosctl() {
+    local talos_version
+    talos_version=$(yq eval '.talosVersion' "$TALENV")
+    echo "Downloading talosctl ${talos_version}..."
+    mkdir -p "$BIN_DIR"
+    curl -fsSL "https://github.com/siderolabs/talos/releases/download/${talos_version}/talosctl-linux-amd64" \
+        -o "${BIN_DIR}/talosctl"
+    chmod +x "${BIN_DIR}/talosctl"
+    echo "Installed talosctl ${talos_version} to ${BIN_DIR}/talosctl"
+}
+
 # Get elizabeth (NAS) from dnsmasq
 elizabeth_mac=$(get_mac_from_dnsmasq "elizabeth.lan")
 elizabeth_ip=$(grep "host-record=elizabeth.lan" "$DNSMASQ_CONF" | cut -d',' -f2)
@@ -29,7 +43,8 @@ worker_nodes=""
 while IFS=',' read -r hostname ip mac is_cp; do
     entry="      - name: \"$hostname\"
         ip: \"$ip\"
-        mac: \"$mac\""
+        mac: \"$mac\"
+        type: \"talos\""
 
     if [ "$is_cp" = "true" ]; then
         if [ -n "$control_plane_nodes" ]; then
@@ -65,6 +80,9 @@ else
 $worker_nodes"
 fi
 
+# Download talosctl
+download_talosctl
+
 # Generate config.yaml
 cat > "$OUTPUT" << EOF
 # Server groups configuration
@@ -79,6 +97,7 @@ server_groups:
       - name: "elizabeth"
         ip: "$elizabeth_ip"
         mac: "$elizabeth_mac"
+        type: "nas"
 
   - name: "Kubernetes Control Plane"
     priority: 2
@@ -100,7 +119,8 @@ ups:
 
 # Monitoring configuration
 monitoring:
-  check_interval: 300           # Check servers every 5 minutes (300s)
+  check_interval: 300           # Full server ping sweep interval (300s)
+  nut_poll_interval: 30         # NUT status polling in NORMAL state (30s)
   startup_delay: 180            # Wait 3 minutes after UPS is restored
   boot_delay_between_servers: 15  # Delay between servers in same group
   max_ups_wait: 3600            # Maximum time to wait for UPS (1 hour)
@@ -108,6 +128,15 @@ monitoring:
   ping_timeout: 2               # Ping timeout in seconds
   wol_retry_count: 3            # Number of WOL packets to send per server
   wol_retry_delay: 1            # Delay between WOL packet retries
+  grace_period_duration: 60     # How long to verify after quick OB->OL (60s)
+  shutdown_wait_timeout: 600    # Max time waiting for all nodes to power off (600s)
+  fsd_timer_duration: 120       # Must match NUT upssched ONBATT timer (120s)
+  auto_wake_on_crash: false     # Auto-WOL servers that crash (no power event)
+
+# Talos API configuration
+talos:
+  enabled: true
+  talosctl_path: "/app/config/bin/talosctl"  # Downloaded by init container
 
 # Network configuration
 network:
@@ -130,6 +159,10 @@ pushover:
     recovery_started: true      # When recovery sequence starts
     recovery_completed: true    # When recovery is completed
     ups_restored: true          # When UPS returns to online status
+    power_failure: true         # When UPS goes to battery
+    shutdown_in_progress: true  # When nodes are shutting down
+    all_nodes_off: true         # When all nodes confirmed powered off
+    crash_detected: true        # When servers crash (no power event)
     errors: true                # On errors during monitoring
 EOF
 
