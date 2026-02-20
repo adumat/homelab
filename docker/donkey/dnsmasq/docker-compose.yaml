@@ -6,6 +6,7 @@ services:
     volumes:
       - ./dnsmasq.conf:/etc/dnsmasq.conf:ro
       - ../assets:/var/ftpd:ro
+      - dnsmasq-leases:/opt/dnsmasq
     environment:
       - DNSMASQ_SHA=${dnsmasq_sha:-unknown}
     network_mode: "host"
@@ -33,3 +34,6 @@ services:
       - -c
       - |
         curl -sf -u "$$ADGUARD_USERNAME:$$ADGUARD_PASSWORD" -X POST http://localhost:8080/control/cache_clear
+
+volumes:
+  dnsmasq-leases:
