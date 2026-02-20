@@ -1,0 +1,91 @@
+services:
+  paradox-dgp-mqtt:
+    image: ghcr.io/adumat/paradox-dgp-mqtt:0.1.0
+    container_name: paradox-dgp-mqtt
+    restart: unless-stopped
+    dns:
+      - 192.168.1.3
+    dns_search: lan
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+    environment:
+      - TZ=Europe/Rome
+      - DOTNET_ENVIRONMENT=Production
+      - Serilog__MinimumLevel__Default=Information
+      - Serial__PortName=/dev/ttyUSB0
+      - Serial__Password=1234
+      - Serial__BaudRate=19200
+      - Serial__PollIntervalMs=1000
+      - Serial__ReadTimeoutMs=1000
+      - Serial__MaxRetries=5
+      - Mqtt__BrokerHost=mqtt.garuso.uk
+      - Mqtt__BrokerPort=8883
+      - Mqtt__Username=${PARADOX_DGP_MQTT_USERNAME}
+      - Mqtt__Password=${PARADOX_DGP_MQTT_PASSWORD}
+      - Mqtt__ClientId=digiplex
+      - Mqtt__TopicPrefix=digiplex
+      - Mqtt__EnableHomeAssistantDiscovery=true
+      - Mqtt__HomeAssistantDiscoveryPrefix=homeassistant
+      - Mqtt__AlarmCode=1234 # Optional: require PIN in HA to arm/disarm
+      # Partition items (DeviceClass = HA binary_sensor class for zones in this partition)
+      # P1: Contatti Piano Terra (contacts ground floor)
+      - Partitions__Items__0__Id=1
+      - Partitions__Items__0__Label=Contatti Piano Terra
+      - Partitions__Items__0__DeviceClass=opening
+      - Partitions__Items__0__ZoneIds__0=15
+      - Partitions__Items__0__ZoneIds__1=17
+      - Partitions__Items__0__ZoneIds__2=18
+      - Partitions__Items__0__ZoneIds__3=19
+      - Partitions__Items__0__ZoneIds__4=20
+      - Partitions__Items__0__ZoneIds__5=22
+      - Partitions__Items__0__ZoneIds__6=25
+      # P2: Contatti Primo Piano (contacts first floor)
+      - Partitions__Items__1__Id=2
+      - Partitions__Items__1__Label=Contatti Primo Piano
+      - Partitions__Items__1__DeviceClass=opening
+      - Partitions__Items__1__ZoneIds__0=1
+      - Partitions__Items__1__ZoneIds__1=5
+      - Partitions__Items__1__ZoneIds__2=6
+      # P3: Radar Piano Terra (motion ground floor)
+      - Partitions__Items__2__Id=3
+      - Partitions__Items__2__Label=Radar Piano Terra
+      - Partitions__Items__2__DeviceClass=motion
+      - Partitions__Items__2__ZoneIds__0=10
+      - Partitions__Items__2__ZoneIds__1=11
+      - Partitions__Items__2__ZoneIds__2=12
+      - Partitions__Items__2__ZoneIds__3=13
+      - Partitions__Items__2__ZoneIds__4=14
+      # P4: Radar Primo Piano (motion first floor)
+      - Partitions__Items__3__Id=4
+      - Partitions__Items__3__Label=Radar Primo Piano
+      - Partitions__Items__3__DeviceClass=motion
+      - Partitions__Items__3__ZoneIds__0=2
+      - Partitions__Items__3__ZoneIds__1=3
+      - Partitions__Items__3__ZoneIds__2=4
+      - Partitions__Items__3__ZoneIds__3=7
+      - Partitions__Items__3__ZoneIds__4=16
+      - Partitions__Items__3__ZoneIds__5=21
+      # Per-zone device_class overrides (takes precedence over partition default)
+      - Partitions__ZoneOverrides__0__Id=20
+      - Partitions__ZoneOverrides__0__DeviceClass=tamper
+      - Partitions__ZoneOverrides__1__Id=22
+      - Partitions__ZoneOverrides__1__DeviceClass=tamper
+      - Partitions__ZoneOverrides__2__Id=25
+      - Partitions__ZoneOverrides__2__DeviceClass=door
+      # Partition groups
+      - Partitions__Groups__0__Id=contatti
+      - Partitions__Groups__0__Label=Contatti
+      - Partitions__Groups__0__PartitionIds__0=1
+      - Partitions__Groups__0__PartitionIds__1=2
+      - Partitions__Groups__1__Id=radar
+      - Partitions__Groups__1__Label=Radar
+      - Partitions__Groups__1__PartitionIds__0=3
+      - Partitions__Groups__1__PartitionIds__1=4
+      - Partitions__Groups__2__Id=piano_terra
+      - Partitions__Groups__2__Label=Piano Terra
+      - Partitions__Groups__2__PartitionIds__0=1
+      - Partitions__Groups__2__PartitionIds__1=3
+      - Partitions__Groups__3__Id=primo_piano
+      - Partitions__Groups__3__Label=Primo Piano
+      - Partitions__Groups__3__PartitionIds__0=2
+      - Partitions__Groups__3__PartitionIds__1=4
