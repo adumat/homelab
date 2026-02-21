@@ -1,6 +1,6 @@
 services:
   paradox-dgp-mqtt:
-    image: ghcr.io/adumat/paradox-dgp-mqtt:0.1.0
+    image: ghcr.io/adumat/paradox-dgp-mqtt:0.1.1
     container_name: paradox-dgp-mqtt
     restart: unless-stopped
     dns:
