@@ -23,9 +23,9 @@ spec:
       # Additional environment variables
       env:
         - name: AUTHENTIK_POSTGRESQL__PORT
-          value: "5432"
+          value: '5432'
         - name: AUTHENTIK_REDIS__PORT
-          value: "6379"
+          value: '6379'
 
       # Volume for media storage and blueprints
       volumes:
@@ -68,4 +68,4 @@ spec:
           cpu: 50m
           memory: 256Mi
         limits:
-          memory: 512Mi
+          memory: 1Gi
