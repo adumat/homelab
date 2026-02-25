@@ -78,6 +78,7 @@ spec:
                 - events
                 - namespaces
                 - pods
+                - secrets
                 - services
               verbs:
                 - get
