@@ -77,6 +77,24 @@ spec:
               resources:
                 - events
                 - namespaces
+                - pods
+                - services
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - apps
+              resources:
+                - deployments
+              verbs:
+                - get
+                - list
+                - watch
+            - apiGroups:
+                - networking.k8s.io
+              resources:
+                - ingresses
               verbs:
                 - get
                 - list
