@@ -12,15 +12,8 @@ spec:
   values:
     adminUser:
       create: false
+    additionalArgs:
+      - --insecure-no-authentication-user=gitops-test-user
     rbac:
       create: true
       impersonationResourceNames: []
-      additionalRules:
-        - apiGroups:
-            - infra.contrib.fluxcd.io
-          resources:
-            - terraforms
-          verbs:
-            - get
-            - list
-            - patch
