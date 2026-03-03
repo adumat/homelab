@@ -116,7 +116,7 @@ spec:
                 try:
                     # Create if not exists (needs write permission)
                     fd = os.open(sentinel, os.O_CREAT | os.O_RDWR, 0o644)
-                    os.write(fd, f"canary {time.time()}\n".encode())
+                    os.write(fd, ("canary %f\n" % time.time()).encode())
                     os.fsync(fd)
                     return fd
                 except OSError:
@@ -198,11 +198,11 @@ spec:
                             label = mount_label(path)
                             val = 1 if healthy else 0
                             lines.append(
-                                f'nfs_canary_health{{mount="{path}",export="{label}"}} {val}'
+                                'nfs_canary_health{mount="%s",export="%s"} %d' % (path, label, val)
                             )
                             if not healthy:
                                 overall = 0
-                    lines.append(f"nfs_canary_health_overall {overall}")
+                    lines.append("nfs_canary_health_overall %d" % overall)
                     body = "\n".join(lines) + "\n"
                     self.send_response(200)
                     self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -217,8 +217,8 @@ spec:
                 init_sentinels()
                 threading.Thread(target=check_loop, daemon=True).start()
                 threading.Thread(target=refresh_loop, daemon=True).start()
-                print(f"NFS canary listening on :{LISTEN_PORT}", flush=True)
-                print(f"Monitoring: {', '.join(NFS_MOUNTS)}", flush=True)
+                print("NFS canary listening on :%d" % LISTEN_PORT, flush=True)
+                print("Monitoring: %s" % ", ".join(NFS_MOUNTS), flush=True)
                 http.server.HTTPServer(("", LISTEN_PORT), MetricsHandler).serve_forever()
     persistence:
       scripts:
