@@ -23,7 +23,7 @@ spec:
             env:
               NFS_MOUNTS: /mnt/media,/mnt/recordings,/mnt/backups,/mnt/immich,/mnt/cloud
               CHECK_INTERVAL: "15"
-              LISTEN_PORT: &port "9999"
+              LISTEN_PORT: "9999"
               SENTINEL_REFRESH_HOURS: "1"
             probes:
               liveness:
@@ -32,7 +32,7 @@ spec:
                 spec:
                   httpGet:
                     path: /metrics
-                    port: *port
+                    port: &port 9999
                   periodSeconds: 30
                   timeoutSeconds: 5
                   failureThreshold: 3
@@ -67,7 +67,7 @@ spec:
       app:
         ports:
           metrics:
-            port: *port
+            port: 9999
     serviceMonitor:
       app:
         serviceName: *app
