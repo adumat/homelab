@@ -26,7 +26,9 @@ spec:
     path: /mnt/user/immich
   mountOptions:
     - nfsvers=4.2
-    - hard
+    - soft
+    - timeo=50
+    - retrans=3
     - noatime
 ---
 apiVersion: v1

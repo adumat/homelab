@@ -12,6 +12,7 @@ resources:
   - ./grafana/ks.yaml
   - ./keda/ks.yaml
   - ./kube-prometheus-stack/ks.yaml
+  - ./nfs-canary/ks.yaml
   - ./nut-exporter/ks.yaml
   - ./silence-operator/ks.yaml
   - ./smartctl-exporter/ks.yaml

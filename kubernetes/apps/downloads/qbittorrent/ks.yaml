@@ -8,6 +8,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
+    - ../../../../components/nfs-scaler
     - ../../../../components/persistence
     - ../../../../components/oidc-auth
   interval: 1h

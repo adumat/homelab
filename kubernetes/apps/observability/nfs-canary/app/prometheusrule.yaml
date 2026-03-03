@@ -1,0 +1,27 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nfs-canary
+spec:
+  groups:
+    - name: nfs-canary.rules
+      rules:
+        - alert: NfsExportStale
+          annotations:
+            summary: >-
+              NFS export {{ $labels.mount }} has stale file handles
+          expr: |
+            nfs_canary_health == 0
+          for: 1m
+          labels:
+            severity: critical
+        - alert: NfsCanaryAbsent
+          annotations:
+            summary: >-
+              NFS canary metrics are missing from Prometheus
+          expr: |
+            absent(nfs_canary_health_overall)
+          for: 5m
+          labels:
+            severity: critical

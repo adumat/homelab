@@ -15,7 +15,9 @@ machine:
       content: |
         [ NFSMount_Global_Options ]
         nfsvers=4.0
-        hard=True
+        soft=True
+        timeo=50
+        retrans=3
         nconnect=8
         noatime=True
         rsize=1048576

@@ -7,3 +7,4 @@ resources:
   - ./ocirepository.yaml
   - ./pvc.yaml
   - ./externalsecret.yaml
+  - ./scaledobject.yaml

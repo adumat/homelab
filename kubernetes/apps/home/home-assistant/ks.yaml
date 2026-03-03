@@ -10,6 +10,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
+    - ../../../../components/nfs-scaler
     - ../../../../components/persistence
   interval: 1h
   path: ./kubernetes/apps/home/home-assistant/app
