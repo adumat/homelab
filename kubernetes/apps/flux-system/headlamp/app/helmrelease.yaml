@@ -16,13 +16,6 @@ spec:
   values:
     config:
       watchPlugins: true
-      oidc:
-        secret:
-          create: false
-        externalSecret:
-          enabled: true
-          name: headlamp-oidc
-        callbackURL: "https://gitops.${DOMAIN}/oidc-callback"
     pluginsManager:
       enabled: true
       configContent: |

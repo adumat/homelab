@@ -549,7 +549,7 @@ entries:
       negate: false
       timeout: 30
 
-  # ========== Headlamp (Native OIDC) ==========
+  # ========== Headlamp (Envoy Gateway OIDC) ==========
 
   # ---------- Headlamp ----------
   - model: authentik_providers_oauth2.oauth2provider
@@ -562,7 +562,7 @@ entries:
       client_id: headlamp
       client_secret: !Env HEADLAMP_OIDC_CLIENT_SECRET
       redirect_uris:
-        - url: "https://gitops.${DOMAIN}/oidc-callback"
+        - url: "https://gitops.${DOMAIN}/oauth2/callback"
           matching_mode: "strict"
       sub_mode: hashed_user_id
       include_claims_in_id_token: true
@@ -571,8 +571,6 @@ entries:
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "openid"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "email"]]
         - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "profile"]]
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "groups"]]
-        - !Find [authentik_providers_oauth2.scopemapping, [scope_name, "offline_access"]]
 
   - model: authentik_core.application
     identifiers:
