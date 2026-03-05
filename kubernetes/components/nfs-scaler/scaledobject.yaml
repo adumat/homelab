@@ -19,6 +19,6 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
-        query: min(probe_success{instance=~".+:2049"}, nfs_canary_health_overall)
+        query: min(probe_success{instance=~".+:2049"}) * on() nfs_canary_health_overall
         threshold: "1"
         ignoreNullValues: "0"
