@@ -18,13 +18,13 @@ spec:
               repository: vaultwarden/server
               tag: 1.35.4
             env:
-              ROCKET_PORT: "8080"
+              ROCKET_PORT: '8080'
               ## Allow any user to sign-up: https://github.com/dani-garcia/vaultwarden/wiki/Disable-registration-of-new-users
-              SIGNUPS_ALLOWED: "false"
+              SIGNUPS_ALLOWED: 'false'
               ## Whitelist domains allowed to sign-up. 'allowSignups' is ignored if set.
               # SIGNUPS_DOMAINS_WHITELIST: {{ join "," .Values.vaultwarden.signupDomains | quote }}
               ## Verify e-mail before login is enabled. SMTP must be enabled.
-              SIGNUPS_VERIFY: "true"
+              SIGNUPS_VERIFY: 'true'
               ## When a user logs in an email is required to be sent. If sending the email fails the login attempt will fail. SMTP must be enabled.
               # REQUIRE_DEVICE_EMAIL: {{ .Values.vaultwarden.requireEmail | quote }}
               ## Maximum attempts before an email token is reset and a new email will need to be sent.
@@ -32,7 +32,7 @@ spec:
               ## Email token validity in seconds.
               # EMAIL_EXPIRATION_TIME: {{ .Values.vaultwarden.emailTokenExpiration | quote }}
               ## Allow invited users to sign-up even feature is disabled: https://github.com/dani-garcia/vaultwarden/wiki/Disable-invitations
-              INVITATIONS_ALLOWED: "true"
+              INVITATIONS_ALLOWED: 'true'
               ## Number of hours after which an organization invite token, emergency access invite token,
               ## email verification token and deletion request token will expire
               # INVITATION_EXPIRATION_HOURS: {{ .Values.vaultwarden.invitationExpiration | quote }}
@@ -41,13 +41,13 @@ spec:
               ## Allow users to set password hints. Applies to all users.
               # PASSWORD_HINTS_ALLOWED: {{ .Values.vaultwarden.passwordHintsAllowed | quote }}
               ## Show password hints: https://github.com/dani-garcia/vaultwarden/wiki/Password-hint-display
-              SHOW_PASSWORD_HINT: "true"
+              SHOW_PASSWORD_HINT: 'true'
               # Enable Web Vault (static content). https://github.com/dani-garcia/vaultwarden/wiki/Disabling-or-overriding-the-Vault-interface-hosting
-              WEB_VAULT_ENABLED: "true"
+              WEB_VAULT_ENABLED: 'true'
               ## Enable Bitwarden Sends globally
               # SENDS_ALLOWED: {{ .Values.vaultwarden.enableSends | quote }}
               ## Restrict creation of orgs. Options are: 'all', 'none' or a comma-separated list of users.
-              ORG_CREATION_USERS: "all"
+              ORG_CREATION_USERS: 'all'
               ## Limit attachment disk usage per organization.
               # ORG_ATTACHMENT_LIMIT: {{ .Values.vaultwarden.attachmentLimitOrg | quote }}
               ## Limit attachment disk usage per user.
@@ -70,7 +70,7 @@ spec:
               ## Set the size of the database connection pool.
               # DATABASE_MAX_CONNS: {{ .Values.database.maxConnections | quote }}
               # Enable DB Write-Ahead-Log for SQLite, disabled for other databases. https://github.com/dani-garcia/vaultwarden/wiki/Running-without-WAL-enabled
-              ENABLE_DB_WAL: "false"
+              ENABLE_DB_WAL: 'false'
               ## URL for external databases (mysql://user:pass@host:port/database-name or postgresql://user:pass@host:port/database-name).
               DATABASE_URL:
                 valueFrom:
@@ -79,9 +79,9 @@ spec:
                     key: pg-uri
 
               ## Set Bitwarden URL, mandatory for invitations over email. Recommended if using a reverse proxy / ingress. Format is https://name or http://name
-              DOMAIN: "https://vault.${DOMAIN}"
+              DOMAIN: 'https://vault.${DOMAIN}'
               # Disabling the admin token will make the admin portal accessible to anyone, use carefully: https://github.com/dani-garcia/vaultwarden/wiki/Disable-admin-token
-              DISABLE_ADMIN_TOKEN: "false"
+              DISABLE_ADMIN_TOKEN: 'false'
               ## Token for admin login, will be generated if not defined. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
               # ADMIN_TOKEN:
               #   valueFrom:
@@ -89,34 +89,34 @@ spec:
               #       name: vaultwarden
               #       key: admin-token
               ## Allow any user to enable emergency access.
-              EMERGENCY_ACCESS_ALLOWED: "true"
+              EMERGENCY_ACCESS_ALLOWED: 'true'
               ## Schedule to send expiration reminders to emergency access grantors. Cron schedule format.
               # EMERGENCY_NOTIFICATION_REMINDER_SCHEDULE: {{ .Values.vaultwarden.emergency.reminder | quote }}
               ## Schedule to grant emergency access requests that have met the required wait time. Cron schedule format.
               # EMERGENCY_REQUEST_TIMEOUT_SCHEDULE: {{ .Values.vaultwarden.emergency.timeout | quote }}
 
               ## SMTP hostname, required if SMTP is enabled.
-              SMTP_HOST: "smtp.sendgrid.net"
+              SMTP_HOST: 'smtp.sendgrid.net'
               ## SMTP sender e-mail address, required if SMTP is enabled.
-              SMTP_FROM: "${EMAIL_ADDRESS_1}"
+              SMTP_FROM: '${EMAIL_ADDRESS_1}'
               ## SMTP sender name, defaults to 'Vaultwarden'.
-              SMTP_FROM_NAME: "vault"
+              SMTP_FROM_NAME: 'vault'
               ## Enable secure SSL connection. Options are: "starttls", "force_tls" and "off"
               ## Users migrating from 1.24 or lower using ssl/explicitTLS settings:
               ##   ssl = false -> "off"
               ##   ssl = true and explicitTLS = false -> "starttls"
               ##   ssl = true and explicitTLS = true -> "force_tls"
-              SMTP_SSL: "true"
-              SMTP_EXPLICIT_TLS: "false"
-              SMTP_SECURITY: "starttls"
+              SMTP_SSL: 'true'
+              SMTP_EXPLICIT_TLS: 'false'
+              SMTP_SECURITY: 'starttls'
               ## SMTP port. Defaults depends on security: 465 for "force_tls", 587 for "starttls" and 25 for "off"
-              SMTP_PORT: "587"
+              SMTP_PORT: '587'
               ## SMTP Authentication Mechanisms. Comma-separated options: 'Plain', 'Login' and 'Xoauth2'. Defaults to 'Plain'.
               # SMTP_AUTH_MECHANISM: {{ .Values.vaultwarden.smtp.authMechanism | quote }}
               ## Hostname to be sent for SMTP HELO. Defaults to pod name.
               # HELO_NAME: {{ .Values.vaultwarden.smtp.heloName | quote }}
               ## SMTP timeout.
-              SMTP_TIMEOUT: "15"
+              SMTP_TIMEOUT: '15'
               ## Accept SSL session if certificate is valid but hostname doesn't match. DANGEROUS, vulnerable to men-in-the-middle attacks!
               # SMTP_ACCEPT_INVALID_HOSTNAMES: {{ .Values.vaultwarden.smtp.invalidHostname | quote }}
               ## Accept invalid certificates. DANGEROUS, vulnerable to men-in-the-middle attacks!
@@ -163,9 +163,9 @@ spec:
               ## Icon download service. "internal" to fetch icons directly, otherwise options are: "bitwarden", "duckduckgo" or "google"
               # ICON_SERVICE: {{ .Values.vaultwarden.icons.service | quote }}
               # Disables download of external icons on internal service. Setting to true will still serve icons from cache (/data/icon_cache). TTL will default to zero.
-              DISABLE_ICON_DOWNLOAD: "false"
+              DISABLE_ICON_DOWNLOAD: 'false'
               ## Cache time-to-live for icons fetched. 0 means no purging.
-              ICON_CACHE_TTL: "0"
+              ICON_CACHE_TTL: '0'
               ## Cache time-to-live for icons that were not available. 0 means no purging.
               # ICON_CACHE_NEGTTL: {{ .Values.vaultwarden.icons.cacheFailed }}
               ## HTTP code for redirect to external icon service
@@ -173,7 +173,7 @@ spec:
 
               ## Push notifications. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-Mobile-Client-push-notification
               ## Installation ID from Bitwarden.
-              PUSH_ENABLED: "true"
+              PUSH_ENABLED: 'true'
               PUSH_INSTALLATION_ID:
                 valueFrom:
                   secretKeyRef:
@@ -186,9 +186,9 @@ spec:
                     name: vaultwarden
                     key: push-key
               ## Relay URI
-              PUSH_RELAY_URI: "https://api.bitwarden.eu"
+              PUSH_RELAY_URI: 'https://api.bitwarden.eu'
               ## Identity URI
-              PUSH_IDENTITY_URI: "https://identity.bitwarden.eu"
+              PUSH_IDENTITY_URI: 'https://identity.bitwarden.eu'
             probes:
               liveness:
                 enabled: true
@@ -223,7 +223,7 @@ spec:
     route:
       app:
         annotations:
-          gethomepage.dev/enabled: "true"
+          gethomepage.dev/enabled: 'true'
           gethomepage.dev/group: Services
           gethomepage.dev/name: Vaultwarden
           gethomepage.dev/icon: vaultwarden.png
@@ -232,9 +232,6 @@ spec:
           - vault.${DOMAIN}
         parentRefs:
           - name: envoy-external
-            namespace: network
-            sectionName: https
-          - name: envoy-internal
             namespace: network
             sectionName: https
         rules:
