@@ -62,7 +62,7 @@ spec:
             nameOverride: pyload-ng
             image:
               repository: ghcr.io/linuxserver/pyload-ng
-              tag: 0.5.0@sha256:1448a5d378f369d5973286665c5abaff6dad44fdb9089a87b388e31ee4f7a9d0
+              tag: 0.5.0@sha256:07bfb4ed6a3b853110411ba7b14aad0324c4668706dace1df680011deeea1af5
             env:
               TZ: Europe/Rome
               PUID: "1000"
