@@ -18,7 +18,7 @@ services:
       - adguard_conf:/output
 
   adguard:
-    image: adguard/adguardhome:v0.107.72
+    image: adguard/adguardhome:v0.107.73
     container_name: adguard
     restart: unless-stopped
     volumes:
