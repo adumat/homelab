@@ -4,6 +4,21 @@
 version: 1
 entries:
   # ========== Custom Scope Mappings ==========
+
+  # Override default email scope to use email_verified from user attributes
+  - model: authentik_providers_oauth2.scopemapping
+    identifiers:
+      managed: goauthentik.io/providers/oauth2/scope-email
+    attrs:
+      name: "authentik default OAuth Mapping: OpenID 'email'"
+      scope_name: email
+      description: "Access to your email address"
+      expression: |
+        return {
+            "email": request.user.email,
+            "email_verified": request.user.attributes.get("email_verified", False)
+        }
+
   - model: authentik_providers_oauth2.scopemapping
     identifiers:
       managed: goauthentik.io/providers/oauth2/scope-groups
