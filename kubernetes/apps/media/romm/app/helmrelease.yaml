@@ -85,6 +85,8 @@ spec:
             subPath: resources
           - path: /romm/assets
             subPath: assets
+          - path: /romm/config
+            subPath: config
       library:
         type: nfs
         server: elizabeth.lan
