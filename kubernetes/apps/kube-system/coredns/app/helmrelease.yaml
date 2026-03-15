@@ -39,6 +39,8 @@ spec:
               fallthrough in-addr.arpa ip6.arpa
           - name: autopath
             parameters: "@kubernetes"
+          - name: rewrite
+            parameters: name auth.${DOMAIN} envoy-external.network.svc.cluster.local
           - name: forward
             parameters: . /etc/resolv.conf
           - name: cache
