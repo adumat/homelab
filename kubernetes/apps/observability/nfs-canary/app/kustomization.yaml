@@ -5,9 +5,3 @@ kind: Kustomization
 resources:
   - ./helmrelease.yaml
   - ./prometheusrule.yaml
-configMapGenerator:
-  - name: nfs-canary-scripts
-    files:
-      - canary.py
-generatorOptions:
-  disableNameSuffixHash: true

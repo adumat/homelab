@@ -15,12 +15,8 @@ spec:
         containers:
           app:
             image:
-              repository: python
-              tag: 3.14-alpine
-            command:
-              - /bin/sh
-              - -c
-              - apk add --no-cache libnfs > /dev/null 2>&1 && python3 /scripts/canary.py
+              repository: ghcr.io/adumat/nfs-canary
+              tag: latest
             env:
               NFS_SERVER: elizabeth.lan
               NFS_EXPORTS: /mnt/user/media,/mnt/user/recordings,/mnt/user/backups/volsync,/mnt/user/immich,/mnt/user/cloud
@@ -52,7 +48,7 @@ spec:
                   failureThreshold: 3
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: false
+              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
@@ -80,12 +76,6 @@ spec:
             scrapeTimeout: 10s
             path: /metrics
     persistence:
-      scripts:
-        type: configMap
-        name: nfs-canary-scripts
-        globalMounts:
-          - path: /scripts
-            readOnly: true
       tmp:
         type: emptyDir
         globalMounts:
