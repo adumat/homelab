@@ -10,7 +10,7 @@ spec:
         - alert: NfsExportStale
           annotations:
             summary: >-
-              NFS export {{ $labels.mount }} has stale file handles
+              NFS export {{ $labels.export }} is unhealthy
           expr: |
             nfs_canary_health == 0
           for: 1m

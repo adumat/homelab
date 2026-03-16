@@ -18,13 +18,17 @@ spec:
               repository: python
               tag: 3.14-alpine
             command:
-              - python3
-              - /scripts/canary.py
+              - /bin/sh
+              - -c
+              - apk add --no-cache libnfs > /dev/null 2>&1 && python3 /scripts/canary.py
             env:
-              NFS_MOUNTS: /mnt/media,/mnt/recordings,/mnt/backups,/mnt/immich,/mnt/cloud
+              NFS_SERVER: elizabeth.lan
+              NFS_EXPORTS: /mnt/user/media,/mnt/user/recordings,/mnt/user/backups/volsync,/mnt/user/immich,/mnt/user/cloud
+              EXPORT_LABELS: media,recordings,backups,immich,cloud
+              MOUNT_PATHS: /mnt/media,/mnt/recordings,/mnt/backups,/mnt/immich,/mnt/cloud
               CHECK_INTERVAL: "15"
               LISTEN_PORT: "9999"
-              SENTINEL_REFRESH_HOURS: "1"
+              PROBE_TIMEOUT: "5"
             probes:
               liveness:
                 enabled: true
@@ -48,7 +52,7 @@ spec:
                   failureThreshold: 3
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
+              readOnlyRootFilesystem: false
               capabilities: { drop: ["ALL"] }
             resources:
               requests:
@@ -61,8 +65,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
-        fsGroup: 1000
-        fsGroupChangePolicy: OnRootMismatch
     service:
       app:
         ports:
@@ -77,153 +79,10 @@ spec:
             interval: 30s
             scrapeTimeout: 10s
             path: /metrics
-    configMaps:
-      scripts:
-        data:
-          canary.py: |
-            #!/usr/bin/env python3
-            """NFS canary - keeps file handles open to detect stale NFS mounts.
-
-            When Unraid's mover relocates files from cache to array, NFS file handles
-            held by pods become stale. This canary mimics that by keeping sentinel file
-            handles open and checking them periodically. It exposes Prometheus metrics
-            so KEDA can scale down affected deployments.
-            """
-
-            import http.server
-            import os
-            import threading
-            import time
-
-            NFS_MOUNTS = os.environ.get("NFS_MOUNTS", "/mnt/media").split(",")
-            CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "15"))
-            LISTEN_PORT = int(os.environ.get("LISTEN_PORT", "9999"))
-            SENTINEL_REFRESH_HOURS = int(os.environ.get("SENTINEL_REFRESH_HOURS", "1"))
-
-            # State: mount path -> (file descriptor, healthy bool)
-            state = {}
-            state_lock = threading.Lock()
-
-
-            def mount_label(path):
-                """Extract a short label from the mount path."""
-                return path.rstrip("/").split("/")[-1]
-
-
-            def open_sentinel(path):
-                """Create/open a sentinel file and return its fd."""
-                sentinel = os.path.join(path, ".nfs-canary-sentinel")
-                try:
-                    # Create if not exists (needs write permission)
-                    fd = os.open(sentinel, os.O_CREAT | os.O_RDWR, 0o644)
-                    os.write(fd, ("canary %f\n" % time.time()).encode())
-                    os.fsync(fd)
-                    return fd
-                except OSError:
-                    # Fallback: try read-only on the directory itself
-                    try:
-                        return os.open(path, os.O_RDONLY)
-                    except OSError:
-                        return None
-
-
-            def init_sentinels():
-                """Open sentinel files on all NFS mounts."""
-                with state_lock:
-                    for path in NFS_MOUNTS:
-                        path = path.strip()
-                        if not path:
-                            continue
-                        fd = open_sentinel(path)
-                        state[path] = (fd, fd is not None)
-
-
-            def check_loop():
-                """Periodically check if open file handles are still valid."""
-                while True:
-                    time.sleep(CHECK_INTERVAL)
-                    with state_lock:
-                        for path in list(state.keys()):
-                            fd, _ = state[path]
-                            if fd is None:
-                                # Try to reopen
-                                fd = open_sentinel(path)
-                                state[path] = (fd, fd is not None)
-                                continue
-                            try:
-                                os.fstat(fd)
-                                state[path] = (fd, True)
-                            except OSError:
-                                # Stale handle detected
-                                state[path] = (None, False)
-                                try:
-                                    os.close(fd)
-                                except OSError:
-                                    pass
-
-
-            def refresh_loop():
-                """Periodically recreate sentinel files to keep them on cache.
-
-                Unraid's mover moves files from cache to array. After being moved,
-                the sentinel is on the array and won't be moved again. Refreshing
-                ensures the sentinel returns to cache for the next mover run.
-                """
-                while True:
-                    time.sleep(SENTINEL_REFRESH_HOURS * 3600)
-                    with state_lock:
-                        for path in list(state.keys()):
-                            fd, _ = state[path]
-                            if fd is not None:
-                                try:
-                                    os.close(fd)
-                                except OSError:
-                                    pass
-                            # Delete and recreate sentinel
-                            sentinel = os.path.join(path, ".nfs-canary-sentinel")
-                            try:
-                                os.unlink(sentinel)
-                            except OSError:
-                                pass
-                            new_fd = open_sentinel(path)
-                            state[path] = (new_fd, new_fd is not None)
-
-
-            class MetricsHandler(http.server.BaseHTTPRequestHandler):
-                def do_GET(self):
-                    lines = []
-                    overall = 1
-                    with state_lock:
-                        for path, (_, healthy) in state.items():
-                            label = mount_label(path)
-                            val = 1 if healthy else 0
-                            lines.append(
-                                'nfs_canary_health{mount="%s",export="%s"} %d' % (path, label, val)
-                            )
-                            if not healthy:
-                                overall = 0
-                    lines.append("nfs_canary_health_overall %d" % overall)
-                    body = "\n".join(lines) + "\n"
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/plain; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(body.encode())
-
-                def log_message(self, format, *args):
-                    pass  # suppress request logs
-
-
-            if __name__ == "__main__":
-                init_sentinels()
-                threading.Thread(target=check_loop, daemon=True).start()
-                threading.Thread(target=refresh_loop, daemon=True).start()
-                print("NFS canary listening on :%d" % LISTEN_PORT, flush=True)
-                print("Monitoring: %s" % ", ".join(NFS_MOUNTS), flush=True)
-                http.server.HTTPServer(("", LISTEN_PORT), MetricsHandler).serve_forever()
     persistence:
       scripts:
         type: configMap
-        identifier: scripts
+        name: nfs-canary-scripts
         globalMounts:
           - path: /scripts
             readOnly: true
@@ -231,33 +90,3 @@ spec:
         type: emptyDir
         globalMounts:
           - path: /tmp
-      media:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/media
-        globalMounts:
-          - path: /mnt/media
-      recordings:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/recordings
-        globalMounts:
-          - path: /mnt/recordings
-      backups:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/backups/volsync
-        globalMounts:
-          - path: /mnt/backups
-      immich:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/immich
-        globalMounts:
-          - path: /mnt/immich
-      cloud:
-        type: nfs
-        server: elizabeth.lan
-        path: /mnt/user/cloud
-        globalMounts:
-          - path: /mnt/cloud
