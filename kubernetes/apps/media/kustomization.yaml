@@ -8,4 +8,4 @@ components:
 resources:
   - ./jellyfin/ks.yaml
   - ./jellyseerr/ks.yaml
-  # - ./romm/ks.yaml
+  - ./romm/ks.yaml
