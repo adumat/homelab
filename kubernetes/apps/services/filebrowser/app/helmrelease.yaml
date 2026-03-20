@@ -70,7 +70,7 @@ spec:
     persistence:
       config:
         existingClaim: *app
-      data:
+      srv:
         type: nfs
         server: elizabeth.lan
         path: /mnt/user/media/share
