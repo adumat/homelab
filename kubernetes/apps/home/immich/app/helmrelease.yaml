@@ -61,9 +61,9 @@ spec:
               resources:
                 requests:
                   cpu: 50m
-                  memory: 768Mi
-                limits:
                   memory: 1Gi
+                limits:
+                  memory: 2Gi
     machine-learning:
       controllers:
         main:
