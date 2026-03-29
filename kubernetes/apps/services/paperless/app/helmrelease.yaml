@@ -63,6 +63,9 @@ spec:
               PAPERLESS_OCR_LANGUAGES: ita eng
               PAPERLESS_OCR_LANGUAGE: ita
               PAPERLESS_DATE_ORDER: DMY
+              # AI Classifier
+              PAPERLESS_ENABLE_NLTK: "1"
+              PAPERLESS_NUMBER_OF_SUGGESTED_DATES: "4"
               # optional integrations
               PAPERLESS_TIKA_ENABLED: 1
               PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://localhost:3000
