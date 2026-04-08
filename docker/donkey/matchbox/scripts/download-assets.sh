@@ -37,7 +37,7 @@ else
 fi
 
 # VyOS rolling release
-VYOS_VERSION="1.5-rolling-202604020029"
+VYOS_VERSION="2026.04.02-0029-rolling"
 
 mkdir -p "$ASSETS_DIR/vyos"
 
@@ -51,7 +51,7 @@ if [ "$VYOS_VERSION" = "$VYOS_FILE_VERSION" ]; then
   echo "VyOS assets already downloaded for version ($VYOS_VERSION)"
 else
   echo "Downloading VyOS rolling ISO for version $VYOS_VERSION..."
-  curl -L -o "$ASSETS_DIR/vyos/vyos.iso" "https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/$VYOS_VERSION/vyos-$VYOS_VERSION-amd64.iso"
+  curl -L -o "$ASSETS_DIR/vyos/vyos.iso" "https://github.com/vyos/vyos-nightly-build/releases/download/$VYOS_VERSION/vyos-$VYOS_VERSION-generic-amd64.iso"
 
   echo "Extracting VyOS boot assets from ISO..."
   apk add --no-cache xorriso >/dev/null 2>&1 || true
