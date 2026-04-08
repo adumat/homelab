@@ -36,33 +36,4 @@ else
   curl -L -o "$ASSETS_DIR/undionly.kpxe" "https://boot.ipxe.org/undionly.kpxe"
 fi
 
-# VyOS rolling release
-VYOS_VERSION="2026.04.02-0029-rolling"
-
-mkdir -p "$ASSETS_DIR/vyos"
-
-if [ -f "$ASSETS_DIR/vyos/VYOS_VERSION.txt" ]; then
-  VYOS_FILE_VERSION=$(cat "$ASSETS_DIR/vyos/VYOS_VERSION.txt")
-else
-  VYOS_FILE_VERSION="N/A"
-fi
-
-if [ "$VYOS_VERSION" = "$VYOS_FILE_VERSION" ]; then
-  echo "VyOS assets already downloaded for version ($VYOS_VERSION)"
-else
-  echo "Downloading VyOS rolling ISO for version $VYOS_VERSION..."
-  curl -L -o "$ASSETS_DIR/vyos/vyos.iso" "https://github.com/vyos/vyos-nightly-build/releases/download/$VYOS_VERSION/vyos-$VYOS_VERSION-generic-amd64.iso"
-
-  echo "Extracting VyOS boot assets from ISO..."
-  apk add --no-cache xorriso >/dev/null 2>&1 || true
-  osirrox -indev "$ASSETS_DIR/vyos/vyos.iso" \
-    -extract /live/vmlinuz "$ASSETS_DIR/vyos/vmlinuz" \
-    -extract /live/initrd.img "$ASSETS_DIR/vyos/initrd.img" \
-    -extract /live/filesystem.squashfs "$ASSETS_DIR/vyos/filesystem.squashfs"
-  rm -f "$ASSETS_DIR/vyos/vyos.iso"
-
-  echo "$VYOS_VERSION" > "$ASSETS_DIR/vyos/VYOS_VERSION.txt"
-  echo "VyOS assets extracted for version $VYOS_VERSION."
-fi
-
 echo "Asset download completed."
