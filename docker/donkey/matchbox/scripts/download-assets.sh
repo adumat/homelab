@@ -36,4 +36,35 @@ else
   curl -L -o "$ASSETS_DIR/undionly.kpxe" "https://boot.ipxe.org/undionly.kpxe"
 fi
 
+# VyOS rolling release
+VYOS_VERSION="1.5-rolling-202604020029"
+
+mkdir -p "$ASSETS_DIR/vyos"
+
+if [ -f "$ASSETS_DIR/vyos/VYOS_VERSION.txt" ]; then
+  VYOS_FILE_VERSION=$(cat "$ASSETS_DIR/vyos/VYOS_VERSION.txt")
+else
+  VYOS_FILE_VERSION="N/A"
+fi
+
+if [ "$VYOS_VERSION" = "$VYOS_FILE_VERSION" ]; then
+  echo "VyOS assets already downloaded for version ($VYOS_VERSION)"
+else
+  echo "Downloading VyOS rolling ISO for version $VYOS_VERSION..."
+  curl -L -o "$ASSETS_DIR/vyos/vyos.iso" "https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/$VYOS_VERSION/vyos-$VYOS_VERSION-amd64.iso"
+
+  echo "Extracting VyOS boot assets from ISO..."
+  MOUNT_DIR=$(mktemp -d)
+  mount -o loop,ro "$ASSETS_DIR/vyos/vyos.iso" "$MOUNT_DIR"
+  cp "$MOUNT_DIR/live/vmlinuz" "$ASSETS_DIR/vyos/vmlinuz"
+  cp "$MOUNT_DIR/live/initrd.img" "$ASSETS_DIR/vyos/initrd.img"
+  cp "$MOUNT_DIR/live/filesystem.squashfs" "$ASSETS_DIR/vyos/filesystem.squashfs"
+  umount "$MOUNT_DIR"
+  rmdir "$MOUNT_DIR"
+  rm -f "$ASSETS_DIR/vyos/vyos.iso"
+
+  echo "$VYOS_VERSION" > "$ASSETS_DIR/vyos/VYOS_VERSION.txt"
+  echo "VyOS assets extracted for version $VYOS_VERSION."
+fi
+
 echo "Asset download completed."
