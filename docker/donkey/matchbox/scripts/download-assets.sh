@@ -54,13 +54,11 @@ else
   curl -L -o "$ASSETS_DIR/vyos/vyos.iso" "https://github.com/vyos/vyos-rolling-nightly-builds/releases/download/$VYOS_VERSION/vyos-$VYOS_VERSION-amd64.iso"
 
   echo "Extracting VyOS boot assets from ISO..."
-  MOUNT_DIR=$(mktemp -d)
-  mount -o loop,ro "$ASSETS_DIR/vyos/vyos.iso" "$MOUNT_DIR"
-  cp "$MOUNT_DIR/live/vmlinuz" "$ASSETS_DIR/vyos/vmlinuz"
-  cp "$MOUNT_DIR/live/initrd.img" "$ASSETS_DIR/vyos/initrd.img"
-  cp "$MOUNT_DIR/live/filesystem.squashfs" "$ASSETS_DIR/vyos/filesystem.squashfs"
-  umount "$MOUNT_DIR"
-  rmdir "$MOUNT_DIR"
+  apk add --no-cache xorriso >/dev/null 2>&1 || true
+  osirrox -indev "$ASSETS_DIR/vyos/vyos.iso" \
+    -extract /live/vmlinuz "$ASSETS_DIR/vyos/vmlinuz" \
+    -extract /live/initrd.img "$ASSETS_DIR/vyos/initrd.img" \
+    -extract /live/filesystem.squashfs "$ASSETS_DIR/vyos/filesystem.squashfs"
   rm -f "$ASSETS_DIR/vyos/vyos.iso"
 
   echo "$VYOS_VERSION" > "$ASSETS_DIR/vyos/VYOS_VERSION.txt"
