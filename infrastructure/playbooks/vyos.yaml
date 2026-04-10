@@ -67,8 +67,14 @@
     - name: DHCP static host mappings
       vyos.vyos.vyos_config:
         lines:
-          - "set service dhcp-server shared-network-name {{ item.0.key }} subnet {{ item.0.value.subnet }} static-mapping {{ item.1.name }} mac '{{ item.1.mac }}'"
-          - "set service dhcp-server shared-network-name {{ item.0.key }} subnet {{ item.0.value.subnet }} static-mapping {{ item.1.name }} ip-address '{{ item.1.ip }}'"
+          - >-
+            set service dhcp-server shared-network-name {{ item.0.key }}
+            subnet {{ item.0.value.subnet }}
+            static-mapping {{ item.1.name }} mac '{{ item.1.mac }}'
+          - >-
+            set service dhcp-server shared-network-name {{ item.0.key }}
+            subnet {{ item.0.value.subnet }}
+            static-mapping {{ item.1.name }} ip-address '{{ item.1.ip }}'
         save: true
       loop: "{{ zones | dict2items | subelements('value.static_hosts', skip_missing=True) }}"
 
@@ -113,7 +119,7 @@
       loop: "{{ zones | dict2items }}"
 
     # ── Firewall — inter-zone rules ─────────────────────────
-    - name: "Firewall — {{ item.src }} → {{ item.dst }}"
+    - name: "Firewall inter-zone rule"  # {{ item.src }} → {{ item.dst }}
       vyos.vyos.vyos_config:
         lines: "{{ lookup('template', '../templates/firewall_rule.j2') | from_yaml }}"
         save: true
@@ -205,7 +211,7 @@
         save: true
 
     # ── doco-cd (Podman container — manages other containers) ─
-    - name: doco-cd container
+    - name: Doco-cd container
       vyos.vyos.vyos_config:
         lines:
           - "set container name doco-cd image '{{ doco_cd.image }}'"

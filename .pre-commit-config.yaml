@@ -21,22 +21,32 @@ repos:
     hooks:
       - id: shellcheck
         args: [--severity=error]
-  # - repo: https://github.com/ansible-community/ansible-lint
-  #   rev: v25.12.2
-  #   hooks:
-  #     - id: ansible-lint
-  #       files: ^ansible/
-  #       always_run: false
-  #       entry: bash -c "cd ansible/ && exec ansible-lint --force-color"
+  - repo: https://github.com/ansible-community/ansible-lint
+    rev: v25.12.2
+    hooks:
+      - id: ansible-lint
+        files: ^infrastructure/
+        always_run: false
+        entry: bash -c "cd infrastructure/ && exec ansible-lint --force-color"
   - repo: https://github.com/zricethezav/gitleaks
     rev: v8.30.0
     hooks:
       - id: gitleaks
   - repo: local
     hooks:
-      - id: kustomize
-        name: Kustomize
-        files: ^cluster/
-        entry: scripts/kustomize.sh
+      - id: kubeconform
+        name: Kubeconform
+        files: ^kubernetes/.*\.yaml$
+        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml)
+        entry: kubeconform
+        args:
+          - -strict
+          - -ignore-missing-schemas
+          - -schema-location
+          - default
+          - -schema-location
+          - "https://kubernetes-schemas.pages.dev/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+          - -skip
+          - Secret
+          - -summary
         language: system
-        pass_filenames: false
