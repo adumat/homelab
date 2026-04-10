@@ -16,11 +16,14 @@ repos:
     rev: v1.5.5
     hooks:
       - id: remove-tabs
-  - repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 3.0.0
+  - repo: local
     hooks:
       - id: shellcheck
+        name: Shellcheck
+        entry: mise exec -- shellcheck
         args: [--severity=error]
+        language: system
+        types: [shell]
   - repo: https://github.com/ansible-community/ansible-lint
     rev: v25.12.2
     hooks:

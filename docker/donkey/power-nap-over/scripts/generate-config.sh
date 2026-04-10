@@ -2,17 +2,11 @@
 set -euo pipefail
 
 # Paths inside the init container
-DNSMASQ_CONF="/work/dnsmasq/dnsmasq.conf"
+NETWORKS="/work/infrastructure/vars/networks.yaml"
 TALCONFIG="/work/talos/talconfig.yaml"
 TALENV="/work/talos/talenv.yaml"
 OUTPUT="/work/power-nap-over/config.yaml"
 BIN_DIR="/work/power-nap-over/bin"
-
-# Function to get MAC address from dnsmasq.conf for a given hostname
-get_mac_from_dnsmasq() {
-    local hostname="$1"
-    grep "dhcp-host=.*${hostname}" "$DNSMASQ_CONF" | head -1 | cut -d',' -f1 | cut -d'=' -f2
-}
 
 # Parse talconfig.yaml to extract nodes
 # Returns: hostname,ip,mac,controlPlane (true/false)
@@ -36,9 +30,9 @@ download_talosctl() {
     echo "Installed talosctl ${talos_version} (${arch}) to ${BIN_DIR}/talosctl"
 }
 
-# Get elizabeth (NAS) from dnsmasq
-elizabeth_mac=$(get_mac_from_dnsmasq "elizabeth.lan")
-elizabeth_ip=$(grep "host-record=elizabeth.lan" "$DNSMASQ_CONF" | cut -d',' -f2)
+# Get elizabeth (NAS) from networks.yaml (source of truth)
+elizabeth_mac=$(yq eval '.zones.servers.static_hosts[] | select(.name == "elizabeth") | .mac' "$NETWORKS")
+elizabeth_ip=$(yq eval '.zones.servers.static_hosts[] | select(.name == "elizabeth") | .ip' "$NETWORKS")
 
 # Parse control plane and workers from talconfig
 control_plane_nodes=""
@@ -145,7 +139,7 @@ talos:
 
 # Network configuration
 network:
-  broadcast_ip: "192.168.1.255"  # Broadcast address for WOL packets
+  broadcast_ip: "10.1.10.255"  # Broadcast address for WOL packets
   wol_port: 9                    # Wake-on-LAN port (default: 9)
 
 # Pushover notifications configuration

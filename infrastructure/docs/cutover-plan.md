@@ -22,33 +22,18 @@
 - [x] Create .doco-cd.glados.yaml + poll-glados.yaml
 - [x] doco-cd configured as VyOS Podman container in playbook
 
-## Phase 4: Prepare Kubernetes Changes (on a branch, no disruption)
-- [ ] Add kubeconform pre-commit hook to .pre-commit-config.yaml
-- [ ] Create branch `feat/network-segmentation`
-- [ ] Update kubernetes/apps/kube-system/cilium/app/networks.yaml:
-  - Replace CiliumL2AnnouncementPolicy with CiliumBGPClusterConfig, CiliumBGPPeerConfig, CiliumBGPAdvertisement
-  - Update LB pool: 10.1.10.41 - 10.1.10.49
-- [ ] Update kubernetes/apps/kube-system/cilium/app/helmrelease.yaml:
-  - Set l2announcements.enabled: false
-- [ ] Update kubernetes/apps/network/envoy-gateway/app/envoy.yaml:
-  - LB IPs: 10.1.10.42 (internal), 10.1.10.43 (external)
-- [ ] Update kubernetes/apps/network/k8s-gateway/app/helmrelease.yaml:
-  - LB IP: 10.1.10.41
-- [ ] Update kubernetes/apps/network/unifi/app/helmrelease.yaml:
-  - LB IP: 10.1.10.44
-- [ ] Update kubernetes/talos/talconfig.yaml:
-  - Node IPs: 10.1.10.30, .32, .33, .34, .35
-- [ ] Update kubernetes/talos/patches/nodes/*-ethernet.yaml:
-  - NIC configs for new subnet
-- [ ] Update kubernetes/talos/patches/controller/cluster.yaml:
-  - API server advertised subnets
-- [ ] Update kubernetes/talos/patches/global/machine-network.yaml:
-  - Nameservers → 10.1.10.1
-- [ ] Update kubernetes/components/common/sops/cluster-secret.sops.yaml:
-  - LOCAL_DOMAIN, any IP references
-- [ ] Delete kubernetes/apps/network/external-dns/adguard/ (entire directory)
-- [ ] Delete kubernetes/apps/network/external-dns/ks.yaml lines 41-70 (adguard Kustomization)
-- [ ] Validate: `mise exec -- flux-local test --enable-helm --all-namespaces --path kubernetes/flux/cluster -v`
+## Phase 4: Prepare Kubernetes Changes (on a branch, no disruption) ✅
+- [x] Add kubeconform + ansible-lint pre-commit hooks
+- [x] Create branch `feat/network-segmentation`
+- [x] Cilium: replace L2 announcements with BGP CRDs (ASN 64513 ↔ 64512), LB pool 10.1.10.41-79
+- [x] Cilium: set l2announcements.enabled: false
+- [x] Remove fixed LB IPs from envoy, unifi, go2rtc, smtp-relay (Cilium auto-assigns)
+- [x] k8s-gateway: fixed IP updated to 10.1.10.41
+- [x] Talos: node IPs (.10/.11 control plane, .21-.23 workers), VIP 10.1.10.40 via anchor
+- [x] Talos: etcd advertised subnet → 10.1.10.0/24
+- [x] Cluster secrets: remove unused ROUTER_IP
+- [x] Delete ExternalDNS AdGuard (entire directory + Kustomization)
+- [x] Validate: flux-local test 157/157 passed
 
 ## Phase 5: Prepare Docker/Donkey Changes (on same branch, no disruption)
 - [ ] Delete docker/donkey/adguard/ (moved to glados)

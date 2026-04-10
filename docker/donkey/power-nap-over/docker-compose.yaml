@@ -5,7 +5,7 @@ services:
     command: /scripts/generate-config.sh
     volumes:
       - power-nap-over-config:/work/power-nap-over
-      - ../dnsmasq:/work/dnsmasq:ro
+      - ../../../infrastructure/vars:/work/infrastructure/vars:ro
       - ../../../kubernetes/talos:/work/talos:ro
       - ./scripts:/scripts:ro
 
