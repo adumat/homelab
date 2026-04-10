@@ -1,0 +1,229 @@
+---
+- name: Configure VyOS router (glados)
+  hosts: glados
+  gather_facts: false
+  vars_files:
+    - ../vars/networks.yaml
+    - ../vars/services.yaml
+
+  tasks:
+    # ── System ──────────────────────────────────────────────
+    - name: System settings
+      vyos.vyos.vyos_config:
+        lines:
+          - "set system host-name '{{ hostname }}'"
+          - "set system domain-name '{{ domain }}'"
+          - "set system time-zone '{{ timezone }}'"
+          - "set system name-server '{{ dns_upstream }}'"
+          - "set service ssh port '{{ ssh_port }}'"
+        save: true
+
+    # ── WAN (PPPoE over VLAN) ───────────────────────────────
+    - name: WAN interface — PPPoE over VLAN {{ wan_vlan_id }}
+      vyos.vyos.vyos_config:
+        lines:
+          - "set interfaces ethernet {{ wan_interface }} vif {{ wan_vlan_id }} description 'WAN PPPoE VLAN'"
+          - "set interfaces pppoe pppoe0 source-interface '{{ wan_interface }}.{{ wan_vlan_id }}'"
+          - "set interfaces pppoe pppoe0 authentication username '{{ pppoe_username }}'"
+          - "set interfaces pppoe pppoe0 authentication password '{{ pppoe_password }}'"
+          - "set interfaces pppoe pppoe0 ip adjust-mss '1452'"
+        save: true
+
+    # ── LAN VLAN interfaces ─────────────────────────────────
+    - name: LAN VLAN interfaces
+      vyos.vyos.vyos_config:
+        lines:
+          - "set interfaces ethernet {{ lan_interface }} vif {{ item.value.vlan_id }} address '{{ item.value.gateway }}/{{ item.value.subnet.split('/')[1] }}'"
+          - "set interfaces ethernet {{ lan_interface }} vif {{ item.value.vlan_id }} description '{{ item.key }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      when: item.value.vlan_id is not none
+
+    # ── NAT ─────────────────────────────────────────────────
+    - name: Source NAT — masquerade outbound traffic
+      vyos.vyos.vyos_config:
+        lines:
+          - "set nat source rule 100 outbound-interface name 'pppoe0'"
+          - "set nat source rule 100 source address '10.1.0.0/16'"
+          - "set nat source rule 100 translation address 'masquerade'"
+        save: true
+
+    # ── DHCP servers ────────────────────────────────────────
+    - name: DHCP server per zone
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} subnet-id {{ item.value.vlan_id }}"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option default-router '{{ item.value.gateway }}'"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option name-server '{{ item.value.gateway }}'"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option domain-name '{{ domain }}'"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} lease '{{ item.value.dhcp.lease }}'"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} range 0 start '{{ item.value.dhcp.range_start }}'"
+          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} range 0 stop '{{ item.value.dhcp.range_stop }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      when: item.value.dhcp is defined
+
+    # ── DHCP static mappings ────────────────────────────────
+    - name: DHCP static host mappings
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dhcp-server shared-network-name {{ item.0.key }} subnet {{ item.0.value.subnet }} static-mapping {{ item.1.name }} mac '{{ item.1.mac }}'"
+          - "set service dhcp-server shared-network-name {{ item.0.key }} subnet {{ item.0.value.subnet }} static-mapping {{ item.1.name }} ip-address '{{ item.1.ip }}'"
+        save: true
+      loop: "{{ zones | dict2items | subelements('value.static_hosts', skip_missing=True) }}"
+
+    # ── NTP server ──────────────────────────────────────────
+    - name: NTP allow clients
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service ntp allow-client address '10.1.0.0/16'"
+        save: true
+
+    - name: NTP servers
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service ntp server '{{ item }}'"
+        save: true
+      loop: "{{ ntp_servers }}"
+
+    # ── DNS forwarding ──────────────────────────────────────
+    - name: DNS forwarding settings
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dns forwarding cache-size '0'"
+          - "set service dns forwarding name-server '{{ dns_upstream }}' port '{{ dns_upstream_port }}'"
+          - "set service dns forwarding allow-from '10.1.0.0/16'"
+          - "set service dns forwarding listen-address '10.1.100.1'"
+        save: true
+
+    - name: DNS forwarding listen addresses per VLAN
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dns forwarding listen-address '{{ item.value.gateway }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      when: item.value.vlan_id is not none
+
+    # ── Firewall groups ─────────────────────────────────────
+    - name: Firewall network groups
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall group network-group {{ item.key | upper }} network '{{ item.value.subnet }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+
+    # ── Firewall — inter-zone rules ─────────────────────────
+    - name: "Firewall — {{ item.src }} → {{ item.dst }}"
+      vyos.vyos.vyos_config:
+        lines: "{{ lookup('template', '../templates/firewall_rule.j2') | from_yaml }}"
+        save: true
+      loop: >-
+        {%- set rules = [] -%}
+        {%- for src_name, src_zone in zones.items() -%}
+          {%- for dst_name, policy in (src_zone.access | default({})).items() -%}
+            {%- set _ = rules.append({'src': src_name, 'dst': dst_name, 'policy': policy}) -%}
+          {%- endfor -%}
+        {%- endfor -%}
+        {{ rules }}
+      loop_control:
+        label: "{{ item.src }} → {{ item.dst }}"
+
+    # ── Firewall — block internet for restricted zones ──────
+    - name: Block internet for zones without access
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 forward filter rule {{ 900 + idx }} action 'drop'"
+          - "set firewall ipv4 forward filter rule {{ 900 + idx }} source group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 900 + idx }} outbound-interface name 'pppoe0'"
+          - "set firewall ipv4 forward filter rule {{ 900 + idx }} description 'Block {{ item.key }} internet'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      loop_control:
+        index_var: idx
+      when: item.value.internet is defined and not item.value.internet
+
+    # ── Firewall — WAN inbound ──────────────────────────────
+    - name: WAN inbound rules
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 input filter default-action 'drop'"
+          - "set firewall ipv4 input filter rule 10 action 'accept'"
+          - "set firewall ipv4 input filter rule 10 state established"
+          - "set firewall ipv4 input filter rule 10 state related"
+          - "set firewall ipv4 input filter rule 20 action 'accept'"
+          - "set firewall ipv4 input filter rule 20 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 20 destination port '{{ wireguard.port }}'"
+          - "set firewall ipv4 input filter rule 20 inbound-interface name 'pppoe0'"
+          - "set firewall ipv4 input filter rule 20 description 'WireGuard VPN'"
+        save: true
+
+    # ── BGP ─────────────────────────────────────────────────
+    - name: BGP settings
+      vyos.vyos.vyos_config:
+        lines:
+          - "set protocols bgp system-as '{{ bgp.local_as }}'"
+          - "set protocols bgp parameters router-id '{{ bgp.router_id }}'"
+        save: true
+
+    - name: BGP neighbors
+      vyos.vyos.vyos_config:
+        lines:
+          - "set protocols bgp neighbor '{{ item.ip }}' remote-as '{{ item.remote_as }}'"
+          - "set protocols bgp neighbor '{{ item.ip }}' description '{{ item.description }}'"
+          - "set protocols bgp neighbor '{{ item.ip }}' address-family ipv4-unicast"
+        save: true
+      loop: "{{ bgp.neighbors }}"
+
+    # ── WireGuard ───────────────────────────────────────────
+    - name: WireGuard interface
+      vyos.vyos.vyos_config:
+        lines:
+          - "set interfaces wireguard {{ wireguard.interface }} address '{{ wireguard.address }}'"
+          - "set interfaces wireguard {{ wireguard.interface }} port '{{ wireguard.port }}'"
+          - "set interfaces wireguard {{ wireguard.interface }} private-key '{{ wireguard.private_key }}'"
+        save: true
+
+    - name: WireGuard peers
+      vyos.vyos.vyos_config:
+        lines:
+          - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} public-key '{{ item.public_key }}'"
+          - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} allowed-ips '{{ item.allowed_ips }}'"
+          - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} persistent-keepalive '{{ item.persistent_keepalive }}'"
+        save: true
+      loop: "{{ wireguard.peers }}"
+
+    # ── DDNS ────────────────────────────────────────────────
+    - name: Dynamic DNS via Cloudflare
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dns dynamic name cloudflare address interface 'pppoe0'"
+          - "set service dns dynamic name cloudflare host-name '{{ ddns.hostname }}'"
+          - "set service dns dynamic name cloudflare protocol 'cloudflare'"
+          - "set service dns dynamic name cloudflare username '{{ ddns.username }}'"
+          - "set service dns dynamic name cloudflare password '{{ ddns.password }}'"
+          - "set service dns dynamic name cloudflare zone '{{ ddns.zone }}'"
+        save: true
+
+    # ── doco-cd (Podman container — manages other containers) ─
+    - name: doco-cd container
+      vyos.vyos.vyos_config:
+        lines:
+          - "set container name doco-cd image '{{ doco_cd.image }}'"
+          - "set container name doco-cd restart 'on-failure'"
+          - "set container name doco-cd environment TZ value '{{ timezone }}'"
+          - "set container name doco-cd environment GIT_ACCESS_TOKEN value '{{ doco_cd.git_access_token }}'"
+          - "set container name doco-cd environment SECRET_PROVIDER value 'bitwarden_sm'"
+          - "set container name doco-cd environment SECRET_PROVIDER_ACCESS_TOKEN value '{{ doco_cd.bws_access_token }}'"
+          - "set container name doco-cd environment SECRET_PROVIDER_API_URL value 'https://vault.bitwarden.eu/api'"
+          - "set container name doco-cd environment SECRET_PROVIDER_IDENTITY_URL value 'https://vault.bitwarden.eu/identity'"
+          - "set container name doco-cd environment POLL_CONFIG_FILE value '/config/poll.yaml'"
+          - "set container name doco-cd volume sock source '/run/podman/podman.sock'"
+          - "set container name doco-cd volume sock destination '/var/run/docker.sock'"
+          - "set container name doco-cd volume sock mode 'rw'"
+          - "set container name doco-cd volume data source '/config/containers/doco-cd/data'"
+          - "set container name doco-cd volume data destination '/data'"
+          - "set container name doco-cd volume data mode 'rw'"
+          - "set container name doco-cd volume poll source '/config/containers/doco-cd/poll.yaml'"
+          - "set container name doco-cd volume poll destination '/config/poll.yaml'"
+          - "set container name doco-cd volume poll mode 'ro'"
+        save: true

@@ -1,0 +1,170 @@
+# Single source of truth for all network definitions.
+# The playbook derives interfaces, DHCP, firewall, and DNS config from this.
+
+# Physical interfaces
+wan_interface: eth1
+lan_interface: eth0
+
+# PPPoE over VLAN (beactive ISP)
+wan_vlan_id: 835
+pppoe_username: "{{ vault_pppoe_username }}"
+pppoe_password: "{{ vault_pppoe_password }}"
+
+# Network zones
+# Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
+#
+# access.<target> values:
+#   full                      — accept all new connections
+#   none                      — drop all new connections (established/related still allowed)
+#   [{ port: N, proto: tcp }] — accept only listed ports (proto defaults to tcp)
+zones:
+  management:
+    vlan_id: 1
+    subnet: 10.1.1.0/24
+    gateway: 10.1.1.1
+    internet: true
+    dhcp:
+      range_start: 10.1.1.100
+      range_stop: 10.1.1.199
+      lease: 86400
+    static_hosts:
+      - { name: switch-main,   mac: "04:09:73:36:1b:a0", ip: 10.1.1.10 }
+      - { name: switch-living, mac: "d8:07:b6:d7:94:67", ip: 10.1.1.11 }
+      - { name: u6-pt,         mac: "0c:ea:14:7c:1d:01", ip: 10.1.1.50 }
+      - { name: u6-p1,         mac: "0c:ea:14:7c:1f:51", ip: 10.1.1.51 }
+      - { name: u6-ext,        mac: "d8:b3:70:e9:e0:82", ip: 10.1.1.52 }
+    access:
+      servers: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: full
+      guest: full
+
+  servers:
+    vlan_id: 10
+    subnet: 10.1.10.0/24
+    gateway: 10.1.10.1
+    internet: true
+    dhcp:
+      range_start: 10.1.10.100
+      range_stop: 10.1.10.199
+      lease: 86400
+    static_hosts:
+      - { name: elizabeth,    mac: "14:da:e9:4d:e7:65", ip: 10.1.10.2 }
+      - { name: donkey,       mac: "ee:33:32:65:7e:84", ip: 10.1.10.3 }
+      - { name: kube-nuc,     mac: "1c:69:7a:a5:93:fc", ip: 10.1.10.30 }
+      - { name: kube-hp,      mac: "f8:b4:6a:a5:87:ed", ip: 10.1.10.32 }
+      - { name: kube-ceph-01, mac: "e8:6a:64:a4:89:ca", ip: 10.1.10.33 }
+      - { name: kube-ceph-02, mac: "e8:6a:64:f6:ff:af", ip: 10.1.10.34 }
+      - { name: kube-ceph-03, mac: "e8:6a:64:76:2a:18", ip: 10.1.10.35 }
+    access:
+      management: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none
+
+  clients:
+    vlan_id: 20
+    subnet: 10.1.20.0/24
+    gateway: 10.1.20.1
+    internet: true
+    dhcp:
+      range_start: 10.1.20.100
+      range_stop: 10.1.20.199
+      lease: 43200
+    access:
+      management: none
+      servers: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none
+
+  iot:
+    vlan_id: 30
+    subnet: 10.1.30.0/24
+    gateway: 10.1.30.1
+    internet: true
+    dhcp:
+      range_start: 10.1.30.100
+      range_stop: 10.1.30.199
+      lease: 86400
+    access:
+      management: none
+      servers:
+        - { port: 1883, description: MQTT }
+        - { port: 8123, description: "Home Assistant" }
+      clients: none
+      iot_local: none
+      untrusted: none
+      guest: none
+
+  iot_local:
+    vlan_id: 40
+    subnet: 10.1.40.0/24
+    gateway: 10.1.40.1
+    internet: false
+    dhcp:
+      range_start: 10.1.40.100
+      range_stop: 10.1.40.199
+      lease: 86400
+    access:
+      management: none
+      servers:
+        - { port: 1883, description: MQTT }
+        - { port: 8123, description: "Home Assistant" }
+      clients: none
+      iot: none
+      untrusted: none
+      guest: none
+
+  untrusted:
+    vlan_id: 50
+    subnet: 10.1.50.0/24
+    gateway: 10.1.50.1
+    internet: true
+    dhcp:
+      range_start: 10.1.50.100
+      range_stop: 10.1.50.199
+      lease: 43200
+    access:
+      management: none
+      servers: none
+      clients: none
+      iot: none
+      iot_local: none
+      guest: none
+
+  guest:
+    vlan_id: 60
+    subnet: 10.1.60.0/24
+    gateway: 10.1.60.1
+    internet: true
+    dhcp:
+      range_start: 10.1.60.100
+      range_stop: 10.1.60.199
+      lease: 3600
+    access:
+      management: none
+      servers: none
+      clients: none
+      iot: none
+      iot_local: none
+      untrusted: none
+
+  vpn:
+    vlan_id: null  # WireGuard interface, not a VLAN
+    subnet: 10.1.100.0/24
+    gateway: 10.1.100.1
+    internet: true
+    access:
+      management: none
+      servers: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none

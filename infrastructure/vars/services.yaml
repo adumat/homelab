@@ -1,0 +1,59 @@
+# System
+hostname: glados
+domain: lan
+timezone: Europe/Rome
+base_domain: garuso.uk
+
+# SSH
+ssh_port: 22
+
+# NTP — serve time to LAN clients
+ntp_servers:
+  - 0.it.pool.ntp.org
+  - 1.it.pool.ntp.org
+  - 2.it.pool.ntp.org
+  - 3.it.pool.ntp.org
+
+# DNS forwarding — VyOS forwards to AdGuard container
+dns_upstream: 127.0.0.1
+dns_upstream_port: 5353
+
+# DDNS via Cloudflare
+ddns:
+  hostname: "vpn.{{ base_domain }}"
+  zone: "{{ base_domain }}"
+  username: "token"
+  password: "{{ vault_cloudflare_api_token }}"
+
+# BGP peering: VyOS ↔ Cilium
+bgp:
+  local_as: 64512
+  router_id: 10.1.10.1
+  neighbors:
+    - { ip: 10.1.10.30, remote_as: 64513, description: kube-nuc }
+    - { ip: 10.1.10.32, remote_as: 64513, description: kube-hp }
+    - { ip: 10.1.10.33, remote_as: 64513, description: kube-ceph-01 }
+    - { ip: 10.1.10.34, remote_as: 64513, description: kube-ceph-02 }
+    - { ip: 10.1.10.35, remote_as: 64513, description: kube-ceph-03 }
+
+# doco-cd (VyOS native Podman container — manages other containers)
+doco_cd:
+  image: "ghcr.io/kimdre/doco-cd:latest"
+  git_access_token: "{{ vault_git_access_token }}"
+  bws_access_token: "{{ vault_bws_access_token }}"
+
+# WireGuard VPN
+wireguard:
+  interface: wg0
+  address: 10.1.100.1/24
+  port: 51820
+  private_key: "{{ vault_wg_private_key }}"
+  peers:
+    - name: matteo-mac
+      public_key: "{{ vault_wg_peer_matteo_mac }}"
+      allowed_ips: 10.1.100.10/32
+      persistent_keepalive: 25
+    - name: matteo-iphone
+      public_key: "{{ vault_wg_peer_matteo_iphone }}"
+      allowed_ips: 10.1.100.11/32
+      persistent_keepalive: 25

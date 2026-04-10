@@ -1,0 +1,41 @@
+{#
+  Generates VyOS firewall rules for inter-zone traffic.
+
+  Input (from loop item):
+    item.src    — source zone name (e.g., "iot")
+    item.dst    — destination zone name (e.g., "servers")
+    item.policy — "full", "none", or list of {port, description, proto}
+
+  Rule numbering: src_idx * 100 + dst_idx * 10 + sub_rule
+#}
+{% set src = item.src %}
+{% set dst = item.dst %}
+{% set policy = item.policy %}
+{% set src_group = src | upper %}
+{% set dst_group = dst | upper %}
+{% set zone_names = zones | list %}
+{% set rule_base = zone_names.index(src) * 100 + zone_names.index(dst) * 10 %}
+{% if policy == 'full' %}
+- "set firewall ipv4 forward filter rule {{ rule_base }} action 'accept'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} source group network-group '{{ src_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} destination group network-group '{{ dst_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} description '{{ src }} → {{ dst }}: full'"
+{% elif policy == 'none' %}
+- "set firewall ipv4 forward filter rule {{ rule_base }} action 'drop'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} source group network-group '{{ src_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} destination group network-group '{{ dst_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base }} description '{{ src }} → {{ dst }}: blocked'"
+{% elif policy is iterable and policy is not string %}
+{% for rule in policy %}
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} action 'accept'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} source group network-group '{{ src_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} destination group network-group '{{ dst_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} destination port '{{ rule.port }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} protocol '{{ rule.proto | default('tcp') }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} description '{{ src }} → {{ dst }}: {{ rule.description | default(rule.port) }}'"
+{% endfor %}
+- "set firewall ipv4 forward filter rule {{ rule_base + 9 }} action 'drop'"
+- "set firewall ipv4 forward filter rule {{ rule_base + 9 }} source group network-group '{{ src_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + 9 }} destination group network-group '{{ dst_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + 9 }} description '{{ src }} → {{ dst }}: drop remaining'"
+{% endif %}

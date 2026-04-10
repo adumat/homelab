@@ -1,0 +1,45 @@
+services:
+  adguard-init:
+    image: mikefarah/yq:latest
+    container_name: adguard-init
+    user: '0:0'
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        yq '
+          .users = [{"name": env(ADGUARD_USERNAME), "password": env(ADGUARD_PASSWORD_HASH)}] |
+          .dns.upstream_dns = [
+            "https://security.cloudflare-dns.com/dns-query",
+            "https://dns.quad9.net/dns-query",
+            "https://base.dns.mullvad.net/dns-query",
+            "[/" + env(DOMAIN) + "/]" + env(K8S_GATEWAY_IP)
+          ]
+        ' /input/AdGuardHome.yaml > /output/AdGuardHome.yaml
+    environment:
+      - ADGUARD_USERNAME=${ADGUARD_USERNAME}
+      - ADGUARD_PASSWORD_HASH=${ADGUARD_PASSWORD_HASH}
+      - DOMAIN=${DOMAIN}
+      - K8S_GATEWAY_IP=${K8S_GATEWAY_IP:-10.1.10.41}
+    volumes:
+      - ./conf/AdGuardHome.yaml:/input/AdGuardHome.yaml:ro
+      - adguard_conf:/output
+
+  adguard:
+    image: adguard/adguardhome:v0.107.73
+    container_name: adguard
+    restart: unless-stopped
+    volumes:
+      - adguard_work:/opt/adguardhome/work
+      - adguard_conf:/opt/adguardhome/conf
+    ports:
+      - '5353:53/udp'
+      - '5353:53/tcp'
+      - '3080:80/tcp'
+    depends_on:
+      adguard-init:
+        condition: service_completed_successfully
+
+volumes:
+  adguard_work:
+  adguard_conf:

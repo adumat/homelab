@@ -1,0 +1,9 @@
+name: glados-homelab
+working_dir: docker/glados/
+auto_discover: true
+auto_discover_opts:
+  depth: 1
+external_secrets:
+  ADGUARD_USERNAME: 168a0f24-0b00-4c2d-91bb-b3f0015782cd
+  ADGUARD_PASSWORD: 3f36ba39-1813-4da6-bda5-b3f1015859ec
+  ADGUARD_PASSWORD_HASH: 49594cda-f373-4780-bc6b-b3f00157b703
