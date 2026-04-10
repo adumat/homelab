@@ -1,0 +1,132 @@
+---
+title: Home
+views:
+  - title: Home
+    path: home
+    cards:
+      # --- People ---
+      - type: markdown
+        content: "# People"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: person.matteo_2
+            name: Matteo
+          - type: tile
+            entity: person.elisa
+            name: Elisa
+
+      # --- Weather ---
+      - type: weather-forecast
+        entity: weather.forecast_home
+        show_forecast: true
+
+      # --- Alarm ---
+      - type: markdown
+        content: "# Alarm"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti
+            name: Contacts
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar
+            name: Radar
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti_piano_terra
+            name: Contacts GF
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti_primo_piano
+            name: Contacts 1F
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar_piano_terra
+            name: Radar GF
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar_primo_piano
+            name: Radar 1F
+
+      # --- Solar ---
+      - type: markdown
+        content: "# Solar"
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.solaredge_solar_power
+            name: Production
+            unit: kW
+            min: 0
+            max: 6
+            needle: true
+            severity:
+              green: 2
+              yellow: 0.5
+              red: 0
+          - type: gauge
+            entity: sensor.solaredge_power_consumption
+            name: Consumption
+            unit: kW
+            min: 0
+            max: 6
+            needle: true
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_energy_today
+            name: Today
+          - type: tile
+            entity: sensor.solaredge_grid_power
+            name: Grid
+          - type: tile
+            entity: sensor.fv_netta_w
+            name: Net Solar
+
+      # --- HVAC ---
+      - type: markdown
+        content: "# HVAC"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.hvac_controller_t05_temperatura_aria_esterna
+            name: Outdoor Temp
+          - type: tile
+            entity: select.hvac_controller_pdc_modalita_stagione
+            name: Season Mode
+          - type: tile
+            entity: switch.hvac_controller_command_heatcool
+            name: Heat/Cool
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.hvac_controller_t06_temperatura_sonda_sanitaria
+            name: Hot Water
+          - type: tile
+            entity: sensor.hvac_controller_t01_temperatura_acqua_in_ingresso
+            name: Water In
+          - type: tile
+            entity: sensor.hvac_controller_t02_temperatura_acqua_in_uscita
+            name: Water Out
+
+      # --- Quick Controls ---
+      - type: markdown
+        content: "# Quick Controls"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.hvac_controller_pump_gf
+            name: Pump GF
+          - type: tile
+            entity: switch.hvac_controller_pump_1f
+            name: Pump 1F
+          - type: tile
+            entity: switch.hvac_controller_pump_radiator
+            name: Radiator
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.iron_outlet_iron_outlet_relay
+            name: Iron Outlet
+          - type: tile
+            entity: switch.power_outlet_power_outlet_relay
+            name: Power Outlet

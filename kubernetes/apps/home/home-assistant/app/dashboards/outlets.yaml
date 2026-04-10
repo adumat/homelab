@@ -1,0 +1,112 @@
+---
+title: Outlets
+views:
+  - title: Outlets
+    path: outlets
+    cards:
+      # --- Iron Outlet ---
+      - type: markdown
+        content: "# Iron Outlet"
+      - type: tile
+        entity: switch.iron_outlet_iron_outlet_relay
+        name: Iron Outlet
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.iron_outlet_iron_outlet_power
+            name: Power
+            unit: W
+            min: 0
+            max: 2500
+            needle: true
+            severity:
+              green: 0
+              yellow: 1000
+              red: 2000
+          - type: gauge
+            entity: sensor.iron_outlet_iron_outlet_current
+            name: Current
+            unit: A
+            min: 0
+            max: 16
+            needle: true
+      - type: entities
+        entities:
+          - entity: sensor.iron_outlet_iron_outlet_voltage
+            name: Voltage
+          - entity: sensor.iron_outlet_iron_outlet_daily_energy
+            name: Daily Energy
+          - entity: binary_sensor.iron_outlet_iron_outlet_button
+            name: Physical Button
+      - type: statistics-graph
+        entities:
+          - entity: sensor.iron_outlet_iron_outlet_power
+            name: Iron Power
+        stat_types:
+          - mean
+          - max
+        days_to_show: 7
+
+      # --- Power Outlet ---
+      - type: markdown
+        content: "# Power Outlet"
+      - type: tile
+        entity: switch.power_outlet_power_outlet_relay
+        name: Power Outlet
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.power_outlet_power_outlet_power
+            name: Power
+            unit: W
+            min: 0
+            max: 2500
+            needle: true
+            severity:
+              green: 0
+              yellow: 1000
+              red: 2000
+          - type: gauge
+            entity: sensor.power_outlet_power_outlet_current
+            name: Current
+            unit: A
+            min: 0
+            max: 16
+            needle: true
+      - type: entities
+        entities:
+          - entity: sensor.power_outlet_power_outlet_voltage
+            name: Voltage
+          - entity: sensor.power_outlet_power_outlet_daily_energy
+            name: Daily Energy
+          - entity: binary_sensor.power_outlet_power_outlet_button
+            name: Physical Button
+
+      # --- Power Sockets (5-relay) ---
+      - type: markdown
+        content: "# Power Sockets (5-Relay)"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.power_sockets_power_sockets_relay1
+            name: Relay 1
+          - type: tile
+            entity: switch.power_sockets_power_sockets_relay2
+            name: Relay 2
+          - type: tile
+            entity: switch.power_sockets_power_sockets_relay3
+            name: Relay 3
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.power_sockets_power_sockets_relay4
+            name: Relay 4
+          - type: tile
+            entity: switch.power_sockets_power_sockets_relay5
+            name: Relay 5
+      - type: entities
+        entities:
+          - entity: binary_sensor.power_sockets_power_sockets_button
+            name: Physical Button
+          - entity: sensor.power_sockets_power_sockets_uptime
+            name: Uptime

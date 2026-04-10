@@ -1,0 +1,194 @@
+---
+title: HVAC
+views:
+  - title: HVAC
+    path: hvac
+    cards:
+      # --- Mode & Controls ---
+      - type: markdown
+        content: "# Mode & Controls"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: select.hvac_controller_pdc_modalita_stagione
+            name: Season Mode
+          - type: tile
+            entity: switch.hvac_controller_command_heatcool
+            name: Heat/Cool Command
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.hvac_controller_pump_gf
+            name: Pump GF
+            color: blue
+          - type: tile
+            entity: switch.hvac_controller_pump_1f
+            name: Pump 1F
+            color: blue
+          - type: tile
+            entity: switch.hvac_controller_pump_radiator
+            name: Pump Radiator
+            color: blue
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: switch.hvac_controller_fancoil_gf
+            name: Fancoil GF
+            color: orange
+          - type: tile
+            entity: switch.hvac_controller_fancoil_1f
+            name: Fancoil 1F
+            color: orange
+
+      # --- Temperatures ---
+      - type: markdown
+        content: "# Temperatures"
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.hvac_controller_t05_temperatura_aria_esterna
+            name: Outdoor
+            unit: "°C"
+            min: -10
+            max: 45
+            needle: true
+            severity:
+              blue: -10
+              green: 15
+              yellow: 30
+              red: 38
+          - type: gauge
+            entity: sensor.hvac_controller_t06_temperatura_sonda_sanitaria
+            name: Hot Water
+            unit: "°C"
+            min: 0
+            max: 80
+            needle: true
+            severity:
+              blue: 0
+              green: 40
+              yellow: 55
+              red: 65
+      - type: entities
+        title: Water Circuit
+        entities:
+          - entity: sensor.hvac_controller_t01_temperatura_acqua_in_ingresso
+            name: Water Inlet (T01)
+          - entity: sensor.hvac_controller_t02_temperatura_acqua_in_uscita
+            name: Water Outlet (T02)
+          - entity: sensor.hvac_controller_t07_temperatura_sonda_remota_impianto
+            name: System Remote Probe (T07)
+      - type: entities
+        title: Compressor
+        entities:
+          - entity: sensor.hvac_controller_t03_temperatura_aspirazione_compressore
+            name: Suction (T03)
+          - entity: sensor.hvac_controller_t04_temperatura_scarico_compressore
+            name: Discharge (T04)
+      - type: entities
+        title: Pressures
+        entities:
+          - entity: sensor.hvac_controller_t09_pressione_di_bassa
+            name: Low Pressure (T09)
+          - entity: sensor.hvac_controller_t10_pressione_di_alta
+            name: High Pressure (T10)
+      - type: statistics-graph
+        entities:
+          - entity: sensor.hvac_controller_t05_temperatura_aria_esterna
+            name: Outdoor
+          - entity: sensor.hvac_controller_t01_temperatura_acqua_in_ingresso
+            name: Water In
+          - entity: sensor.hvac_controller_t02_temperatura_acqua_in_uscita
+            name: Water Out
+        stat_types:
+          - mean
+          - min
+          - max
+        days_to_show: 7
+
+      # --- Temperature Targets ---
+      - type: markdown
+        content: "# Temperature Targets"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: number.hvac_controller_heat_temperature_target
+            name: Heat Target
+          - type: tile
+            entity: number.hvac_controller_cool_temperature_target
+            name: Cool Target
+          - type: tile
+            entity: number.hvac_controller_sanitary_temperature_target
+            name: Sanitary Target
+      - type: entities
+        title: Advanced Parameters
+        entities:
+          - entity: number.hvac_controller_r08_fascia_solo_cal
+            name: R08 Boiler-Only Band
+          - entity: number.hvac_controller_r10_caldaia_supporto_heat
+            name: R10 Boiler Support (Heat)
+          - entity: number.hvac_controller_r12_ritardo_r10
+            name: R12 Delay R10
+          - entity: number.hvac_controller_r15_caldaia_supporto_sanitary
+            name: R15 Boiler Support (Sanitary)
+          - entity: number.hvac_controller_r16_ritardo_r15
+            name: R16 Delay R15
+          - entity: number.hvac_controller_r22_fascia_solo_pdc
+            name: R22 Heat-Pump-Only Band
+          - entity: number.hvac_controller_r23_caldaia_a_supporto_heat_4_sanitary_6
+            name: R23 Boiler Support Mode
+          - entity: number.hvac_controller_r28_metti_r08
+            name: R28 = R08
+          - entity: number.hvac_controller_r37
+            name: R37
+
+      # --- Computed Targets ---
+      - type: markdown
+        content: "# Computed Targets"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.pdc_r22_target
+            name: R22 Target
+          - type: tile
+            entity: sensor.pdc_r28_target
+            name: R28 Target
+          - type: tile
+            entity: sensor.pdc_r37_target
+            name: R37 Target
+
+      # --- Heating Schedule ---
+      - type: markdown
+        content: "# Heating Schedule"
+      - type: entities
+        title: Automations
+        show_header_toggle: false
+        entities:
+          - entity: automation.on_2_30
+            name: "On @ 2:30"
+          - entity: automation.off_heat_03_30
+            name: "Off Heat @ 3:30"
+          - entity: automation.heat_on_4_30
+            name: "Heat On @ 4:30"
+          - entity: automation.off_6_30
+            name: "Off @ 6:30"
+          - entity: automation.off_00
+            name: "Off @ 00:00"
+
+      # --- Maintenance ---
+      - type: markdown
+        content: "# Maintenance"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: button.hvac_controller_restart
+            name: Restart
+          - type: tile
+            entity: button.hvac_controller_factory_reset
+            name: Factory Reset
+          - type: tile
+            entity: button.hvac_controller_safe_mode
+            name: Safe Mode
+      - type: tile
+        entity: binary_sensor.hvac_controller_status
+        name: Controller Status

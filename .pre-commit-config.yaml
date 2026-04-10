@@ -37,7 +37,7 @@ repos:
       - id: kubeconform
         name: Kubeconform
         files: ^kubernetes/.*\.yaml$
-        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml)
+        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml|/dashboards/)
         entry: kubeconform
         args:
           - -strict

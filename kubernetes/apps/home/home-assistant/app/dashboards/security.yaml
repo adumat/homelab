@@ -1,0 +1,164 @@
+---
+title: Security
+views:
+  - title: Security
+    path: security
+    cards:
+      # --- Alarm Partitions ---
+      - type: markdown
+        content: "# Alarm Partitions"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti
+            name: All Contacts
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar
+            name: All Radar
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti_piano_terra
+            name: Contacts GF
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_contatti_primo_piano
+            name: Contacts 1F
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar_piano_terra
+            name: Radar GF
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_radar_primo_piano
+            name: Radar 1F
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_piano_terra
+            name: Full GF
+          - type: tile
+            entity: alarm_control_panel.digiplex_panel_primo_piano
+            name: Full 1F
+
+      # --- Door & Window Sensors ---
+      - type: markdown
+        content: "# Doors & Windows"
+      - type: entities
+        title: Doors
+        entities:
+          - entity: binary_sensor.digiplex_panel_porta_ingresso
+            name: Front Door
+            icon: mdi:door
+          - entity: binary_sensor.digiplex_panel_scorrevole_soggi
+            name: Sliding Door (Living Room)
+            icon: mdi:door-sliding
+      - type: entities
+        title: Windows - Ground Floor
+        entities:
+          - entity: binary_sensor.digiplex_panel_fin_cucina_pranz
+            name: Kitchen + Dining
+            icon: mdi:window-closed-variant
+          - entity: binary_sensor.digiplex_panel_fin_soggiorno
+            name: Living Room
+            icon: mdi:window-closed-variant
+          - entity: binary_sensor.digiplex_panel_fin_notte_p_t
+            name: Bedroom GF
+            icon: mdi:window-closed-variant
+      - type: entities
+        title: Windows - First Floor
+        entities:
+          - entity: binary_sensor.digiplex_panel_fin_giochi_bagno
+            name: Playroom + Bathroom
+            icon: mdi:window-closed-variant
+          - entity: binary_sensor.digiplex_panel_fin_studio_camer
+            name: Study + Kids Room
+            icon: mdi:window-closed-variant
+          - entity: binary_sensor.digiplex_panel_matrimon_bagno
+            name: Master Bedroom + Bathroom
+            icon: mdi:window-closed-variant
+
+      # --- Motion Sensors ---
+      - type: markdown
+        content: "# Motion Sensors"
+      - type: entities
+        title: Ground Floor
+        entities:
+          - entity: binary_sensor.digiplex_panel_radar_ingresso
+            name: Entrance
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_cucina
+            name: Kitchen
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_pranzo
+            name: Dining Room
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_soggiorno
+            name: Living Room
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_notte_p_t
+            name: Bedroom GF
+            icon: mdi:motion-sensor
+      - type: entities
+        title: First Floor
+        entities:
+          - entity: binary_sensor.digiplex_panel_radar_studio
+            name: Study
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_bambine
+            name: Kids Room
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_giochi
+            name: Playroom
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_matrimonia
+            name: Master Bedroom
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_notte
+            name: Bedroom 1F
+            icon: mdi:motion-sensor
+          - entity: binary_sensor.digiplex_panel_radar_mansarda
+            name: Attic
+            icon: mdi:motion-sensor
+
+      # --- Tamper & Diagnostics ---
+      - type: markdown
+        content: "# Panel Diagnostics"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: binary_sensor.digiplex_panel_tamper
+            name: Panel Tamper
+          - type: tile
+            entity: binary_sensor.digiplex_panel_tamper_sensori
+            name: Sensor Tamper
+      - type: entities
+        title: Panel Status
+        entities:
+          - entity: sensor.digiplex_panel_battery_voltage
+            name: Battery
+            icon: mdi:battery
+          - entity: sensor.digiplex_panel_dc_voltage
+            name: DC Voltage
+            icon: mdi:flash
+          - entity: sensor.digiplex_panel_panel_voltage
+            name: Panel Voltage
+            icon: mdi:flash
+          - entity: sensor.digiplex_panel_trouble_flags
+            name: Trouble Flags
+            icon: mdi:alert-circle
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: button.digiplex_panel_contatti_piano_terra_beep
+            name: Beep GF Contacts
+          - type: button
+            entity: button.digiplex_panel_contatti_primo_piano_beep
+            name: Beep 1F Contacts
+      - type: horizontal-stack
+        cards:
+          - type: button
+            entity: button.digiplex_panel_radar_piano_terra_beep
+            name: Beep GF Radar
+          - type: button
+            entity: button.digiplex_panel_radar_primo_piano_beep
+            name: Beep 1F Radar

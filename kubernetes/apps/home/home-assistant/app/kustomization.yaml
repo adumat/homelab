@@ -6,3 +6,13 @@ resources:
   - ./pvc.yaml
   - ./helmrelease.yaml
   - ./externalsecret.yaml
+configMapGenerator:
+  - name: home-assistant-dashboards
+    files:
+      - dashboards/overview.yaml
+      - dashboards/energy.yaml
+      - dashboards/hvac.yaml
+      - dashboards/security.yaml
+      - dashboards/outlets.yaml
+    options:
+      disableNameSuffixHash: true

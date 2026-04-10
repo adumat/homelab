@@ -1,0 +1,173 @@
+---
+title: Energy
+views:
+  - title: Energy
+    path: energy
+    cards:
+      # --- Solar Production ---
+      - type: markdown
+        content: "# Solar Production"
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.solaredge_solar_power
+            name: Current Production
+            unit: kW
+            min: 0
+            max: 6
+            needle: true
+            severity:
+              green: 2
+              yellow: 0.5
+              red: 0
+          - type: gauge
+            entity: sensor.solaredge_current_power
+            name: Inverter Power
+            unit: W
+            min: 0
+            max: 6000
+            needle: true
+      - type: statistics-graph
+        entities:
+          - entity: sensor.solaredge_solar_power
+            name: Solar Power
+        stat_types:
+          - mean
+          - max
+        days_to_show: 7
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_energy_today
+            name: Today
+          - type: tile
+            entity: sensor.solaredge_energy_this_month
+            name: This Month
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_energy_this_year
+            name: This Year
+          - type: tile
+            entity: sensor.solaredge_lifetime_energy
+            name: Lifetime
+
+      # --- Grid & Consumption ---
+      - type: markdown
+        content: "# Grid & Consumption"
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.solaredge_power_consumption
+            name: Consumption
+            unit: kW
+            min: 0
+            max: 6
+            needle: true
+          - type: gauge
+            entity: sensor.solaredge_grid_power
+            name: Grid Power
+            unit: kW
+            min: -3
+            max: 3
+            needle: true
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_produced_energy
+            name: Produced
+          - type: tile
+            entity: sensor.solaredge_consumed_energy
+            name: Consumed
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_self_consumed_energy
+            name: Self-Consumed
+          - type: tile
+            entity: sensor.solaredge_exported_energy
+            name: Exported
+          - type: tile
+            entity: sensor.solaredge_imported_energy
+            name: Imported
+      - type: tile
+        entity: sensor.fv_netta_w
+        name: Net Solar Power
+      - type: statistics-graph
+        entities:
+          - entity: sensor.solaredge_power_consumption
+            name: Consumption
+          - entity: sensor.solaredge_solar_power
+            name: Solar
+        stat_types:
+          - mean
+        days_to_show: 7
+
+      # --- Carbon Intensity ---
+      - type: markdown
+        content: "# Carbon Intensity"
+      - type: horizontal-stack
+        cards:
+          - type: gauge
+            entity: sensor.electricity_maps_co2_intensity
+            name: CO2 Intensity
+            unit: gCO2eq/kWh
+            min: 0
+            max: 600
+            needle: true
+            severity:
+              green: 0
+              yellow: 200
+              red: 400
+          - type: gauge
+            entity: sensor.electricity_maps_grid_fossil_fuel_percentage
+            name: Fossil Fuel
+            unit: "%"
+            min: 0
+            max: 100
+            needle: true
+            severity:
+              green: 0
+              yellow: 40
+              red: 60
+
+      # --- Outlet Power ---
+      - type: markdown
+        content: "# Outlet Power Monitoring"
+      - type: entities
+        title: Iron Outlet
+        entities:
+          - entity: sensor.iron_outlet_iron_outlet_power
+            name: Power
+          - entity: sensor.iron_outlet_iron_outlet_current
+            name: Current
+          - entity: sensor.iron_outlet_iron_outlet_voltage
+            name: Voltage
+          - entity: sensor.iron_outlet_iron_outlet_daily_energy
+            name: Daily Energy
+      - type: entities
+        title: Power Outlet
+        entities:
+          - entity: sensor.power_outlet_power_outlet_power
+            name: Power
+          - entity: sensor.power_outlet_power_outlet_current
+            name: Current
+          - entity: sensor.power_outlet_power_outlet_voltage
+            name: Voltage
+          - entity: sensor.power_outlet_power_outlet_daily_energy
+            name: Daily Energy
+
+      # --- System Info ---
+      - type: markdown
+        content: "# System"
+      - type: horizontal-stack
+        cards:
+          - type: tile
+            entity: sensor.solaredge_inverters
+            name: Inverters
+          - type: tile
+            entity: sensor.solaredge_meters
+            name: Meters
+          - type: tile
+            entity: sensor.solaredge_site_details
+            name: Site Status
