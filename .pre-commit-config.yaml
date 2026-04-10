@@ -37,8 +37,8 @@ repos:
       - id: kubeconform
         name: Kubeconform
         files: ^kubernetes/.*\.yaml$
-        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml)
-        entry: kubeconform
+        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml|talos/patches/)
+        entry: mise exec -- kubeconform
         args:
           - -strict
           - -ignore-missing-schemas

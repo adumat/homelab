@@ -7,20 +7,45 @@ metadata:
 spec:
   allowFirstLastIPs: "Yes"
   blocks:
-    - start: 192.168.1.41
-      stop: 192.168.1.49
+    - start: 10.1.10.41
+      stop: 10.1.10.79
 ---
-# yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/cilium.io/ciliuml2announcementpolicy_v2alpha1.json
 apiVersion: cilium.io/v2alpha1
-kind: CiliumL2AnnouncementPolicy
+kind: CiliumBGPClusterConfig
 metadata:
-  name: l2-policy
+  name: bgp-cluster
 spec:
-  loadBalancerIPs: true
-  # NOTE: interfaces might need to be set if you have more than one active NIC on your hosts
-  # interfaces:
-  #   - ^eno[0-9]+
-  #   - ^eth[0-9]+
-  nodeSelector:
-    matchLabels:
-      kubernetes.io/os: linux
+  bgpInstances:
+    - name: default
+      localASN: 64513
+      peers:
+        - name: vyos
+          peerASN: 64512
+          peerAddress: 10.1.10.1
+          peerConfigRef:
+            name: bgp-peer-config
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPPeerConfig
+metadata:
+  name: bgp-peer-config
+spec:
+  families:
+    - afi: ipv4
+      safi: unicast
+  gracefulRestart:
+    enabled: true
+    restartTimeSeconds: 120
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumBGPAdvertisement
+metadata:
+  name: lb-advertisement
+spec:
+  advertisements:
+    - advertisementType: Service
+      service:
+        addresses:
+          - LoadBalancerIP
+      selector:
+        matchLabels: {}

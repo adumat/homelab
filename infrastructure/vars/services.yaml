@@ -31,11 +31,21 @@ bgp:
   local_as: 64512
   router_id: 10.1.10.1
   neighbors:
-    - { ip: 10.1.10.30, remote_as: 64513, description: kube-nuc }
-    - { ip: 10.1.10.32, remote_as: 64513, description: kube-hp }
-    - { ip: 10.1.10.33, remote_as: 64513, description: kube-ceph-01 }
-    - { ip: 10.1.10.34, remote_as: 64513, description: kube-ceph-02 }
-    - { ip: 10.1.10.35, remote_as: 64513, description: kube-ceph-03 }
+    - ip: 10.1.10.10
+      remote_as: 64513
+      description: kube-nuc
+    - ip: 10.1.10.11
+      remote_as: 64513
+      description: kube-hp
+    - ip: 10.1.10.21
+      remote_as: 64513
+      description: kube-ceph-01
+    - ip: 10.1.10.22
+      remote_as: 64513
+      description: kube-ceph-02
+    - ip: 10.1.10.23
+      remote_as: 64513
+      description: kube-ceph-03
 
 # doco-cd (VyOS native Podman container — manages other containers)
 doco_cd:
