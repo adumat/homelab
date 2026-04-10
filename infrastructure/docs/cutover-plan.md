@@ -35,14 +35,12 @@
 - [x] Delete ExternalDNS AdGuard (entire directory + Kustomization)
 - [x] Validate: flux-local test 157/157 passed
 
-## Phase 5: Prepare Docker/Donkey Changes (on same branch, no disruption)
-- [ ] Delete docker/donkey/adguard/ (moved to glados)
-- [ ] Delete docker/donkey/dnsmasq/ (replaced by VyOS DHCP)
-- [ ] Delete docker/donkey/chrony/ (replaced by VyOS NTP)
-- [ ] Update docker/donkey/matchbox/docker-compose.yaml — dns: 10.1.10.1
-- [ ] Update docker/donkey/nut/docker-compose.yaml — dns: 10.1.10.1
-- [ ] Update docker/donkey/power-nap-over/ — new host discovery (was reading dnsmasq config)
-- [ ] Update .doco-cd.yaml — remove adguard/dnsmasq/chrony secret refs
+## Phase 5: Prepare Docker/Donkey Changes (on same branch, no disruption) ✅
+- [x] Delete adguard, dnsmasq, chrony (moved to glados)
+- [x] Update DNS in all remaining containers: 192.168.1.3 → 10.1.10.1
+- [x] Remove AdGuard secret refs from .doco-cd.yaml
+- [x] Remove adguard_volume from backup container
+- [x] Update power-nap-over: read from networks.yaml, broadcast → 10.1.10.255
 
 ## Phase 6: Pre-configure HPE Switch (safe, no disruption)
 - [ ] Log into HPE 1820 web UI
