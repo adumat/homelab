@@ -19,6 +19,12 @@
         save: true
 
     # ── WAN (PPPoE over VLAN) ───────────────────────────────
+    - name: Check if WAN interface exists
+      vyos.vyos.vyos_command:
+        commands: show interfaces ethernet
+      register: wan_check
+      changed_when: false
+
     - name: WAN interface — PPPoE over VLAN {{ wan_vlan_id }}
       vyos.vyos.vyos_config:
         lines:
@@ -28,6 +34,7 @@
           - "set interfaces pppoe pppoe0 authentication password '{{ pppoe_password }}'"
           - "set interfaces pppoe pppoe0 ip adjust-mss '1452'"
         save: true
+      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── LAN VLAN interfaces ─────────────────────────────────
     - name: LAN VLAN interfaces
@@ -47,6 +54,7 @@
           - "set nat source rule 100 source address '10.1.0.0/16'"
           - "set nat source rule 100 translation address 'masquerade'"
         save: true
+      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── DHCP servers ────────────────────────────────────────
     - name: DHCP server per zone
@@ -146,7 +154,7 @@
       loop: "{{ zones | dict2items }}"
       loop_control:
         index_var: idx
-      when: item.value.internet is defined and not item.value.internet
+      when: item.value.internet is defined and not item.value.internet and wan_interface in (wan_check.stdout | join(''))
 
     # ── Firewall — WAN inbound ──────────────────────────────
     - name: WAN inbound rules
@@ -162,6 +170,7 @@
           - "set firewall ipv4 input filter rule 20 inbound-interface name 'pppoe0'"
           - "set firewall ipv4 input filter rule 20 description 'WireGuard VPN'"
         save: true
+      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── BGP ─────────────────────────────────────────────────
     - name: BGP settings
@@ -209,12 +218,17 @@
           - "set service dns dynamic name cloudflare password '{{ ddns.password }}'"
           - "set service dns dynamic name cloudflare zone '{{ ddns.zone }}'"
         save: true
+      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── doco-cd (Podman container — manages other containers) ─
+    # Prerequisites (run manually on glados if first time):
+    #   sudo mkdir -p /config/containers/doco-cd/data
+    #   sudo touch /config/containers/doco-cd/poll.yaml
     - name: Doco-cd container
       vyos.vyos.vyos_config:
         lines:
           - "set container name doco-cd image '{{ doco_cd.image }}'"
+          - "set container name doco-cd allow-host-networks"
           - "set container name doco-cd restart 'on-failure'"
           - "set container name doco-cd environment TZ value '{{ timezone }}'"
           - "set container name doco-cd environment GIT_ACCESS_TOKEN value '{{ doco_cd.git_access_token }}'"

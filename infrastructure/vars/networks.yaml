@@ -32,9 +32,6 @@ zones:
       - name: switch-main
         mac: "04:09:73:36:1b:a0"
         ip: 10.1.1.10
-      - name: switch-living
-        mac: "d8:07:b6:d7:94:67"
-        ip: 10.1.1.11
       - name: u6-pt
         mac: "0c:ea:14:7c:1d:01"
         ip: 10.1.1.50
@@ -100,6 +97,10 @@ zones:
       range_start: 10.1.20.100
       range_stop: 10.1.20.199
       lease: 43200
+    static_hosts:
+      - name: switch-living
+        mac: "d8:07:b6:d7:94:67"
+        ip: 10.1.20.11
     access:
       management: none
       servers: full
