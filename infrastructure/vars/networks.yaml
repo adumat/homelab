@@ -14,10 +14,15 @@ pppoe_password: "{{ vault_pppoe_password }}"
 # Network zones
 # Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
 #
+# Zone properties:
+#   internet: true/false              — allow/block internet access
+#   client_isolation: true            — block intra-VLAN traffic (devices can't see each other)
+#
 # access.<target> values:
-#   full                              — accept all new connections
-#   none                              — drop all new (established/related still allowed)
-#   list of {port, description, proto} — accept only listed ports (proto defaults to tcp)
+#   full                                — accept all new connections
+#   none                                — drop all new (established/related still allowed)
+#   list of {port, description, proto}  — accept only listed ports (proto defaults to tcp)
+#   list of {range, description}        — accept only to specific IP range (CIDR)
 zones:
   management:
     vlan_id: 1
@@ -101,6 +106,22 @@ zones:
       - name: switch-living
         mac: "d8:07:b6:d7:94:67"
         ip: 10.1.20.11
+      # Shared devices (10.1.20.20-29) — accessible from Guest VLAN
+      - name: lg-tv
+        mac: "c0:d7:aa:8e:ca:18"
+        ip: 10.1.20.20
+      - name: samsung-tv
+        mac: "b0:f2:f6:77:40:24"
+        ip: 10.1.20.21
+      - name: epson-printer
+        mac: "dc:cd:2f:6f:1b:07"
+        ip: 10.1.20.22
+      - name: ps5-wifi
+        mac: "80:60:b7:10:03:3e"
+        ip: 10.1.20.30
+      - name: ps5-lan
+        mac: "78:c8:81:cf:4a:27"
+        ip: 10.1.20.30
     access:
       management: none
       servers: full
@@ -118,6 +139,11 @@ zones:
       range_start: 10.1.30.100
       range_stop: 10.1.30.199
       lease: 86400
+    static_hosts:
+      # Shared devices (10.1.30.20-29) — accessible from Guest VLAN
+      - name: google-home
+        mac: "00:f6:20:dc:f9:9b"
+        ip: 10.1.30.20
     access:
       management: none
       servers:
@@ -156,6 +182,7 @@ zones:
     subnet: 10.1.50.0/24
     gateway: 10.1.50.1
     internet: true
+    client_isolation: true
     dhcp:
       range_start: 10.1.50.100
       range_stop: 10.1.50.199
@@ -173,6 +200,7 @@ zones:
     subnet: 10.1.60.0/24
     gateway: 10.1.60.1
     internet: true
+    client_isolation: true
     dhcp:
       range_start: 10.1.60.100
       range_stop: 10.1.60.199
@@ -180,8 +208,12 @@ zones:
     access:
       management: none
       servers: none
-      clients: none
-      iot: none
+      clients:
+        - range: 10.1.20.20/28
+          description: "Shared devices (TVs, printer)"
+      iot:
+        - range: 10.1.30.20/28
+          description: "Shared devices (Google Home)"
       iot_local: none
       untrusted: none
 

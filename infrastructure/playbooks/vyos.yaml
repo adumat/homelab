@@ -46,6 +46,14 @@
       loop: "{{ zones | dict2items }}"
       when: item.value.vlan_id is not none
 
+    # ── Remove temporary setup IP (only during cutover) ─────
+    - name: Remove temporary setup IP from LAN interface
+      vyos.vyos.vyos_config:
+        lines:
+          - "delete interfaces ethernet {{ lan_interface }} address"
+        save: true
+      when: remove_setup_ip | default(false) | bool
+
     # ── NAT ─────────────────────────────────────────────────
     - name: Source NAT — masquerade outbound traffic
       vyos.vyos.vyos_config:
@@ -141,6 +149,20 @@
         {{ rules }}
       loop_control:
         label: "{{ item.src }} → {{ item.dst }}"
+
+    # ── Firewall — client isolation (block intra-VLAN) ────────
+    - name: Client isolation for zones
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 forward filter rule {{ 850 + idx }} action 'drop'"
+          - "set firewall ipv4 forward filter rule {{ 850 + idx }} source group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 850 + idx }} destination group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 850 + idx }} description 'Client isolation: {{ item.key }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      loop_control:
+        index_var: idx
+      when: item.value.client_isolation | default(false)
 
     # ── Firewall — block internet for restricted zones ──────
     - name: Block internet for zones without access

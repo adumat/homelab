@@ -4,7 +4,9 @@
   Input (from loop item):
     item.src    — source zone name (e.g., "iot")
     item.dst    — destination zone name (e.g., "servers")
-    item.policy — "full", "none", or list of {port, description, proto}
+    item.policy — "full", "none", or list of:
+                  {port, description, proto} — port-based access
+                  {range, description}       — IP range-based access
 
   Rule numbering: src_idx * 100 + dst_idx * 10 + sub_rule
 #}
@@ -27,12 +29,19 @@
 - "set firewall ipv4 forward filter rule {{ rule_base }} description '{{ src }} → {{ dst }}: blocked'"
 {% elif policy is iterable and policy is not string %}
 {% for rule in policy %}
+{% if rule.port is defined %}
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} action 'accept'"
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} source group network-group '{{ src_group }}'"
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} destination group network-group '{{ dst_group }}'"
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} destination port '{{ rule.port }}'"
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} protocol '{{ rule.proto | default('tcp') }}'"
 - "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} description '{{ src }} → {{ dst }}: {{ rule.description | default(rule.port) }}'"
+{% elif rule.range is defined %}
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} action 'accept'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} source group network-group '{{ src_group }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} destination address '{{ rule.range }}'"
+- "set firewall ipv4 forward filter rule {{ rule_base + loop.index }} description '{{ src }} → {{ dst }}: {{ rule.description | default(rule.range) }}'"
+{% endif %}
 {% endfor %}
 - "set firewall ipv4 forward filter rule {{ rule_base + 9 }} action 'drop'"
 - "set firewall ipv4 forward filter rule {{ rule_base + 9 }} source group network-group '{{ src_group }}'"
