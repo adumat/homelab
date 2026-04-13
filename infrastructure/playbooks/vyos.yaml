@@ -138,6 +138,16 @@
       when: item.value.vlan_id is not none
 
     # ── Firewall groups ─────────────────────────────────────
+    - name: Firewall forward filter defaults
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 forward filter default-action 'drop'"
+          - "set firewall ipv4 forward filter rule 1 action 'accept'"
+          - "set firewall ipv4 forward filter rule 1 state 'established'"
+          - "set firewall ipv4 forward filter rule 1 state 'related'"
+          - "set firewall ipv4 forward filter rule 1 description 'Allow established/related'"
+        save: true
+
     - name: Firewall network groups
       vyos.vyos.vyos_config:
         lines:
