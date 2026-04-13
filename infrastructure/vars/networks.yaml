@@ -8,10 +8,10 @@ wan_mac: "00:e0:4c:68:00:cf"
 lan_interface: eth0
 lan_mac: "e4:b9:7a:eb:57:90"
 
-# PPPoE over VLAN (beactive ISP)
-wan_vlan_id: 835
-pppoe_username: "{{ vault_pppoe_username }}"
-pppoe_password: "{{ vault_pppoe_password }}"
+# WAN — FritzBox exposed host (double NAT)
+# FritzBox handles PPPoE, glados is DMZ/exposed host
+wan_address: 192.168.1.200/24
+wan_gateway: 192.168.1.1
 
 # Network zones
 # Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
@@ -232,3 +232,15 @@ zones:
       iot_local: full
       untrusted: none
       guest: none
+
+# Extra DNS records — served via VyOS authoritative-domain.
+# DHCP static hosts are auto-registered under the 'lan' zone by the playbook.
+# BGP-advertised LB IPs (k8s-gateway, envoy) don't need records here —
+# they're resolved via k8s-gateway + AdGuard once the cluster is up.
+dns_records:
+  lan:
+    - name: nut-server-room
+      ip: 10.1.10.3
+  clusterone.lan:
+    - name: k8s
+      ip: 10.1.10.40

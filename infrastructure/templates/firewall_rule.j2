@@ -16,7 +16,7 @@
 {% set src_group = src | upper %}
 {% set dst_group = dst | upper %}
 {% set zone_names = zones | list %}
-{% set rule_base = zone_names.index(src) * 100 + zone_names.index(dst) * 10 %}
+{% set rule_base = 100 + zone_names.index(src) * 100 + zone_names.index(dst) * 10 %}
 {% if policy == 'full' %}
 - "set firewall ipv4 forward filter rule {{ rule_base }} action 'accept'"
 - "set firewall ipv4 forward filter rule {{ rule_base }} source group network-group '{{ src_group }}'"

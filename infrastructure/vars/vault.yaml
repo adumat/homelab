@@ -1,10 +1,6 @@
 # BWS secret references for glados configuration.
 # Resolved at runtime by bws-inject (infrastructure/run.sh).
 
-# PPPoE (beactive ISP)
-vault_pppoe_username: "bws://6e674705-6ce0-4eb4-a98c-b427015bfd5d"
-vault_pppoe_password: "bws://0a24f920-9751-4287-90ea-b427015bfdbf"
-
 # Cloudflare API token (reuse from external-dns-cloudflare-secret)
 vault_cloudflare_api_token: "bws://914ca867-e673-4d3b-9e7c-b3eb008ba0d9/.CF_API_TOKEN"
 

@@ -29,23 +29,14 @@
           - "set service ssh port '{{ ssh_port }}'"
         save: true
 
-    # ── WAN (PPPoE over VLAN) ───────────────────────────────
-    - name: Check if WAN interface exists
-      vyos.vyos.vyos_command:
-        commands: show interfaces ethernet
-      register: wan_check
-      changed_when: false
-
-    - name: WAN interface — PPPoE over VLAN {{ wan_vlan_id }}
+    # ── WAN (FritzBox exposed host — static IP on FritzBox LAN) ─
+    - name: WAN interface — static IP behind FritzBox
       vyos.vyos.vyos_config:
         lines:
-          - "set interfaces ethernet {{ wan_interface }} vif {{ wan_vlan_id }} description 'WAN PPPoE VLAN'"
-          - "set interfaces pppoe pppoe0 source-interface '{{ wan_interface }}.{{ wan_vlan_id }}'"
-          - "set interfaces pppoe pppoe0 authentication username '{{ pppoe_username }}'"
-          - "set interfaces pppoe pppoe0 authentication password '{{ pppoe_password }}'"
-          - "set interfaces pppoe pppoe0 ip adjust-mss '1452'"
+          - "set interfaces ethernet {{ wan_interface }} address '{{ wan_address }}'"
+          - "set interfaces ethernet {{ wan_interface }} description 'WAN (FritzBox LAN)'"
+          - "set protocols static route 0.0.0.0/0 next-hop '{{ wan_gateway }}'"
         save: true
-      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── LAN VLAN interfaces ─────────────────────────────────
     - name: LAN VLAN interfaces
@@ -69,11 +60,10 @@
     - name: Source NAT — masquerade outbound traffic
       vyos.vyos.vyos_config:
         lines:
-          - "set nat source rule 100 outbound-interface name 'pppoe0'"
+          - "set nat source rule 100 outbound-interface name '{{ wan_interface }}'"
           - "set nat source rule 100 source address '10.1.0.0/16'"
           - "set nat source rule 100 translation address 'masquerade'"
         save: true
-      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── DHCP servers ────────────────────────────────────────
     - name: DHCP server per zone
@@ -125,6 +115,7 @@
         lines:
           - "set service dns forwarding cache-size '0'"
           - "set service dns forwarding name-server '{{ dns_upstream }}' port '{{ dns_upstream_port }}'"
+          - "set service dns forwarding name-server '1.1.1.1'"
           - "set service dns forwarding allow-from '10.1.0.0/16'"
           - "set service dns forwarding listen-address '10.1.100.1'"
         save: true
@@ -136,6 +127,25 @@
         save: true
       loop: "{{ zones | dict2items }}"
       when: item.value.vlan_id is not none
+
+    # ── DNS authoritative zones ─────────────────────────────
+    - name: DNS authoritative records from DHCP static hosts
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dns forwarding authoritative-domain {{ domain }} records a {{ item.1.name }} address '{{ item.1.ip }}'"
+        save: true
+      loop: "{{ zones | dict2items | subelements('value.static_hosts', skip_missing=True) }}"
+      loop_control:
+        label: "{{ item.1.name }}.{{ domain }} → {{ item.1.ip }}"
+
+    - name: DNS authoritative records (extra)
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dns forwarding authoritative-domain {{ item.0.key }} records a {{ item.1.name }} address '{{ item.1.ip }}'"
+        save: true
+      loop: "{{ dns_records | dict2items | subelements('value') }}"
+      loop_control:
+        label: "{{ item.1.name }}.{{ item.0.key }} → {{ item.1.ip }}"
 
     # ── Firewall groups ─────────────────────────────────────
     - name: Firewall forward filter defaults
@@ -155,49 +165,58 @@
         save: true
       loop: "{{ zones | dict2items }}"
 
-    # ── Firewall — inter-zone rules ─────────────────────────
-    - name: "Firewall inter-zone rule"  # {{ item.src }} → {{ item.dst }}
+    # ── Firewall — inter-zone rules (batched in single commit) ─
+    - name: Firewall inter-zone rules
       vyos.vyos.vyos_config:
-        lines: "{{ lookup('template', '../templates/firewall_rule.j2') | from_yaml }}"
-        save: true
-      loop: >-
-        {%- set rules = [] -%}
-        {%- for src_name, src_zone in zones.items() -%}
-          {%- for dst_name, policy in (src_zone.access | default({})).items() -%}
-            {%- set _ = rules.append({'src': src_name, 'dst': dst_name, 'policy': policy}) -%}
+        lines: >-
+          {%- set all_lines = [] -%}
+          {%- for src_name, src_zone in zones.items() -%}
+            {%- for dst_name, policy in (src_zone.access | default({})).items() -%}
+              {%- set item = {'src': src_name, 'dst': dst_name, 'policy': policy} -%}
+              {%- set rendered = lookup('template', '../templates/firewall_rule.j2') | from_yaml -%}
+              {%- set _ = all_lines.extend(rendered) -%}
+            {%- endfor -%}
           {%- endfor -%}
-        {%- endfor -%}
-        {{ rules }}
-      loop_control:
-        label: "{{ item.src }} → {{ item.dst }}"
-
-    # ── Firewall — client isolation (block intra-VLAN) ────────
-    - name: Client isolation for zones
-      vyos.vyos.vyos_config:
-        lines:
-          - "set firewall ipv4 forward filter rule {{ 850 + idx }} action 'drop'"
-          - "set firewall ipv4 forward filter rule {{ 850 + idx }} source group network-group '{{ item.key | upper }}'"
-          - "set firewall ipv4 forward filter rule {{ 850 + idx }} destination group network-group '{{ item.key | upper }}'"
-          - "set firewall ipv4 forward filter rule {{ 850 + idx }} description 'Client isolation: {{ item.key }}'"
+          {{ all_lines }}
         save: true
-      loop: "{{ zones | dict2items }}"
-      loop_control:
-        index_var: idx
-      when: item.value.client_isolation | default(false)
 
     # ── Firewall — block internet for restricted zones ──────
     - name: Block internet for zones without access
       vyos.vyos.vyos_config:
         lines:
-          - "set firewall ipv4 forward filter rule {{ 900 + idx }} action 'drop'"
-          - "set firewall ipv4 forward filter rule {{ 900 + idx }} source group network-group '{{ item.key | upper }}'"
-          - "set firewall ipv4 forward filter rule {{ 900 + idx }} outbound-interface name 'pppoe0'"
-          - "set firewall ipv4 forward filter rule {{ 900 + idx }} description 'Block {{ item.key }} internet'"
+          - "set firewall ipv4 forward filter rule {{ 3 + idx }} action 'drop'"
+          - "set firewall ipv4 forward filter rule {{ 3 + idx }} source group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 3 + idx }} outbound-interface name '{{ wan_interface }}'"
+          - "set firewall ipv4 forward filter rule {{ 3 + idx }} description 'Block {{ item.key }} internet'"
         save: true
       loop: "{{ zones | dict2items }}"
       loop_control:
         index_var: idx
-      when: item.value.internet is defined and not item.value.internet and wan_interface in (wan_check.stdout | join(''))
+      when: item.value.internet is defined and not item.value.internet
+
+    # ── Firewall — allow internet for everyone else ─────────
+    - name: Allow internet access
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 forward filter rule 10 action 'accept'"
+          - "set firewall ipv4 forward filter rule 10 source address '10.1.0.0/16'"
+          - "set firewall ipv4 forward filter rule 10 outbound-interface name '{{ wan_interface }}'"
+          - "set firewall ipv4 forward filter rule 10 description 'Allow internet access'"
+        save: true
+
+    # ── Firewall — client isolation (block intra-VLAN) ────────
+    - name: Client isolation for zones
+      vyos.vyos.vyos_config:
+        lines:
+          - "set firewall ipv4 forward filter rule {{ 950 + idx }} action 'drop'"
+          - "set firewall ipv4 forward filter rule {{ 950 + idx }} source group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 950 + idx }} destination group network-group '{{ item.key | upper }}'"
+          - "set firewall ipv4 forward filter rule {{ 950 + idx }} description 'Client isolation: {{ item.key }}'"
+        save: true
+      loop: "{{ zones | dict2items }}"
+      loop_control:
+        index_var: idx
+      when: item.value.client_isolation | default(false)
 
     # ── Firewall — input filter (protect glados itself) ───────
     - name: Input filter — allow established + LAN services
@@ -231,7 +250,7 @@
           - "set firewall ipv4 input filter rule 60 action 'accept'"
           - "set firewall ipv4 input filter rule 60 protocol 'udp'"
           - "set firewall ipv4 input filter rule 60 destination port '{{ wireguard.port }}'"
-          - "set firewall ipv4 input filter rule 60 inbound-interface name 'pppoe0'"
+          - "set firewall ipv4 input filter rule 60 inbound-interface name '{{ wan_interface }}'"
           - "set firewall ipv4 input filter rule 60 description 'Allow WireGuard VPN'"
           - "set firewall ipv4 input filter rule 70 action 'accept'"
           - "set firewall ipv4 input filter rule 70 protocol 'tcp'"
@@ -282,14 +301,13 @@
     - name: Dynamic DNS via Cloudflare
       vyos.vyos.vyos_config:
         lines:
-          - "set service dns dynamic name cloudflare address interface 'pppoe0'"
+          - "set service dns dynamic name cloudflare address interface '{{ wan_interface }}'"
           - "set service dns dynamic name cloudflare host-name '{{ ddns.hostname }}'"
           - "set service dns dynamic name cloudflare protocol 'cloudflare'"
           - "set service dns dynamic name cloudflare username '{{ ddns.username }}'"
           - "set service dns dynamic name cloudflare password '{{ ddns.password }}'"
           - "set service dns dynamic name cloudflare zone '{{ ddns.zone }}'"
         save: true
-      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── doco-cd (Podman container — manages other containers) ─
     # Prerequisites (run manually on glados if first time):

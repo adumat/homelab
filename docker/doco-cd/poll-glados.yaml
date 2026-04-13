@@ -1,3 +1,4 @@
 - url: https://github.com/adumat/homelab.git
   reference: refs/heads/main
   interval: 180
+  target: glados
