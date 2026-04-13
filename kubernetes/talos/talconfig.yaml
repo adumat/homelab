@@ -8,7 +8,7 @@ kubernetesVersion: "${kubernetesVersion}"
 endpoint: https://k8s.clusterone.lan:6443
 additionalApiServerCertSans: &sans
   - 127.0.0.1 # KubePrism
-  - 192.168.1.40 # Cluster LB
+  - &vip "10.1.10.40" # Cluster LB
   - k8s.clusterone.lan
 
 # Disable built-in Flannel to use Cilium
@@ -20,7 +20,7 @@ clusterSvcNets: ["10.43.0.0/16"]
 
 nodes:
   - hostname: "kube-nuc"
-    ipAddress: "192.168.1.30"
+    ipAddress: "10.1.10.10"
     installDiskSelector:
       model: "Samsung SSD 970 EVO Plus 500GB"
     machineSpec: &x64MachineSpec
@@ -36,7 +36,7 @@ nodes:
         dhcp: true
         mtu: 1500
         vip:
-          ip: "192.168.1.40"
+          ip: *vip
     volumes: &volumes
       - name: EPHEMERAL
         provisioning:
@@ -107,7 +107,7 @@ nodes:
   #   nodeLabels:
   #     intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "kube-hp"
-    ipAddress: "192.168.1.32"
+    ipAddress: "10.1.10.11"
     installDiskSelector:
       model: "WDC PC SN720 SDAPNTW-256G-1006"
     machineSpec: *x64MachineSpec
@@ -119,7 +119,7 @@ nodes:
         dhcp: true
         mtu: 1500
         vip:
-          ip: "192.168.1.40"
+          ip: *vip
     volumes: *volumes
     userVolumes: *uservolumes
     schematic: *schematic
@@ -129,7 +129,7 @@ nodes:
       - "@./patches/nodes/kube-hp-ethernet.yaml"
     nodeLabels: *controlPlaneLabels
   - hostname: "kube-ceph-01"
-    ipAddress: "192.168.1.33"
+    ipAddress: "10.1.10.21"
     installDiskSelector:
       model: "KINGSTON SA400S3"
     machineSpec: *x64MachineSpec
@@ -150,7 +150,7 @@ nodes:
     nodeLabels: &cephNodeLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "kube-ceph-02"
-    ipAddress: "192.168.1.34"
+    ipAddress: "10.1.10.22"
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
     machineSpec: *x64MachineSpec
@@ -170,7 +170,7 @@ nodes:
       - "@./patches/nodes/kube-ceph-02-ethernet.yaml"
     nodeLabels: *cephNodeLabels
   - hostname: "kube-ceph-03"
-    ipAddress: "192.168.1.35"
+    ipAddress: "10.1.10.23"
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
     machineSpec: *x64MachineSpec
@@ -203,4 +203,3 @@ controlPlane:
   patches:
     - "@./patches/controller/cluster.yaml"
     - "@./patches/controller/talos-api-access.yaml"
-

@@ -58,7 +58,6 @@ spec:
           external-dns.alpha.kubernetes.io/hostname: local.go2rtc.${DOMAIN}
           gatus.home-operations.com/endpoint: |-
             group: services
-          lbipam.cilium.io/ips: "192.168.1.46"
         ports:
           http:
             primary: true

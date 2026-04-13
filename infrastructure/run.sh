@@ -21,6 +21,7 @@ echo "$RESOLVED_VAULT" > "$TMPFILE"
 
 # Run ansible-playbook with resolved secrets
 cd "$SCRIPT_DIR"
+cd "$SCRIPT_DIR"
 ansible-playbook playbooks/vyos.yaml \
   -e "@$TMPFILE" \
   "$@"
