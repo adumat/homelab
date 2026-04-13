@@ -7,6 +7,17 @@
     - ../vars/services.yaml
 
   tasks:
+    # ── Interface naming ──────────────────────────────────────
+    # hw-id is set automatically by VyOS when interfaces are configured.
+    # If USB NIC steals eth0 on boot, unplug it, reboot, then replug.
+    # VyOS persists the MAC→name mapping after first config.
+    - name: Pin interface hw-id by MAC address
+      vyos.vyos.vyos_config:
+        lines:
+          - "set interfaces ethernet {{ lan_interface }} hw-id '{{ lan_mac }}'"
+          - "set interfaces ethernet {{ wan_interface }} hw-id '{{ wan_mac }}'"
+        save: true
+
     # ── System ──────────────────────────────────────────────
     - name: System settings
       vyos.vyos.vyos_config:
@@ -178,21 +189,49 @@
         index_var: idx
       when: item.value.internet is defined and not item.value.internet and wan_interface in (wan_check.stdout | join(''))
 
-    # ── Firewall — WAN inbound ──────────────────────────────
-    - name: WAN inbound rules
+    # ── Firewall — input filter (protect glados itself) ───────
+    - name: Input filter — allow established + LAN services
       vyos.vyos.vyos_config:
         lines:
           - "set firewall ipv4 input filter default-action 'drop'"
           - "set firewall ipv4 input filter rule 10 action 'accept'"
-          - "set firewall ipv4 input filter rule 10 state established"
-          - "set firewall ipv4 input filter rule 10 state related"
+          - "set firewall ipv4 input filter rule 10 state 'established'"
+          - "set firewall ipv4 input filter rule 10 state 'related'"
+          - "set firewall ipv4 input filter rule 10 description 'Established/related'"
           - "set firewall ipv4 input filter rule 20 action 'accept'"
-          - "set firewall ipv4 input filter rule 20 protocol 'udp'"
-          - "set firewall ipv4 input filter rule 20 destination port '{{ wireguard.port }}'"
-          - "set firewall ipv4 input filter rule 20 inbound-interface name 'pppoe0'"
-          - "set firewall ipv4 input filter rule 20 description 'WireGuard VPN'"
+          - "set firewall ipv4 input filter rule 20 protocol 'tcp'"
+          - "set firewall ipv4 input filter rule 20 destination port '{{ ssh_port }}'"
+          - "set firewall ipv4 input filter rule 20 description 'Allow SSH'"
+          - "set firewall ipv4 input filter rule 30 action 'accept'"
+          - "set firewall ipv4 input filter rule 30 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 30 destination port '53'"
+          - "set firewall ipv4 input filter rule 30 description 'Allow DNS'"
+          - "set firewall ipv4 input filter rule 31 action 'accept'"
+          - "set firewall ipv4 input filter rule 31 protocol 'tcp'"
+          - "set firewall ipv4 input filter rule 31 destination port '53'"
+          - "set firewall ipv4 input filter rule 31 description 'Allow DNS TCP'"
+          - "set firewall ipv4 input filter rule 40 action 'accept'"
+          - "set firewall ipv4 input filter rule 40 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 40 destination port '67'"
+          - "set firewall ipv4 input filter rule 40 description 'Allow DHCP'"
+          - "set firewall ipv4 input filter rule 50 action 'accept'"
+          - "set firewall ipv4 input filter rule 50 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 50 destination port '123'"
+          - "set firewall ipv4 input filter rule 50 description 'Allow NTP'"
+          - "set firewall ipv4 input filter rule 60 action 'accept'"
+          - "set firewall ipv4 input filter rule 60 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 60 destination port '{{ wireguard.port }}'"
+          - "set firewall ipv4 input filter rule 60 inbound-interface name 'pppoe0'"
+          - "set firewall ipv4 input filter rule 60 description 'Allow WireGuard VPN'"
+          - "set firewall ipv4 input filter rule 70 action 'accept'"
+          - "set firewall ipv4 input filter rule 70 protocol 'tcp'"
+          - "set firewall ipv4 input filter rule 70 destination port '179'"
+          - "set firewall ipv4 input filter rule 70 source group network-group 'SERVERS'"
+          - "set firewall ipv4 input filter rule 70 description 'Allow BGP from k8s nodes'"
+          - "set firewall ipv4 input filter rule 80 action 'accept'"
+          - "set firewall ipv4 input filter rule 80 protocol 'icmp'"
+          - "set firewall ipv4 input filter rule 80 description 'Allow ICMP/ping'"
         save: true
-      when: wan_interface in (wan_check.stdout | join(''))
 
     # ── BGP ─────────────────────────────────────────────────
     - name: BGP settings

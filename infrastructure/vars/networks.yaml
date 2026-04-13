@@ -4,7 +4,9 @@
 
 # Physical interfaces
 wan_interface: eth1
+wan_mac: "00:e0:4c:68:00:cf"
 lan_interface: eth0
+lan_mac: "e4:b9:7a:eb:57:90"
 
 # PPPoE over VLAN (beactive ISP)
 wan_vlan_id: 835
@@ -121,7 +123,7 @@ zones:
         ip: 10.1.20.30
       - name: ps5-lan
         mac: "78:c8:81:cf:4a:27"
-        ip: 10.1.20.30
+        ip: 10.1.20.31
     access:
       management: none
       servers: full
@@ -209,10 +211,10 @@ zones:
       management: none
       servers: none
       clients:
-        - range: 10.1.20.20/28
+        - range: 10.1.20.16/28
           description: "Shared devices (TVs, printer)"
       iot:
-        - range: 10.1.30.20/28
+        - range: 10.1.30.16/28
           description: "Shared devices (Google Home)"
       iot_local: none
       untrusted: none

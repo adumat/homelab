@@ -37,14 +37,14 @@
 | 10 | yes | — | — | — | — |
 | 11 | yes | — | — | — | — |
 | 12 | yes | — | — | — | — |
-| 13 | no | — | FritzBox | — | removed at cutover |
+| 13 | no | — | glados LAN | all | trunk |
 | 14 | no | — | donkey | 10 | access |
 | 15 | no | 6 | switch-living (TP-Link) | 20 | access |
 | 16 | no | 5 | SolarEdge inverter | 30 | access |
 | 17 | no | 16 | elizabeth (NAS) | 10 | access |
 | 18 | no | — | — | — | — |
 | 19 | no | 17 | kube-hp | 10 | access |
-| 20 | no | 18 | glados LAN | all | trunk |
+| 20 | no | 18 | FritzBox | — | removed at cutover |
 | 21 | no | 19 | kube-nuc | 10 | access |
 | 22 | no | 20 | kube-ceph-01 | 10 | access |
 | 23 | no | 21 | kube-ceph-02 | 10 | access |
@@ -92,12 +92,13 @@
 ## Cutover Cable Change
 
 ```
-Before:  FritzBox LAN → HPE port 13
-After:   FritzBox LAN → patch 23 → glados USB NIC (WAN)
-         glados onboard NIC → patch 18 → HPE port 20 (trunk)
+Before:  FritzBox LAN → HPE port 20 (patch 18)
+         glados LAN → HPE port 13
+After:   FritzBox LAN → glados USB NIC (WAN) via patch 23
+         glados LAN → HPE port 13 (trunk, unchanged)
 ```
 
-Port 13 becomes free after cutover.
+Port 20 becomes free after cutover.
 
 <!-- SETUP INSTRUCTIONS (remove after cutover) -->
 
