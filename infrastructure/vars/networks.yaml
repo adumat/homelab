@@ -3,9 +3,10 @@
 # The playbook derives interfaces, DHCP, firewall, and DNS config from this.
 
 # Physical interfaces
-wan_interface: eth1
+# USB Realtek grabs eth0 on boot, Intel onboard gets eth1
+wan_interface: eth0
 wan_mac: "00:e0:4c:68:00:cf"
-lan_interface: eth0
+lan_interface: eth1
 lan_mac: "e4:b9:7a:eb:57:90"
 
 # WAN — FritzBox exposed host (double NAT)
