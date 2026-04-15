@@ -7,15 +7,11 @@
     - ../vars/services.yaml
 
   tasks:
-    # ── Interface naming ──────────────────────────────────────
-    # hw-id is set automatically by VyOS when interfaces are configured.
-    # If USB NIC steals eth0 on boot, unplug it, reboot, then replug.
-    # VyOS persists the MAC→name mapping after first config.
     - name: Pin interface hw-id by MAC address
       vyos.vyos.vyos_config:
         lines:
-          - "set interfaces ethernet {{ lan_interface }} hw-id '{{ lan_mac }}'"
-          - "set interfaces ethernet {{ wan_interface }} hw-id '{{ wan_mac }}'"
+          - 'set interfaces ethernet {{ lan_interface }} hw-id {{ lan_mac }}'
+          - 'set interfaces ethernet {{ wan_interface }} hw-id {{ wan_mac }}'
         save: true
 
     # ── System ──────────────────────────────────────────────
@@ -45,14 +41,14 @@
           - "set interfaces ethernet {{ lan_interface }} vif {{ item.value.vlan_id }} address '{{ item.value.gateway }}/{{ item.value.subnet.split('/')[1] }}'"
           - "set interfaces ethernet {{ lan_interface }} vif {{ item.value.vlan_id }} description '{{ item.key }}'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
       when: item.value.vlan_id is not none
 
     # ── Remove temporary setup IP (only during cutover) ─────
     - name: Remove temporary setup IP from LAN interface
       vyos.vyos.vyos_config:
         lines:
-          - "delete interfaces ethernet {{ lan_interface }} address"
+          - 'delete interfaces ethernet {{ lan_interface }} address'
         save: true
       when: remove_setup_ip | default(false) | bool
 
@@ -69,7 +65,7 @@
     - name: DHCP server per zone
       vyos.vyos.vyos_config:
         lines:
-          - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} subnet-id {{ item.value.vlan_id }}"
+          - 'set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} subnet-id {{ item.value.vlan_id }}'
           - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option default-router '{{ item.value.gateway }}'"
           - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option name-server '{{ item.value.gateway }}'"
           - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} option domain-name '{{ domain }}'"
@@ -77,7 +73,7 @@
           - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} range 0 start '{{ item.value.dhcp.range_start }}'"
           - "set service dhcp-server shared-network-name {{ item.key }} subnet {{ item.value.subnet }} range 0 stop '{{ item.value.dhcp.range_stop }}'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
       when: item.value.dhcp is defined
 
     # ── DHCP static mappings ────────────────────────────────
@@ -95,6 +91,37 @@
         save: true
       loop: "{{ zones | dict2items | subelements('value.static_hosts', skip_missing=True) }}"
 
+    # ── TFTP/PXE boot ───────────────────────────────────────
+    - name: Download iPXE files to TFTP directory
+      vyos.vyos.vyos_command:
+        commands:
+          - 'sudo mkdir -p {{ tftp.directory }}'
+          - 'sudo curl -sL -o {{ tftp.directory }}/{{ item.name }} {{ item.url }}'
+      loop: '{{ tftp.files }}'
+      loop_control:
+        label: '{{ item.name }}'
+      changed_when: false
+
+    - name: Create iPXE chain script
+      vyos.vyos.vyos_command:
+        commands:
+          - "sudo tee {{ tftp.directory }}/chain.ipxe <<< '#!ipxe\nchain {{ pxe.matchbox_url }}'"
+      changed_when: false
+
+    - name: TFTP server
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service tftp-server directory '{{ tftp.directory }}'"
+          - "set service tftp-server listen-address '{{ tftp.listen_address }}'"
+        save: true
+
+    - name: DHCP PXE boot options (servers zone)
+      vyos.vyos.vyos_config:
+        lines:
+          - "set service dhcp-server shared-network-name servers subnet 10.1.10.0/24 option bootfile-server '{{ pxe.bootfile_server }}'"
+          - "set service dhcp-server shared-network-name servers subnet 10.1.10.0/24 option bootfile-name '{{ pxe.bootfile_name }}'"
+        save: true
+
     # ── NTP server ──────────────────────────────────────────
     - name: NTP allow clients
       vyos.vyos.vyos_config:
@@ -107,7 +134,7 @@
         lines:
           - "set service ntp server '{{ item }}'"
         save: true
-      loop: "{{ ntp_servers }}"
+      loop: '{{ ntp_servers }}'
 
     # ── DNS forwarding ──────────────────────────────────────
     - name: DNS forwarding settings
@@ -125,7 +152,7 @@
         lines:
           - "set service dns forwarding listen-address '{{ item.value.gateway }}'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
       when: item.value.vlan_id is not none
 
     # ── DNS authoritative zones ─────────────────────────────
@@ -136,7 +163,7 @@
         save: true
       loop: "{{ zones | dict2items | subelements('value.static_hosts', skip_missing=True) }}"
       loop_control:
-        label: "{{ item.1.name }}.{{ domain }} → {{ item.1.ip }}"
+        label: '{{ item.1.name }}.{{ domain }} → {{ item.1.ip }}'
 
     - name: DNS authoritative records (extra)
       vyos.vyos.vyos_config:
@@ -145,7 +172,7 @@
         save: true
       loop: "{{ dns_records | dict2items | subelements('value') }}"
       loop_control:
-        label: "{{ item.1.name }}.{{ item.0.key }} → {{ item.1.ip }}"
+        label: '{{ item.1.name }}.{{ item.0.key }} → {{ item.1.ip }}'
 
     # ── Firewall groups ─────────────────────────────────────
     - name: Firewall forward filter defaults
@@ -163,7 +190,7 @@
         lines:
           - "set firewall group network-group {{ item.key | upper }} network '{{ item.value.subnet }}'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
 
     # ── Firewall — inter-zone rules (batched in single commit) ─
     - name: Firewall inter-zone rules
@@ -189,7 +216,7 @@
           - "set firewall ipv4 forward filter rule {{ 3 + idx }} outbound-interface name '{{ wan_interface }}'"
           - "set firewall ipv4 forward filter rule {{ 3 + idx }} description 'Block {{ item.key }} internet'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
       loop_control:
         index_var: idx
       when: item.value.internet is defined and not item.value.internet
@@ -213,7 +240,7 @@
           - "set firewall ipv4 forward filter rule {{ 950 + idx }} destination group network-group '{{ item.key | upper }}'"
           - "set firewall ipv4 forward filter rule {{ 950 + idx }} description 'Client isolation: {{ item.key }}'"
         save: true
-      loop: "{{ zones | dict2items }}"
+      loop: '{{ zones | dict2items }}'
       loop_control:
         index_var: idx
       when: item.value.client_isolation | default(false)
@@ -243,6 +270,11 @@
           - "set firewall ipv4 input filter rule 40 protocol 'udp'"
           - "set firewall ipv4 input filter rule 40 destination port '67'"
           - "set firewall ipv4 input filter rule 40 description 'Allow DHCP'"
+          - "set firewall ipv4 input filter rule 45 action 'accept'"
+          - "set firewall ipv4 input filter rule 45 protocol 'udp'"
+          - "set firewall ipv4 input filter rule 45 destination port '69'"
+          - "set firewall ipv4 input filter rule 45 source group network-group 'SERVERS'"
+          - "set firewall ipv4 input filter rule 45 description 'Allow TFTP PXE boot'"
           - "set firewall ipv4 input filter rule 50 action 'accept'"
           - "set firewall ipv4 input filter rule 50 protocol 'udp'"
           - "set firewall ipv4 input filter rule 50 destination port '123'"
@@ -277,10 +309,11 @@
           - "set protocols bgp neighbor '{{ item.ip }}' description '{{ item.description }}'"
           - "set protocols bgp neighbor '{{ item.ip }}' address-family ipv4-unicast"
         save: true
-      loop: "{{ bgp.neighbors }}"
+      loop: '{{ bgp.neighbors }}'
 
     # ── WireGuard ───────────────────────────────────────────
     - name: WireGuard interface
+      tags: [secrets]
       vyos.vyos.vyos_config:
         lines:
           - "set interfaces wireguard {{ wireguard.interface }} address '{{ wireguard.address }}'"
@@ -289,16 +322,18 @@
         save: true
 
     - name: WireGuard peers
+      tags: [secrets]
       vyos.vyos.vyos_config:
         lines:
           - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} public-key '{{ item.public_key }}'"
           - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} allowed-ips '{{ item.allowed_ips }}'"
           - "set interfaces wireguard {{ wireguard.interface }} peer {{ item.name }} persistent-keepalive '{{ item.persistent_keepalive }}'"
         save: true
-      loop: "{{ wireguard.peers }}"
+      loop: '{{ wireguard.peers }}'
 
     # ── DDNS ────────────────────────────────────────────────
     - name: Dynamic DNS via Cloudflare
+      tags: [secrets]
       vyos.vyos.vyos_config:
         lines:
           - "set service dns dynamic name cloudflare address interface '{{ wan_interface }}'"
@@ -314,10 +349,11 @@
     #   sudo mkdir -p /config/containers/doco-cd/data
     #   sudo touch /config/containers/doco-cd/poll.yaml
     - name: Doco-cd container
+      tags: [secrets]
       vyos.vyos.vyos_config:
         lines:
           - "set container name doco-cd image '{{ doco_cd.image }}'"
-          - "set container name doco-cd allow-host-networks"
+          - 'set container name doco-cd allow-host-networks'
           - "set container name doco-cd restart 'on-failure'"
           - "set container name doco-cd environment TZ value '{{ timezone }}'"
           - "set container name doco-cd environment GIT_ACCESS_TOKEN value '{{ doco_cd.git_access_token }}'"

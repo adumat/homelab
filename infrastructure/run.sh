@@ -8,20 +8,23 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$ROOT_DIR/.env"
 
 # Resolve bws:// references in vault.yaml using bws-inject
+EXTRA_VARS=()
 echo "Resolving secrets from Bitwarden Secrets Manager..."
-RESOLVED_VAULT=$(cat "$SCRIPT_DIR/vars/vault.yaml" | "$ROOT_DIR/scripts/bws-inject")
+if RESOLVED_VAULT=$(cat "$SCRIPT_DIR/vars/vault.yaml" | "$ROOT_DIR/scripts/bws-inject" 2>&1); then
+  # Inject BWS_ACCESS_TOKEN from .env (not stored in BWS itself)
+  RESOLVED_VAULT="${RESOLVED_VAULT//BWS_ACCESS_TOKEN_PLACEHOLDER/$BWS_ACCESS_TOKEN}"
 
-# Inject BWS_ACCESS_TOKEN from .env (not stored in BWS itself)
-RESOLVED_VAULT="${RESOLVED_VAULT//BWS_ACCESS_TOKEN_PLACEHOLDER/$BWS_ACCESS_TOKEN}"
+  TMPFILE=$(mktemp)
+  trap 'rm -f "$TMPFILE"' EXIT
+  echo "$RESOLVED_VAULT" > "$TMPFILE"
+  EXTRA_VARS+=("-e" "@$TMPFILE")
+else
+  echo "WARNING: BWS fetch failed, running without secrets (skipping secret-dependent tasks)"
+  EXTRA_VARS+=("--skip-tags" "secrets")
+fi
 
-# Write resolved vars to a temp file
-TMPFILE=$(mktemp)
-trap 'rm -f "$TMPFILE"' EXIT
-echo "$RESOLVED_VAULT" > "$TMPFILE"
-
-# Run ansible-playbook with resolved secrets
-cd "$SCRIPT_DIR"
+# Run ansible-playbook
 cd "$SCRIPT_DIR"
 ansible-playbook playbooks/vyos.yaml \
-  -e "@$TMPFILE" \
+  "${EXTRA_VARS[@]}" \
   "$@"

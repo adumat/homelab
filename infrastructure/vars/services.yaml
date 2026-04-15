@@ -47,6 +47,20 @@ bgp:
       remote_as: 64513
       description: kube-ceph-03
 
+# TFTP/PXE — iPXE chainloads to matchbox on donkey
+tftp:
+  directory: /config/tftpboot
+  listen_address: 10.1.10.1
+  files:
+    - name: ipxe.efi
+      url: https://boot.ipxe.org/ipxe.efi
+    - name: undionly.kpxe
+      url: https://boot.ipxe.org/undionly.kpxe
+pxe:
+  bootfile_server: 10.1.10.1
+  bootfile_name: ipxe.efi
+  matchbox_url: "http://10.1.10.3:8085/boot.ipxe"
+
 # doco-cd (VyOS native Podman container — manages other containers)
 doco_cd:
   image: "ghcr.io/kimdre/doco-cd:latest"
