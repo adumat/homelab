@@ -82,11 +82,11 @@ pxe:
 proxmox:
   opnsense:
     vmid: 100
-    cores: 2   # 4 in production
-    memory: 2048
+    cores: 4
+    memory: 4096
     disk_size: 32
   docker_lxc:
     vmid: 101
-    cores: 1   # 2 in production
-    memory: 512 # 2048 in production
-    disk_size: 8
+    cores: 2
+    memory: 2048
+    disk_size: 16
