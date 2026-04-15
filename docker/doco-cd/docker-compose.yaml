@@ -47,5 +47,29 @@ services:
       timeout: 5s
       retries: 3
 
+  doco-cd-navi:
+    image: ghcr.io/kimdre/doco-cd:latest
+    container_name: doco-cd-navi
+    restart: unless-stopped
+    profiles: [navi]
+    environment:
+      TZ: Europe/Rome
+      GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
+      SECRET_PROVIDER: bitwarden_sm
+      SECRET_PROVIDER_ACCESS_TOKEN: ${BWS_ACCESS_TOKEN}
+      SECRET_PROVIDER_API_URL: https://vault.bitwarden.eu/api
+      SECRET_PROVIDER_IDENTITY_URL: https://vault.bitwarden.eu/identity
+      POLL_CONFIG_FILE: /config/poll.yaml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - data:/data
+      - ./poll-glados.yaml:/config/poll.yaml:ro
+    healthcheck:
+      test: ['CMD', '/doco-cd', 'healthcheck']
+      start_period: 15s
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   data:

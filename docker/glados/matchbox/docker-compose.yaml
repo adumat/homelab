@@ -1,0 +1,48 @@
+services:
+  matchbox-init:
+    image: alpine:latest
+    container_name: matchbox-init
+    entrypoint: sh
+    command:
+      - -c
+      - |
+        apk add --no-cache curl openssl bash yq
+        /scripts/download-assets.sh
+        /scripts/check-certs.sh
+    volumes:
+      - ../assets:/assets
+      - matchbox-certs:/certs
+      - ../../donkey/matchbox/scripts:/scripts:ro
+      - ../../../kubernetes/talos:/work/talos:ro
+      - ../../donkey/matchbox/certs/openssl.conf:/certs/openssl.conf:ro
+      - ../../donkey/matchbox/certs/generate-certs.sh:/certs/generate-certs.sh:ro
+
+  matchbox:
+    image: quay.io/poseidon/matchbox:v0.11.0
+    container_name: matchbox
+    restart: unless-stopped
+    depends_on:
+      matchbox-init:
+        condition: service_completed_successfully
+    command:
+      - -address=0.0.0.0:8085
+      - -rpc-address=0.0.0.0:8989
+      - -log-level=debug
+      - -cert-file=/etc/matchbox/cert/server.crt
+      - -key-file=/etc/matchbox/cert/server.key
+      - -ca-file=/etc/matchbox/cert/ca.crt
+      - -assets-path=/var/lib/matchbox/assets
+    volumes:
+      - ../../donkey/matchbox/profiles:/var/lib/matchbox/profiles:ro
+      - ../../donkey/matchbox/groups:/var/lib/matchbox/groups:ro
+      - ../assets:/var/lib/matchbox/assets:ro
+      - matchbox-certs:/etc/matchbox/cert:ro
+    ports:
+      - '8085:8085/tcp'
+      - '8989:8989/tcp'
+    dns:
+      - 10.1.10.1
+    dns_search: lan
+
+volumes:
+  matchbox-certs:

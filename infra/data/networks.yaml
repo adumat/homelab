@@ -1,0 +1,247 @@
+---
+# Single source of truth for all network definitions.
+# The playbook derives interfaces, DHCP, firewall, and DNS config from this.
+
+# Physical interfaces
+# USB Realtek grabs eth0 on boot, Intel onboard gets eth1
+wan_interface: eth0
+wan_mac: "00:e0:4c:68:00:cf"
+lan_interface: eth1
+lan_mac: "e4:b9:7a:eb:57:90"
+
+# WAN — FritzBox exposed host (double NAT)
+# FritzBox handles PPPoE, glados is DMZ/exposed host
+wan_address: 192.168.1.200/24
+wan_gateway: 192.168.1.1
+
+# Network zones
+# Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
+#
+# Zone properties:
+#   internet: true/false              — allow/block internet access
+#   client_isolation: true            — block intra-VLAN traffic (devices can't see each other)
+#
+# access.<target> values:
+#   full                                — accept all new connections
+#   none                                — drop all new (established/related still allowed)
+#   list of {port, description, proto}  — accept only listed ports (proto defaults to tcp)
+#   list of {range, description}        — accept only to specific IP range (CIDR)
+zones:
+  management:
+    vlan_id: 1
+    subnet: 10.1.1.0/24
+    gateway: 10.1.1.1
+    internet: true
+    dhcp:
+      range_start: 10.1.1.100
+      range_stop: 10.1.1.199
+      lease: 86400
+    static_hosts:
+      - name: switch-main
+        mac: "04:09:73:36:1b:a0"
+        ip: 10.1.1.10
+      - name: u6-pt
+        mac: "0c:ea:14:7c:1d:01"
+        ip: 10.1.1.50
+      - name: u6-p1
+        mac: "0c:ea:14:7c:1f:51"
+        ip: 10.1.1.51
+      - name: u6-ext
+        mac: "d8:b3:70:e9:e0:82"
+        ip: 10.1.1.52
+    access:
+      servers: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: full
+      guest: full
+
+  servers:
+    vlan_id: 10
+    subnet: 10.1.10.0/24
+    gateway: 10.1.10.1
+    internet: true
+    dhcp:
+      range_start: 10.1.10.100
+      range_stop: 10.1.10.199
+      lease: 86400
+    static_hosts:
+      - name: elizabeth
+        mac: "14:da:e9:4d:e7:65"
+        ip: 10.1.10.2
+      - name: donkey
+        mac: "ee:33:32:65:7e:84"
+        ip: 10.1.10.3
+      - name: kube-nuc
+        mac: "1c:69:7a:a5:93:fc"
+        ip: 10.1.10.10
+      - name: kube-hp
+        mac: "f8:b4:6a:a5:87:ed"
+        ip: 10.1.10.11
+      - name: kube-ceph-01
+        mac: "e8:6a:64:a4:89:ca"
+        ip: 10.1.10.21
+      - name: kube-ceph-02
+        mac: "e8:6a:64:f6:ff:af"
+        ip: 10.1.10.22
+      - name: kube-ceph-03
+        mac: "e8:6a:64:76:2a:18"
+        ip: 10.1.10.23
+    access:
+      management: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none
+
+  clients:
+    vlan_id: 20
+    subnet: 10.1.20.0/24
+    gateway: 10.1.20.1
+    internet: true
+    dhcp:
+      range_start: 10.1.20.100
+      range_stop: 10.1.20.199
+      lease: 43200
+    static_hosts:
+      - name: switch-living
+        mac: "d8:07:b6:d7:94:67"
+        ip: 10.1.20.11
+      # Shared devices (10.1.20.20-29) — accessible from Guest VLAN
+      - name: lg-tv
+        mac: "c0:d7:aa:8e:ca:18"
+        ip: 10.1.20.20
+      - name: samsung-tv
+        mac: "b0:f2:f6:77:40:24"
+        ip: 10.1.20.21
+      - name: epson-printer
+        mac: "dc:cd:2f:6f:1b:07"
+        ip: 10.1.20.22
+      - name: ps5-wifi
+        mac: "80:60:b7:10:03:3e"
+        ip: 10.1.20.30
+      - name: ps5-lan
+        mac: "78:c8:81:cf:4a:27"
+        ip: 10.1.20.31
+    access:
+      management: none
+      servers: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none
+
+  iot:
+    vlan_id: 30
+    subnet: 10.1.30.0/24
+    gateway: 10.1.30.1
+    internet: true
+    dhcp:
+      range_start: 10.1.30.100
+      range_stop: 10.1.30.199
+      lease: 86400
+    static_hosts:
+      # Shared devices (10.1.30.20-29) — accessible from Guest VLAN
+      - name: google-home
+        mac: "00:f6:20:dc:f9:9b"
+        ip: 10.1.30.20
+    access:
+      management: none
+      servers:
+        - port: 1883
+          description: MQTT
+        - port: 8123
+          description: Home Assistant
+      clients: none
+      iot_local: none
+      untrusted: none
+      guest: none
+
+  iot_local:
+    vlan_id: 40
+    subnet: 10.1.40.0/24
+    gateway: 10.1.40.1
+    internet: false
+    dhcp:
+      range_start: 10.1.40.100
+      range_stop: 10.1.40.199
+      lease: 86400
+    access:
+      management: none
+      servers:
+        - port: 1883
+          description: MQTT
+        - port: 8123
+          description: Home Assistant
+      clients: none
+      iot: none
+      untrusted: none
+      guest: none
+
+  untrusted:
+    vlan_id: 50
+    subnet: 10.1.50.0/24
+    gateway: 10.1.50.1
+    internet: true
+    client_isolation: true
+    dhcp:
+      range_start: 10.1.50.100
+      range_stop: 10.1.50.199
+      lease: 43200
+    access:
+      management: none
+      servers: none
+      clients: none
+      iot: none
+      iot_local: none
+      guest: none
+
+  guest:
+    vlan_id: 60
+    subnet: 10.1.60.0/24
+    gateway: 10.1.60.1
+    internet: true
+    client_isolation: true
+    dhcp:
+      range_start: 10.1.60.100
+      range_stop: 10.1.60.199
+      lease: 3600
+    access:
+      management: none
+      servers: none
+      clients:
+        - range: 10.1.20.16/28
+          description: "Shared devices (TVs, printer)"
+      iot:
+        - range: 10.1.30.16/28
+          description: "Shared devices (Google Home)"
+      iot_local: none
+      untrusted: none
+
+  vpn:
+    vlan_id: null  # WireGuard interface, not a VLAN
+    subnet: 10.1.100.0/24
+    gateway: 10.1.100.1
+    internet: true
+    access:
+      management: none
+      servers: full
+      clients: full
+      iot: full
+      iot_local: full
+      untrusted: none
+      guest: none
+
+# Extra DNS records — served via VyOS authoritative-domain.
+# DHCP static hosts are auto-registered under the 'lan' zone by the playbook.
+# BGP-advertised LB IPs (k8s-gateway, envoy) don't need records here —
+# they're resolved via k8s-gateway + AdGuard once the cluster is up.
+dns_records:
+  lan:
+    - name: nut-server-room
+      ip: 10.1.10.3
+  clusterone.lan:
+    - name: k8s
+      ip: 10.1.10.40

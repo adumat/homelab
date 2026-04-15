@@ -1,0 +1,194 @@
+# Firewall — aliases, inter-zone rules, internet control, client isolation
+#
+# Rule numbering: 100 + src_idx * 100 + dst_idx * 10 + sub_rule
+# Same scheme as the original Jinja2 template.
+
+# ── Network group aliases ────────────────────────────────
+resource "opnsense_firewall_alias" "zone" {
+  for_each = local.zones
+
+  name        = upper(each.key)
+  type        = "network"
+  content     = [each.value.subnet]
+  description = "${each.key} network"
+  enabled     = true
+}
+
+# ── Inter-zone rules ────────────────────────────────────
+# Generate all rules from the access matrix in networks.yaml.
+# Each policy type (full, none, port-list, range-list) produces
+# different rule(s).
+
+locals {
+  # Expand inter-zone rules into individual firewall filter entries
+  expanded_rules = flatten([
+    for rule in local.firewall_rules : (
+      rule.policy == "full" ? [{
+        key         = "${rule.src}-${rule.dst}"
+        sequence    = rule.rule_base
+        action      = "pass"
+        source_net  = upper(rule.src)
+        dest_net    = upper(rule.dst)
+        protocol    = "any"
+        dest_port   = ""
+        description = "${rule.src} -> ${rule.dst}: full"
+      }] :
+      rule.policy == "none" ? [{
+        key         = "${rule.src}-${rule.dst}"
+        sequence    = rule.rule_base
+        action      = "block"
+        source_net  = upper(rule.src)
+        dest_net    = upper(rule.dst)
+        protocol    = "any"
+        dest_port   = ""
+        description = "${rule.src} -> ${rule.dst}: blocked"
+      }] :
+      # Port-based or range-based access lists
+      concat(
+        [
+          for idx, entry in rule.policy : {
+            key         = "${rule.src}-${rule.dst}-${idx + 1}"
+            sequence    = rule.rule_base + idx + 1
+            action      = "pass"
+            source_net  = upper(rule.src)
+            dest_net    = try(entry.range, upper(rule.dst))
+            protocol    = try(entry.proto, "TCP")
+            dest_port   = try(tostring(entry.port), "")
+            description = "${rule.src} -> ${rule.dst}: ${try(entry.description, "")}"
+          }
+        ],
+        # Drop remaining after specific allows
+        [{
+          key         = "${rule.src}-${rule.dst}-drop"
+          sequence    = rule.rule_base + 9
+          action      = "block"
+          source_net  = upper(rule.src)
+          dest_net    = upper(rule.dst)
+          protocol    = "any"
+          dest_port   = ""
+          description = "${rule.src} -> ${rule.dst}: drop remaining"
+        }]
+      )
+    )
+  ])
+
+  rules_map = { for rule in local.expanded_rules : rule.key => rule }
+}
+
+# ── Established/related — always first ──────────────────
+resource "opnsense_firewall_filter" "established" {
+  sequence    = 1
+  description = "Allow established/related"
+  enabled     = true
+  interface   = { interface = ["lan"] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+    state_type  = "keep state"
+
+    source = {
+      net = "any"
+    }
+    destination = {
+      net = "any"
+    }
+  }
+}
+
+# ── Inter-zone rules (from access matrix) ───────────────
+resource "opnsense_firewall_filter" "interzone" {
+  for_each = local.rules_map
+
+  sequence    = each.value.sequence
+  description = each.value.description
+  enabled     = true
+  interface   = { interface = ["lan"] }
+
+  filter = {
+    action      = each.value.action
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = each.value.protocol
+
+    source = {
+      net = each.value.source_net
+    }
+    destination = {
+      net  = each.value.dest_net
+      port = each.value.dest_port != "" ? each.value.dest_port : null
+    }
+  }
+}
+
+# ── Block internet for restricted zones (e.g., iot_local) ─
+resource "opnsense_firewall_filter" "block_internet" {
+  for_each = local.no_internet_zones
+
+  sequence    = 3 + index(local.zone_names, each.key)
+  description = "Block ${each.key} internet"
+  enabled     = true
+  interface   = { interface = ["wan"] }
+
+  filter = {
+    action      = "block"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+
+    source = {
+      net = upper(each.key)
+    }
+    destination = {
+      net = "any"
+    }
+  }
+}
+
+# ── Allow internet for everyone else ────────────────────
+resource "opnsense_firewall_filter" "allow_internet" {
+  sequence    = 10
+  description = "Allow internet access"
+  enabled     = true
+  interface   = { interface = ["wan"] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+
+    source = {
+      net = "10.1.0.0/16"
+    }
+    destination = {
+      net = "any"
+    }
+  }
+}
+
+# ── Client isolation (block intra-VLAN traffic) ─────────
+resource "opnsense_firewall_filter" "client_isolation" {
+  for_each = local.isolation_zones
+
+  sequence    = 950 + index(local.zone_names, each.key)
+  description = "Client isolation: ${each.key}"
+  enabled     = true
+  interface   = { interface = ["lan"] }
+
+  filter = {
+    action      = "block"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+
+    source = {
+      net = upper(each.key)
+    }
+    destination = {
+      net = upper(each.key)
+    }
+  }
+}
