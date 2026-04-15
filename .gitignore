@@ -18,6 +18,11 @@ kubeconfig
 talosconfig
 # MCP
 .mcp.json
+# OpenTofu
+infra/secrets.auto.tfvars
+infra/.cache/
+infra/.terraform/
+infra/.terraform.lock.hcl
 # Misc.
 .private/
 .task/

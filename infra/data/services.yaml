@@ -1,0 +1,92 @@
+---
+# System
+hostname: glados
+domain: lan
+timezone: Europe/Rome
+
+# SSH
+ssh_port: 22
+
+# NTP — serve time to LAN clients
+ntp_servers:
+  - 0.it.pool.ntp.org
+  - 1.it.pool.ntp.org
+  - 2.it.pool.ntp.org
+  - 3.it.pool.ntp.org
+
+# DNS — Unbound with blocklists (no AdGuard)
+dns:
+  upstream:
+    - address: "https://security.cloudflare-dns.com/dns-query"
+      type: dot
+    - address: "https://dns.quad9.net/dns-query"
+      type: dot
+  blocklists:
+    - name: AdGuard DNS filter
+      url: "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"
+    - name: AdAway Default Blocklist
+      url: "https://adaway.org/hosts.txt"
+
+# DDNS via Cloudflare
+ddns:
+  service: cloudflare
+  username: token
+
+# BGP peering: OPNsense (FRR) ↔ Cilium
+bgp:
+  local_as: 64512
+  router_id: 10.1.10.1
+  neighbors:
+    - ip: 10.1.10.10
+      remote_as: 64513
+      description: kube-nuc
+    - ip: 10.1.10.11
+      remote_as: 64513
+      description: kube-hp
+    - ip: 10.1.10.21
+      remote_as: 64513
+      description: kube-ceph-01
+    - ip: 10.1.10.22
+      remote_as: 64513
+      description: kube-ceph-02
+    - ip: 10.1.10.23
+      remote_as: 64513
+      description: kube-ceph-03
+
+# WireGuard VPN
+wireguard:
+  address: 10.1.100.1/24
+  port: 51820
+  peers:
+    - name: matteo-mac
+      allowed_ips: 10.1.100.10/32
+      persistent_keepalive: 25
+    - name: matteo-iphone
+      allowed_ips: 10.1.100.11/32
+      persistent_keepalive: 25
+
+# TFTP/PXE — iPXE chainloads to matchbox on navi LXC
+tftp:
+  directory: /usr/local/tftp
+  files:
+    - name: ipxe.efi
+      url: https://boot.ipxe.org/ipxe.efi
+    - name: undionly.kpxe
+      url: https://boot.ipxe.org/undionly.kpxe
+pxe:
+  bootfile_server: 10.1.10.1
+  bootfile_name: ipxe.efi
+  matchbox_url: "http://10.1.10.3:8085/boot.ipxe"
+
+# Proxmox VM/LXC specs
+proxmox:
+  opnsense:
+    vmid: 100
+    cores: 2   # 4 in production
+    memory: 2048
+    disk_size: 32
+  docker_lxc:
+    vmid: 101
+    cores: 1   # 2 in production
+    memory: 512 # 2048 in production
+    disk_size: 8

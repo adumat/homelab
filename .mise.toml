@@ -1,6 +1,9 @@
 [hooks]
 postinstall = "ansible-galaxy collection install -r infrastructure/requirements.yaml --force >/dev/null 2>&1 || true"
 
+# TODO(opnsense-migration): remove ansible hooks/tools after migration
+# postinstall = ""
+
 [env]
 _.file = ".env"
 _.python.venv = { path = ".venv", create = true }
@@ -35,6 +38,7 @@ helm-diff = { version = "3.14.1", exe = "diff", rename_exe = "helm-diff" }
 krew = "0.4.5"
 "aqua:cloudnative-pg/cloudnative-pg/kubectl-cnpg" = "1.28.0"
 
+"aqua:opentofu/opentofu" = "1.9.0"
 "aqua:bitwarden/sdk-sm" = "1.0.0"
 "aqua:mitsuhiko/minijinja" = "2.15.1"
 "aqua:charmbracelet/gum" = "0.17.0"

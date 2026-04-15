@@ -11,6 +11,7 @@ source "${REPO_ROOT}/scripts/lib/common.sh"
 declare -A HOST_PROFILES=(
     [donkey]=donkey
     [elizabeth]=elizabeth
+    [navi]=navi
 )
 
 function usage() {
