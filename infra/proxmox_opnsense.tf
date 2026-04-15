@@ -16,7 +16,7 @@ resource "proxmox_virtual_environment_vm" "glados" {
 
   cpu {
     cores = local.services.proxmox.opnsense.cores
-    type  = "qemu64" # "host" in production, "qemu64" for nested/test
+    type  = "host"
   }
 
   memory {
