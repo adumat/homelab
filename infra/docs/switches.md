@@ -4,20 +4,20 @@
 
 | VLAN ID | Name | Subnet | Purpose |
 |---------|------|--------|---------|
-| 1 | Management | 10.1.1.0/24 | Switches, APs, VyOS mgmt |
+| 1 | Untrusted | 10.1.1.0/24 | Default/untagged — restricted devices |
 | 10 | Servers | 10.1.10.0/24 | K8s nodes, donkey, elizabeth |
 | 20 | Clients | 10.1.20.0/24 | Laptops, phones, tablets |
 | 30 | IoT | 10.1.30.0/24 | Smart devices with internet |
 | 40 | IoT-Local | 10.1.40.0/24 | Sensors, ESP — no internet |
-| 50 | Untrusted | 10.1.50.0/24 | Restricted devices |
-| 60 | Guest | 10.1.60.0/24 | Guest WiFi — internet only |
+| 50 | Guest | 10.1.50.0/24 | Guest WiFi — internet only |
+| 99 | Management | 10.1.99.0/24 | Switches, APs, Proxmox mgmt |
 
 ---
 
 ## HPE 1820 24G PoE+ (switch-main)
 
-- **IP**: 10.1.1.10 (DHCP static, management VLAN)
-- **Web UI**: http://10.1.1.10
+- **IP**: 10.1.99.10 (DHCP static, management VLAN 99)
+- **Web UI**: http://10.1.99.10
 - **Ports 1-12**: PoE+
 - **Ports 13-24**: non-PoE
 

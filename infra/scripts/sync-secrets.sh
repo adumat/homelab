@@ -30,6 +30,7 @@ proxmox_password     = "$(bws_get "$MATRYOSHKA_CREDS" | jq -r '.password')"
 opnsense_api_key     = "$(bws_get "$GLADOS_API" | jq -r '.key')"
 opnsense_api_secret  = "$(bws_get "$GLADOS_API" | jq -r '.secret')"
 wg_private_key       = "$(bws_get "$GLADOS_WG_SERVER" | jq -r '.private')"
+wg_public_key        = "$(bws_get "$GLADOS_WG_SERVER" | jq -r '.public')"
 cloudflare_api_token = "$(bws_get "$CF_SECRET" | jq -r '.CF_API_TOKEN')"
 base_domain          = "$(bws_get "$BASE_DOMAIN")"
 

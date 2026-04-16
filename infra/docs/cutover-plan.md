@@ -42,11 +42,12 @@ just bootstrap
 ## Phase 3: Configure WiFi
 
 - [ ] UniFi controller: create SSIDs per VLAN
+  - Area 51 → VLAN 1 (2.4 + 5 GHz, client isolation)
   - The Grid → VLAN 20 (2.4 + 5 GHz)
   - R2D2 Net → VLAN 30 (2.4 GHz)
   - The Void → VLAN 40 (2.4 GHz)
-  - Area 51 → VLAN 50 (2.4 + 5 GHz)
-  - LAN Solo → VLAN 60 (2.4 + 5 GHz, client isolation)
+  - LAN Solo → VLAN 50 (2.4 + 5 GHz, client isolation)
+  - This Is Fine → VLAN 99 (2.4 + 5 GHz, hidden)
 - [ ] Reconnect devices to new SSIDs
 
 ## Phase 4: Verify

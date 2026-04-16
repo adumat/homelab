@@ -1,4 +1,43 @@
-# Kea DHCP — one subnet per zone, static reservations from networks.yaml
+# Kea DHCP — enable service, subnets per zone, static reservations
+
+# Enable Kea DHCP on all VLAN interfaces
+resource "restapi_object" "kea_enable" {
+  path           = "/api/kea/dhcpv4/set"
+  read_path      = "/api/kea/dhcpv4/get"
+  create_method  = "POST"
+  read_method    = "GET"
+  update_method  = "POST"
+  destroy_method = "POST"
+  data = jsonencode({
+    dhcpv4 = {
+      general = {
+        enabled    = "1"
+        interfaces = join(",", [
+          for name, zone in local.dhcp_zones : local.zone_interface[name]
+        ])
+      }
+    }
+  })
+  id_attribute = "result"
+  object_id    = "kea-enable"
+}
+
+resource "restapi_object" "kea_reconfigure" {
+  path           = "/api/kea/service/reconfigure"
+  create_method  = "POST"
+  read_method    = "GET"
+  update_method  = "POST"
+  destroy_method = "POST"
+  data           = jsonencode({})
+  id_attribute   = "status"
+  object_id      = "kea-reconfigure"
+
+  depends_on = [
+    restapi_object.kea_enable,
+    opnsense_kea_subnet.zone,
+    opnsense_kea_reservation.host,
+  ]
+}
 
 resource "opnsense_kea_subnet" "zone" {
   for_each = local.dhcp_zones
@@ -9,6 +48,9 @@ resource "opnsense_kea_subnet" "zone" {
   routers     = [each.value.gateway]
   domain_name = local.services.domain
   dns_servers = [each.value.gateway]
+  ntp_servers = [each.value.gateway]
+
+  depends_on = [restapi_object.kea_enable]
 }
 
 resource "opnsense_kea_reservation" "host" {
