@@ -55,6 +55,11 @@ variable "wg_private_key" {
   sensitive   = true
 }
 
+variable "wg_public_key" {
+  description = "WireGuard server public key"
+  type        = string
+}
+
 variable "wg_peer_public_keys" {
   description = "Map of peer name to public key"
   type        = map(string)

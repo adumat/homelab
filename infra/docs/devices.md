@@ -1,13 +1,9 @@
 # Device Inventory
 
-## VLAN 1 — Management (GLaDOS Console)
+## VLAN 1 — Untrusted (Area 51)
 
-| Device | MAC | Static IP | Connection |
-|--------|-----|-----------|------------|
-| switch-main (HPE 1820) | 04:09:73:36:1b:a0 | 10.1.1.10 | — |
-| U6-P1 (AP 1st floor) | 0c:ea:14:7c:1f:51 | 10.1.1.51 | Wired HPE port 1 |
-| U6-EXT (AP outdoor) | d8:b3:70:e9:e0:82 | 10.1.1.52 | Wired HPE port 2 |
-| U6-PT (AP ground floor) | 0c:ea:14:7c:1d:01 | 10.1.1.50 | Wired HPE port 3 |
+No devices assigned. Client isolation enabled.
+Default VLAN — any untagged port gets untrusted by default.
 
 ## VLAN 10 — Servers (The Matrix)
 
@@ -69,11 +65,16 @@
 | iron-outlet (ESP) | b4:e6:2d:5d:73:88 | — | WiFi P1 | No internet |
 | power-outlet (ESP) | b4:e6:2d:5d:62:9b | — | WiFi PT | No internet |
 
-## VLAN 50 — Untrusted (Area 51)
-
-No devices assigned yet. Client isolation enabled.
-
-## VLAN 60 — Guest (FBI Surveillance Van)
+## VLAN 50 — Guest (FBI Surveillance Van)
 
 Dynamic only. Client isolation enabled.
 Can access shared devices: 10.1.20.20/28 (TVs, printer) and 10.1.30.20/28 (Google Home).
+
+## VLAN 99 — Management (GLaDOS Console)
+
+| Device | MAC | Static IP | Connection |
+|--------|-----|-----------|------------|
+| switch-main (HPE 1820) | 04:09:73:36:1b:a0 | 10.1.99.10 | — |
+| U6-P1 (AP 1st floor) | 0c:ea:14:7c:1f:51 | 10.1.99.51 | Wired HPE port 1 |
+| U6-EXT (AP outdoor) | d8:b3:70:e9:e0:82 | 10.1.99.52 | Wired HPE port 2 |
+| U6-PT (AP ground floor) | 0c:ea:14:7c:1d:01 | 10.1.99.50 | Wired HPE port 3 |

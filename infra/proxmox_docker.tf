@@ -32,7 +32,7 @@ resource "proxmox_virtual_environment_container" "navi" {
     size         = local.services.proxmox.docker_lxc.disk_size
   }
 
-  # LAN — on servers VLAN (10) for matchbox PXE/HTTP
+  # Servers VLAN 10 — for matchbox PXE/HTTP
   network_interface {
     name    = "eth0"
     bridge  = proxmox_network_linux_bridge.lan.name

@@ -28,17 +28,16 @@ resource "proxmox_virtual_environment_vm" "glados" {
     interface    = "virtio0"
     size         = local.services.proxmox.opnsense.disk_size
     discard      = "on"
-    ssd          = true
   }
 
-  # LAN trunk — vmbr0 (Intel onboard, VLAN aware, also Proxmox mgmt)
+  # LAN trunk — vmbr110 (VLAN-aware, OPNsense sees all VLANs)
   network_device {
     bridge   = proxmox_network_linux_bridge.lan.name
     model    = "virtio"
     firewall = false
   }
 
-  # WAN — vmbr1 (USB Realtek bridge)
+  # WAN — vmbr1 (USB Realtek → FritzBox)
   network_device {
     bridge   = proxmox_network_linux_bridge.wan.name
     model    = "virtio"

@@ -27,6 +27,7 @@ locals {
         key         = "${rule.src}-${rule.dst}"
         sequence    = rule.rule_base
         action      = "pass"
+        interface   = rule.src_device
         source_net  = upper(rule.src)
         dest_net    = upper(rule.dst)
         protocol    = "any"
@@ -37,6 +38,7 @@ locals {
         key         = "${rule.src}-${rule.dst}"
         sequence    = rule.rule_base
         action      = "block"
+        interface   = rule.src_device
         source_net  = upper(rule.src)
         dest_net    = upper(rule.dst)
         protocol    = "any"
@@ -50,6 +52,7 @@ locals {
             key         = "${rule.src}-${rule.dst}-${idx + 1}"
             sequence    = rule.rule_base + idx + 1
             action      = "pass"
+            interface   = rule.src_device
             source_net  = upper(rule.src)
             dest_net    = try(entry.range, upper(rule.dst))
             protocol    = try(entry.proto, "TCP")
@@ -62,6 +65,7 @@ locals {
           key         = "${rule.src}-${rule.dst}-drop"
           sequence    = rule.rule_base + 9
           action      = "block"
+          interface   = rule.src_device
           source_net  = upper(rule.src)
           dest_net    = upper(rule.dst)
           protocol    = "any"
@@ -105,7 +109,7 @@ resource "opnsense_firewall_filter" "interzone" {
   sequence    = each.value.sequence
   description = each.value.description
   enabled     = true
-  interface   = { interface = ["lan"] }
+  interface   = { interface = [each.value.interface] }
 
   filter = {
     action      = each.value.action
@@ -130,7 +134,7 @@ resource "opnsense_firewall_filter" "block_internet" {
   sequence    = 3 + index(local.zone_names, each.key)
   description = "Block ${each.key} internet"
   enabled     = true
-  interface   = { interface = ["wan"] }
+  interface   = { interface = [local.zone_interface[each.key]] }
 
   filter = {
     action      = "block"
@@ -176,7 +180,7 @@ resource "opnsense_firewall_filter" "client_isolation" {
   sequence    = 950 + index(local.zone_names, each.key)
   description = "Client isolation: ${each.key}"
   enabled     = true
-  interface   = { interface = ["lan"] }
+  interface   = { interface = [local.zone_interface[each.key]] }
 
   filter = {
     action      = "block"

@@ -51,10 +51,15 @@ upload() {
   local PROXMOX_URL="https://${PROXMOX_HOST}"
 
   echo "==> Authenticating to Proxmox at ${PROXMOX_URL}"
-  read -rsp "Root password: " PVE_PASS; echo
+  if [ -n "${PVE_PASS:-}" ]; then
+    echo "    Using PVE_PASS from environment"
+  else
+    read -rsp "Root password: " PVE_PASS; echo
+  fi
 
   AUTH=$(curl -sk --max-time 30 -X POST "${PROXMOX_URL}/api2/json/access/ticket" \
-    -d "username=root@pam&password=${PVE_PASS}")
+    --data-urlencode "username=root@pam" \
+    --data-urlencode "password=${PVE_PASS}")
   TICKET=$(echo "$AUTH" | jq -r '.data.ticket')
   CSRF=$(echo "$AUTH" | jq -r '.data.CSRFPreventionToken')
 
@@ -69,7 +74,7 @@ upload() {
     -H "CSRFPreventionToken: ${CSRF}" \
     -F "content=vztmpl" \
     -F "filename=@${CACHE_DIR}/${ALPINE_TEMPLATE}" \
-    "${PROXMOX_URL}/api2/json/nodes/pve/storage/local/upload"
+    "${PROXMOX_URL}/api2/json/nodes/matryoshka/storage/local/upload"
   echo
 
   echo "==> Uploading OPNsense ISO"
@@ -78,7 +83,7 @@ upload() {
     -H "CSRFPreventionToken: ${CSRF}" \
     -F "content=iso" \
     -F "filename=@${CACHE_DIR}/OPNsense-25.1-dvd-amd64.iso" \
-    "${PROXMOX_URL}/api2/json/nodes/pve/storage/local/upload"
+    "${PROXMOX_URL}/api2/json/nodes/matryoshka/storage/local/upload"
   echo
 
   echo "==> Upload complete"
