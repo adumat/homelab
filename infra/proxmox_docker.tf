@@ -34,9 +34,10 @@ resource "proxmox_virtual_environment_container" "navi" {
 
   # Servers VLAN 10 — for matchbox PXE/HTTP
   network_interface {
-    name    = "eth0"
-    bridge  = proxmox_network_linux_bridge.lan.name
-    vlan_id = local.zones.servers.vlan_id
+    name        = "eth0"
+    bridge      = proxmox_network_linux_bridge.lan.name
+    vlan_id     = local.zones.servers.vlan_id
+    mac_address = "BC:24:11:7D:21:95"
   }
 
   features {

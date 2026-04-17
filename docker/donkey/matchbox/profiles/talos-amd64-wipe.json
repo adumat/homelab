@@ -1,0 +1,20 @@
+{
+  "id": "talos-amd64-wipe",
+  "name": "talos-amd64-wipe",
+  "boot": {
+    "kernel": "/assets/talos/kernel-amd64",
+    "initrd": ["--name initramfs.xz /assets/talos/initramfs-amd64.xz"],
+    "args": [
+      "talos.platform=metal",
+      "talos.experimental.wipe=system",
+      "console=tty0",
+      "init_on_alloc=1",
+      "slab_nomerge",
+      "pti=on",
+      "consoleblank=0",
+      "nvme_core.io_timeout=4294967295",
+      "printk.devkmsg=on",
+      "initrd=initramfs.xz"
+    ]
+  }
+}

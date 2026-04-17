@@ -13,7 +13,7 @@ resource "restapi_object" "tftp" {
   data = jsonencode({
     general = {
       enabled = "1"
-      listen  = local.zones.servers.gateway
+      listen  = "0.0.0.0"
     }
   })
   id_attribute = "result"
