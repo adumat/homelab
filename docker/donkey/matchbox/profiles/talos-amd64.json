@@ -6,7 +6,6 @@
     "initrd": ["--name initramfs.xz /assets/talos/initramfs-amd64.xz"],
     "args": [
       "talos.platform=metal",
-      "talos.experimental.wipe=system",
       "console=tty0",
       "init_on_alloc=1",
       "slab_nomerge",
