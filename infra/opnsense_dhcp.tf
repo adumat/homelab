@@ -50,6 +50,10 @@ resource "opnsense_kea_subnet" "zone" {
   dns_servers = [each.value.gateway]
   ntp_servers = [each.value.gateway]
 
+  next_server   = try(each.value.pxe, false) ? each.value.gateway : null
+  tftp_server   = try(each.value.pxe, false) ? each.value.gateway : null
+  tftp_bootfile = try(each.value.pxe, false) ? local.pxe.bootfile_name : null
+
   depends_on = [restapi_object.kea_enable]
 }
 

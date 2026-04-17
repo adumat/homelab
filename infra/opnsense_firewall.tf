@@ -84,7 +84,10 @@ resource "opnsense_firewall_filter" "established" {
   sequence    = 1
   description = "Allow established/related"
   enabled     = true
-  interface   = { interface = ["lan"] }
+  interface   = { interface = concat(
+    ["lan", "wan"],
+    [for name, zone in local.zones : local.zone_interface[name] if zone.vlan_id != null && zone.vlan_id != 1]
+  ) }
 
   filter = {
     action      = "pass"
@@ -151,12 +154,17 @@ resource "opnsense_firewall_filter" "block_internet" {
   }
 }
 
-# ── Allow internet for everyone else ────────────────────
+# ── Allow internet for zones with internet access ───────
 resource "opnsense_firewall_filter" "allow_internet" {
-  sequence    = 10
-  description = "Allow internet access"
+  for_each = {
+    for name, zone in local.zones : name => zone
+    if try(zone.internet, true) && zone.vlan_id != null
+  }
+
+  sequence    = 10 + index(local.zone_names, each.key)
+  description = "Allow ${each.key} internet"
   enabled     = true
-  interface   = { interface = ["wan"] }
+  interface   = { interface = [local.zone_interface[each.key]] }
 
   filter = {
     action      = "pass"
@@ -165,7 +173,7 @@ resource "opnsense_firewall_filter" "allow_internet" {
     protocol    = "any"
 
     source = {
-      net = "10.1.0.0/16"
+      net = each.value.subnet
     }
     destination = {
       net = "any"

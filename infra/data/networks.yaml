@@ -31,13 +31,13 @@ zones:
     subnet: 10.1.1.0/24
     gateway: 10.1.1.1
     internet: true
-    client_isolation: true
+    client_isolation: false
     dhcp:
       range_start: 10.1.1.100
       range_stop: 10.1.1.199
       lease: 43200
     access:
-      servers: none
+      servers: full
       clients: none
       iot: none
       iot_local: none
@@ -48,6 +48,7 @@ zones:
     subnet: 10.1.10.0/24
     gateway: 10.1.10.1
     internet: true
+    pxe: true
     dhcp:
       range_start: 10.1.10.100
       range_stop: 10.1.10.199
