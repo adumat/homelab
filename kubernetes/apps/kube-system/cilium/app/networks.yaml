@@ -7,8 +7,8 @@ metadata:
 spec:
   allowFirstLastIPs: "Yes"
   blocks:
-    - start: 10.1.10.41
-      stop: 10.1.10.79
+    - start: 10.1.11.1
+      stop: 10.1.11.254
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml
 apiVersion: cilium.io/v2

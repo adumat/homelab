@@ -6,6 +6,10 @@ locals {
   zones      = local.networks.zones
   zone_names = keys(local.zones)
 
+  # Cilium LB pool (BGP-only, no VLAN)
+  k8s_lb_subnet   = local.networks.k8s_lb_subnet
+  k8s_gateway_ip  = local.networks.k8s_gateway_ip
+
   # Zones with VLANs (exclude vpn which has vlan_id: null)
   vlan_zones = {
     for name, zone in local.zones : name => zone

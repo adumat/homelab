@@ -13,6 +13,14 @@ wan_mac: 'bc:24:11:19:e7:39'
 wan_address: 192.168.1.200/24
 wan_gateway: 192.168.1.1
 
+# Cilium LoadBalancer pool (BGP-advertised VIPs, no L2 segment).
+# Separate from any host VLAN so same-subnet ARP doesn't shadow BGP routes.
+# k8s_gateway_ip is pinned; allocator range skips it.
+k8s_lb_subnet: 10.1.11.0/24
+k8s_gateway_ip: 10.1.11.1
+k8s_lb_range_start: 10.1.11.2
+k8s_lb_range_stop: 10.1.11.254
+
 # Network zones
 # Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
 #

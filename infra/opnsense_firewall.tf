@@ -7,9 +7,14 @@
 resource "opnsense_firewall_alias" "zone" {
   for_each = local.zones
 
-  name        = upper(each.key)
-  type        = "network"
-  content     = [each.value.subnet]
+  name = upper(each.key)
+  type = "network"
+  # SERVERS also covers the Cilium LB pool so inter-zone rules
+  # targeting "servers" apply to BGP-advertised VIPs too.
+  content = each.key == "servers" ? [
+    each.value.subnet,
+    local.k8s_lb_subnet,
+  ] : [each.value.subnet]
   description = "${each.key} network"
   enabled     = true
 }
