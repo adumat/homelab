@@ -31,4 +31,8 @@ resource "restapi_object" "tftp_reconfigure" {
   object_id      = "tftp-reconfigure"
 
   depends_on = [restapi_object.tftp]
+
+  lifecycle {
+    replace_triggered_by = [restapi_object.tftp]
+  }
 }

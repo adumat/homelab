@@ -3,13 +3,11 @@
 set menu-timeout 10000
 set matchbox-url http://navi.lan:8085
 set matchbox-args uuid=${uuid}&mac=${mac:hexhyp}&domain=${domain}&hostname=${hostname}&serial=${serial}&arch=${buildarch:uristring}
-set servers-subnet 10.1.10.
 
 :start
 menu Loading... Please insert boot disk
-iseq ${net0/ip:ipv4:3} ${servers-subnet} && item --gap -- --- Provisioning --- ||
-iseq ${net0/ip:ipv4:3} ${servers-subnet} && item matchbox Matchbox (MAC-based provisioning) ||
-iseq ${net0/ip:ipv4:3} ${servers-subnet} && item matchbox-wipe Matchbox + wipe system disk ||
+item --gap --           --- Provisioning ---
+item matchbox           Matchbox (MAC-based provisioning)
 item --gap --           --- Network boot ---
 item netboot            netboot.xyz
 item --gap --           --- Other ---
@@ -20,10 +18,6 @@ goto ${selected}
 
 :matchbox
 chain ${matchbox-url}/boot.ipxe?${matchbox-args}
-goto start
-
-:matchbox-wipe
-chain ${matchbox-url}/ipxe?profile=talos-amd64-wipe&${matchbox-args}
 goto start
 
 :netboot

@@ -28,6 +28,10 @@ resource "restapi_object" "wireguard_reconfigure" {
     opnsense_wireguard_server.wg0,
     opnsense_wireguard_client.peer,
   ]
+
+  lifecycle {
+    replace_triggered_by = [restapi_object.wireguard_enable]
+  }
 }
 
 resource "opnsense_wireguard_server" "wg0" {

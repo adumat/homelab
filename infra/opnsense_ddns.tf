@@ -39,4 +39,8 @@ resource "restapi_object" "ddns_reconfigure" {
   object_id      = "ddns-reconfigure"
 
   depends_on = [restapi_object.ddns_cloudflare]
+
+  lifecycle {
+    replace_triggered_by = [restapi_object.ddns_cloudflare]
+  }
 }

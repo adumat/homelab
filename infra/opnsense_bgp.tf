@@ -52,6 +52,13 @@ resource "restapi_object" "frr_reconfigure" {
     restapi_object.bgp_settings,
     opnsense_quagga_bgp_neighbor.cilium,
   ]
+
+  lifecycle {
+    replace_triggered_by = [
+      restapi_object.frr_general,
+      restapi_object.bgp_settings,
+    ]
+  }
 }
 
 # BGP neighbors via native provider

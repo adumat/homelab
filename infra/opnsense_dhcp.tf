@@ -37,6 +37,10 @@ resource "restapi_object" "kea_reconfigure" {
     opnsense_kea_subnet.zone,
     opnsense_kea_reservation.host,
   ]
+
+  lifecycle {
+    replace_triggered_by = [restapi_object.kea_enable]
+  }
 }
 
 resource "opnsense_kea_subnet" "zone" {
