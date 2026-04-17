@@ -13,6 +13,7 @@ default: talos kube (kubeconfig "node") wait namespaces resources crds apps kube
 [doc('Install Talos')]
 talos:
     just log info "Running stage..." "stage" "$0"
+    just talos gen-config
     for n in {{ nodes }}; do \
         if ! op=$(just talos apply-node "$n" --insecure 2>&1); then \
             if [[ "$op" == *"certificate required"* ]]; then \

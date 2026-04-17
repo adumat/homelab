@@ -1,6 +1,6 @@
 ---
-# yaml-language-server: $schema=https://datreeio.github.io/CRDs-catalog/cilium.io/ciliumloadbalancerippool_v2alpha1.json
-apiVersion: cilium.io/v2alpha1
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumloadbalancerippools.yaml
+apiVersion: cilium.io/v2
 kind: CiliumLoadBalancerIPPool
 metadata:
   name: pool
@@ -10,7 +10,8 @@ spec:
     - start: 10.1.10.41
       stop: 10.1.10.79
 ---
-apiVersion: cilium.io/v2alpha1
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpclusterconfigs.yaml
+apiVersion: cilium.io/v2
 kind: CiliumBGPClusterConfig
 metadata:
   name: bgp-cluster
@@ -19,13 +20,14 @@ spec:
     - name: default
       localASN: 64513
       peers:
-        - name: vyos
+        - name: opnsense
           peerASN: 64512
           peerAddress: 10.1.10.1
           peerConfigRef:
             name: bgp-peer-config
 ---
-apiVersion: cilium.io/v2alpha1
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgppeerconfigs.yaml
+apiVersion: cilium.io/v2
 kind: CiliumBGPPeerConfig
 metadata:
   name: bgp-peer-config
@@ -33,14 +35,20 @@ spec:
   families:
     - afi: ipv4
       safi: unicast
+      advertisements:
+        matchLabels:
+          advertise: bgp
   gracefulRestart:
     enabled: true
     restartTimeSeconds: 120
 ---
-apiVersion: cilium.io/v2alpha1
+# yaml-language-server: $schema=https://raw.githubusercontent.com/cilium/cilium/main/pkg/k8s/apis/cilium.io/client/crds/v2/ciliumbgpadvertisements.yaml
+apiVersion: cilium.io/v2
 kind: CiliumBGPAdvertisement
 metadata:
   name: lb-advertisement
+  labels:
+    advertise: bgp
 spec:
   advertisements:
     - advertisementType: Service

@@ -4,6 +4,7 @@ set shell := ['bash', '-euo', 'pipefail', '-c']
 scripts_dir := justfile_dir() + '/scripts'
 talos_dir := justfile_dir() + '/kubernetes/talos'
 controller := `talosctl config info -o yaml | yq -e '.endpoints[0]'`
+nodes := `talosctl config info -o yaml | yq -e '.nodes | join (" ")'`
 
 [private]
 default:
@@ -39,6 +40,19 @@ render-config node:
 reboot-node node:
     gum confirm "Reboot node {{ node }}?" --default="No" && \
         talosctl -n {{ node }} reboot -m powercycle || exit 0
+
+[doc('Reset all nodes')]
+reset-all-nodes:
+    gum confirm "Reset ALL nodes?" --default="No" && \
+    for n in {{ nodes }}; do \
+        if op=$(talosctl -n "$n" reset --system-labels-to-wipe EPHEMERAL,STATE --graceful=false --wait=false --reboot 2>&1); then \
+            just log info "Node reset successfully" "node" "$n"; \
+        elif [[ "$op" == *"certificate required"* ]]; then \
+            just log info "Node already reset" "node" "$n"; \
+        else \
+            just log error "Failed to reset node" "node" "$n" "output" "$op"; \
+        fi; \
+    done
 
 [doc('Reset a node')]
 reset-node node:
