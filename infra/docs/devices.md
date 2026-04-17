@@ -10,12 +10,18 @@ Default VLAN — any untagged port gets untrusted by default.
 | Device | MAC | Static IP | Connection |
 |--------|-----|-----------|------------|
 | elizabeth (NAS) | 14:da:e9:4d:e7:65 | 10.1.10.2 | Wired HPE port 17 |
-| donkey | ee:33:32:65:7e:84 | 10.1.10.3 | Wired HPE port 14 |
+| donkey | ee:33:32:65:7e:84 | 10.1.10.3 | Wired HPE port 18 |
 | kube-nuc | 1c:69:7a:a5:93:fc | 10.1.10.10 | Wired HPE port 21 |
 | kube-hp | f8:b4:6a:a5:87:ed | 10.1.10.11 | Wired HPE port 19 |
 | kube-ceph-01 | e8:6a:64:a4:89:ca | 10.1.10.21 | Wired HPE port 22 |
 | kube-ceph-02 | e8:6a:64:f6:ff:af | 10.1.10.22 | Wired HPE port 23 |
 | kube-ceph-03 | e8:6a:64:76:2a:18 | 10.1.10.23 | Wired HPE port 24 |
+| matryoshka (Proxmox) | — | 10.1.10.9 | VM host (vmbr0.10) |
+| navi (Docker LXC) | — | 10.1.10.5 | LXC on matryoshka (VLAN 10) |
+| switch-main (HPE 1820) | 04:09:73:36:1b:a0 | 10.1.10.4 | — |
+| U6-PT (AP ground floor) | 0c:ea:14:7c:1d:01 | 10.1.10.50 | Wired HPE port 3 |
+| U6-P1 (AP 1st floor) | 0c:ea:14:7c:1f:51 | 10.1.10.51 | Wired HPE port 1 |
+| U6-EXT (AP outdoor) | d8:b3:70:e9:e0:82 | 10.1.10.52 | Wired HPE port 2 |
 
 ## VLAN 20 — Clients (LAN Solo)
 
@@ -69,12 +75,3 @@ Default VLAN — any untagged port gets untrusted by default.
 
 Dynamic only. Client isolation enabled.
 Can access shared devices: 10.1.20.20/28 (TVs, printer) and 10.1.30.20/28 (Google Home).
-
-## VLAN 99 — Management (GLaDOS Console)
-
-| Device | MAC | Static IP | Connection |
-|--------|-----|-----------|------------|
-| switch-main (HPE 1820) | 04:09:73:36:1b:a0 | 10.1.99.10 | — |
-| U6-P1 (AP 1st floor) | 0c:ea:14:7c:1f:51 | 10.1.99.51 | Wired HPE port 1 |
-| U6-EXT (AP outdoor) | d8:b3:70:e9:e0:82 | 10.1.99.52 | Wired HPE port 2 |
-| U6-PT (AP ground floor) | 0c:ea:14:7c:1d:01 | 10.1.99.50 | Wired HPE port 3 |

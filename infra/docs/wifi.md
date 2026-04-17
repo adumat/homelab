@@ -8,7 +8,6 @@
 | R2D2 Net | 30 | 2.4 GHz | no | IoT | no | WPA2 |
 | The Void | 40 | 2.4 GHz | yes | IoT | no | WPA2 |
 | LAN Solo | 50 | 2.4 + 5 GHz | no | Standard | yes | WPA2/WPA3 |
-| This Is Fine | 99 | 2.4 + 5 GHz | yes | Standard | no | WPA2/WPA3 |
 
 IoT SSIDs use WPA2 + 2.4 GHz only (ESP/smart devices compatibility).
 DHCP Guarding enabled on all UniFi networks, pointing to glados gateway IP.

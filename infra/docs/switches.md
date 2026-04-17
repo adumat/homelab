@@ -10,14 +10,13 @@
 | 30 | IoT | 10.1.30.0/24 | Smart devices with internet |
 | 40 | IoT-Local | 10.1.40.0/24 | Sensors, ESP — no internet |
 | 50 | Guest | 10.1.50.0/24 | Guest WiFi — internet only |
-| 99 | Management | 10.1.99.0/24 | Switches, APs, Proxmox mgmt |
 
 ---
 
 ## HPE 1820 24G PoE+ (switch-main)
 
-- **IP**: 10.1.99.10 (DHCP static, management VLAN 99)
-- **Web UI**: http://10.1.99.10
+- **IP**: 10.1.10.4 (DHCP static, servers VLAN 10)
+- **Web UI**: http://10.1.10.4
 - **Ports 1-12**: PoE+
 - **Ports 13-24**: non-PoE
 
@@ -38,11 +37,11 @@
 | 11 | yes | — | — | — | — |
 | 12 | yes | — | — | — | — |
 | 13 | no | — | glados LAN | all | trunk |
-| 14 | no | — | donkey | 10 | access |
+| 14 | no | — | — | — | — |
 | 15 | no | 6 | switch-living (TP-Link) | 20 | access |
 | 16 | no | 5 | SolarEdge inverter | 30 | access |
 | 17 | no | 16 | elizabeth (NAS) | 10 | access |
-| 18 | no | — | — | — | — |
+| 18 | no | — | donkey | 10 | access |
 | 19 | no | 17 | kube-hp | 10 | access |
 | 20 | no | 18 | FritzBox | — | removed at cutover |
 | 21 | no | 19 | kube-nuc | 10 | access |
@@ -108,8 +107,8 @@ Port 20 becomes free after cutover.
 
 ### Pre-cutover (safe)
 
-1. HPE web UI → create VLANs: 10, 20, 30, 40, 50, 60
-2. Port 20 (glados) → trunk (VLAN 1 untagged + 10/20/30/40/50/60 tagged, PVID 1)
+1. HPE web UI → create VLANs: 10, 20, 30, 40, 50
+2. Port 13 (glados) → trunk (VLAN 1 untagged + 10/20/30/40/50 tagged, PVID 1)
 3. Leave all other ports unchanged
 4. Save
 

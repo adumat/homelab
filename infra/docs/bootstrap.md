@@ -13,7 +13,8 @@ Step-by-step guide to set up matryoshka (Proxmox) + glados (OPNsense) from scrat
 - Download ISO: https://www.proxmox.com/en/downloads
 - Flash to USB, boot, install
 - Hostname: `matryoshka`
-- Management IP: on Intel onboard NIC (will become vmbr0/LAN)
+- Management IP: `10.1.1.2/24` on vmbr0 (untagged = VLAN 1)
+- Servers access: `10.1.10.9/24` on vmbr0.10 (for Proxmox API + navi LXC access)
 
 ## 3. Download Resources (from your Mac)
 
@@ -102,11 +103,12 @@ This creates: VLANs, DHCP, DNS, firewall rules, NAT, WireGuard, BGP, DDNS, TFTP.
 ## 10. Bootstrap navi (Docker LXC)
 
 ```bash
-./infra/scripts/bootstrap-navi.sh 10.1.10.5 10.1.1.1 --token <git-token> --bws-token <bws-token>
+mise exec -- ./infra/scripts/bootstrap-navi.sh
 ```
 
 This will:
-- Install Docker + dependencies on navi
+- Install SSH + set root password on navi (from BWS)
+- Install Docker + dependencies
 - Upload and run doco-cd bootstrap (deploys matchbox for PXE boot)
 - Download iPXE files and upload to glados TFTP directory
 

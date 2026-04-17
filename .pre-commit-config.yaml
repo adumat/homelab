@@ -24,13 +24,6 @@ repos:
         args: [--severity=error]
         language: system
         types: [shell]
-  - repo: https://github.com/ansible-community/ansible-lint
-    rev: v25.12.2
-    hooks:
-      - id: ansible-lint
-        files: ^infrastructure/
-        always_run: false
-        entry: bash -c "cd infrastructure/ && exec ansible-lint --force-color"
   - repo: local
     hooks:
       - id: tofu-fmt
