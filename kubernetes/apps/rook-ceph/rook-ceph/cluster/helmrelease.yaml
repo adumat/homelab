@@ -88,9 +88,9 @@ spec:
         osd:
           requests:
             cpu: 100m # 1000m
-            memory: 1Gi # 4Gi
+            memory: 2Gi
           limits:
-            memory: 2Gi # 4Gi
+            memory: 4Gi
       storage:
         useAllNodes: false
         nodes:
