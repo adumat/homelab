@@ -83,3 +83,9 @@ spec:
         globalMounts:
           - path: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
+      tmp:
+        type: emptyDir
+        advancedMounts:
+          mosquitto:
+            init-passwd:
+              - path: /tmp
