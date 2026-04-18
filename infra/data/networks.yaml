@@ -233,6 +233,9 @@ dns_records:
   lan:
     - name: nut-server-room
       ip: 10.1.10.3
+    # UniFi controller inform endpoint (stable thanks to lbipam pin).
+    - name: unifi
+      ip: 10.1.11.5
   clusterone.lan:
     - name: k8s
       ip: 10.1.10.40

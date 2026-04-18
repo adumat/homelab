@@ -15,7 +15,6 @@ locals {
   # base_domain is nonsensitive()'d because it becomes a resource instance key.
   k8s_gateway_forward_domains = [
     nonsensitive(var.base_domain),
-    "unifi.lan",
   ]
 
   # Zones with VLANs (exclude vpn which has vlan_id: null)
