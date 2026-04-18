@@ -7,8 +7,16 @@ locals {
   zone_names = keys(local.zones)
 
   # Cilium LB pool (BGP-only, no VLAN)
-  k8s_lb_subnet   = local.networks.k8s_lb_subnet
-  k8s_gateway_ip  = local.networks.k8s_gateway_ip
+  k8s_lb_subnet  = local.networks.k8s_lb_subnet
+  k8s_gateway_ip = local.networks.k8s_gateway_ip
+
+  # Domains Unbound forwards to k8s-gateway. Services advertise themselves
+  # under these domains via external-dns.alpha.kubernetes.io/hostname.
+  # base_domain is nonsensitive()'d because it becomes a resource instance key.
+  k8s_gateway_forward_domains = [
+    nonsensitive(var.base_domain),
+    "unifi.lan",
+  ]
 
   # Zones with VLANs (exclude vpn which has vlan_id: null)
   vlan_zones = {

@@ -3,7 +3,7 @@
 # No AdGuard — Unbound handles everything natively.
 # Blocklists configured via OPNsense web UI (DNSBL plugin).
 
-# Forward base_domain to k8s-gateway (Cilium LB)
+# Domains forwarded to k8s-gateway (Cilium LB).
 #
 # TODO: switch to the native resource below once browningluke/opnsense is fixed.
 # The provider's opnsense_unbound_forward calls OPNsense's /addDot endpoint under
@@ -13,11 +13,14 @@
 # https://github.com/browningluke/opnsense-go/blob/main/pkg/unbound/forward.go
 #
 # resource "opnsense_unbound_forward" "k8s_gateway" {
-#   domain    = var.base_domain
+#   for_each  = toset(local.k8s_gateway_forward_domains)
+#   domain    = each.value
 #   server_ip = local.k8s_gateway_ip
 #   enabled   = true
 # }
 resource "restapi_object" "unbound_forward_k8s_gateway" {
+  for_each = toset(local.k8s_gateway_forward_domains)
+
   path           = "/api/unbound/settings/addForward"
   read_path      = "/api/unbound/settings/getForward/{id}"
   update_path    = "/api/unbound/settings/setForward/{id}"
@@ -30,10 +33,10 @@ resource "restapi_object" "unbound_forward_k8s_gateway" {
   data = jsonencode({
     dot = {
       enabled              = "1"
-      domain               = var.base_domain
+      domain               = each.value
       server               = local.k8s_gateway_ip
       port                 = "53"
-      description          = "k8s-gateway"
+      description          = "k8s-gateway (${each.value})"
       forward_tcp_upstream = "0"
       forward_first        = "0"
       verify               = ""
