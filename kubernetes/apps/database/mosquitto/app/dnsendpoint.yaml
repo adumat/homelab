@@ -6,6 +6,8 @@ metadata:
   name: mosquitto
 spec:
   endpoints:
+    # k8s-gateway only serves A/AAAA from DNSEndpoint (CNAME unsupported).
+    # envoy-internal LB IP is pinned via lbipam, so a direct A record is stable.
     - dnsName: "mqtt.${DOMAIN}"
-      recordType: CNAME
-      targets: ["internal.${LOCAL_DOMAIN}"]
+      recordType: A
+      targets: ["10.1.11.3"]
