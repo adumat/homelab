@@ -83,9 +83,6 @@ services:
       - nut-generated:/etc/nut
     devices:
       - /dev/bus/usb:/dev/bus/usb
-    dns:
-      - 10.1.10.1
-    dns_search: lan
 
 volumes:
   nut-generated:
