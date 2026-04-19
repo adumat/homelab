@@ -52,16 +52,14 @@ ${NAVI_SCP} "$ROOT_DIR/scripts/lib/common.sh" "root@${NAVI_HOST}:/opt/homelab/sc
 echo "==> Running doco-cd bootstrap"
 run "cd /opt/homelab/docker/doco-cd && bash bootstrap.sh --token ${GIT_TOKEN} --bws-token ${BWS_ACCESS_TOKEN}"
 
-echo "==> Uploading iPXE files to glados (OPNsense TFTP)"
+echo "==> Uploading custom iPXE to glados (OPNsense TFTP)"
+IPXE_EFI="${SCRIPT_DIR}/../.cache/ipxe.efi"
+if [ ! -f "${IPXE_EFI}" ]; then
+  echo "    ${IPXE_EFI} not found. Run infra/pxe/build.sh first." >&2
+  exit 1
+fi
 glados "mkdir -p /usr/local/tftp"
-mkdir -p "${SCRIPT_DIR}/../.cache"
-for file in ipxe.efi undionly.kpxe; do
-  if [ ! -f "${SCRIPT_DIR}/../.cache/${file}" ]; then
-    echo "    Downloading ${file}..."
-    curl -sL -o "${SCRIPT_DIR}/../.cache/${file}" "https://boot.ipxe.org/${file}"
-  fi
-  scp "${SCRIPT_DIR}/../.cache/${file}" "root@${GLADOS_HOST}:/usr/local/tftp/${file}"
-  echo "    ${file} uploaded"
-done
+scp "${IPXE_EFI}" "root@${GLADOS_HOST}:/usr/local/tftp/ipxe.efi"
+echo "    ipxe.efi uploaded"
 
 echo "==> Done."
