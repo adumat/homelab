@@ -1,0 +1,4 @@
+matchbox/certs/*
+!matchbox/certs/openssl.conf
+!matchbox/certs/generate-certs.sh
+matchbox/certs.env

@@ -1,9 +1,2 @@
-matchbox/certs/*
-!matchbox/certs/openssl.conf
-!matchbox/certs/generate-certs.sh
-matchbox/certs.env
-infiscal/secrets.env
-assets/*
-!assets/.gitkeep
 power-nap-over/config.yaml
 nut/conf/generated/

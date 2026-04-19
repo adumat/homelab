@@ -40,9 +40,6 @@ services:
     ports:
       - '8085:8085/tcp'
       - '8989:8989/tcp'
-    dns:
-      - 10.1.10.1
-    dns_search: lan
 
 volumes:
   matchbox-certs:

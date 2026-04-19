@@ -1,5 +1,5 @@
-name: glados-homelab
-working_dir: docker/glados/
+name: navi-homelab
+working_dir: docker/navi/
 auto_discover: true
 auto_discover_opts:
   depth: 1

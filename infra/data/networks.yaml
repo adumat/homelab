@@ -40,13 +40,13 @@ zones:
     gateway: 10.1.1.1
     internet: true
     pxe: true
-    client_isolation: false
+    client_isolation: true
     dhcp:
       range_start: 10.1.1.100
       range_stop: 10.1.1.199
       lease: 43200
     access:
-      servers: full
+      servers: none
       clients: none
       iot: none
       iot_local: none

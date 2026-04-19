@@ -2,9 +2,9 @@
 
 | SSID | VLAN | Band | Hidden | App | Isolation | Security |
 |------|------|------|--------|-----|-----------|----------|
-| Area 51 | 1 | 2.4 + 5 GHz | no | Standard | yes | WPA2/WPA3 |
+| Area 51 | 1 | 2.4 + 5 GHz | yes | Standard | yes | WPA2/WPA3 |
 | Death Star Core | 10 | 2.4 + 5 GHz | yes | Standard | no | WPA2/WPA3 |
-| The Grid | 20 | 2.4 + 5 GHz | no | Standard | no | WPA2/WPA3 |
+| /dev/wlan0 | 20 | 2.4 + 5 GHz | no | Standard | no | WPA2/WPA3 |
 | R2D2 Net | 30 | 2.4 GHz | no | IoT | no | WPA2 |
 | The Void | 40 | 2.4 GHz | yes | IoT | no | WPA2 |
 | LAN Solo | 50 | 2.4 + 5 GHz | no | Standard | yes | WPA2/WPA3 |

@@ -11,6 +11,3 @@ services:
       SSH_REMOTE_PATH: /mnt/user/donkey-backup
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    dns:
-      - 10.1.10.1
-    dns_search: lan
