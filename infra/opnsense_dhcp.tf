@@ -46,13 +46,14 @@ resource "restapi_object" "kea_reconfigure" {
 resource "opnsense_kea_subnet" "zone" {
   for_each = local.dhcp_zones
 
-  subnet      = each.value.subnet
-  description = "${each.key} DHCP"
-  pools       = ["${each.value.dhcp.range_start}-${each.value.dhcp.range_stop}"]
-  routers     = [each.value.gateway]
-  domain_name = local.services.domain
-  dns_servers = [each.value.gateway]
-  ntp_servers = [each.value.gateway]
+  subnet        = each.value.subnet
+  description   = "${each.key} DHCP"
+  pools         = ["${each.value.dhcp.range_start}-${each.value.dhcp.range_stop}"]
+  routers       = [each.value.gateway]
+  domain_name   = local.services.domain
+  domain_search = [local.services.domain]
+  dns_servers   = [each.value.gateway]
+  ntp_servers   = [each.value.gateway]
 
   next_server   = try(each.value.pxe, false) ? each.value.gateway : null
   tftp_server   = try(each.value.pxe, false) ? each.value.gateway : null
