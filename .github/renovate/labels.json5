@@ -1,37 +1,113 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
+    // ── Update type ──────────────────────────────────────────────────
+    { matchUpdateTypes: ["major"], labels: ["type/major"] },
+    { matchUpdateTypes: ["minor"], labels: ["type/minor"] },
+    { matchUpdateTypes: ["patch"], labels: ["type/patch"] },
+    { matchUpdateTypes: ["digest"], labels: ["type/digest"] },
+
+    // ── Datasource / manager ─────────────────────────────────────────
+    { matchDatasources: ["docker"], addLabels: ["renovate/container"] },
+    { matchDatasources: ["helm"], addLabels: ["renovate/helm"] },
+    { matchDatasources: ["terraform-provider"], addLabels: ["renovate/terraform"] },
+    { matchDatasources: ["github-releases"], addLabels: ["renovate/github-release"] },
+    { matchManagers: ["github-actions"], addLabels: ["renovate/github-action"] },
+    { matchManagers: ["mise"], addLabels: ["renovate/mise"] },
+
+    // ── Kubernetes namespace labels ──────────────────────────────────
+    { matchFileNames: ["kubernetes/apps/database/**"], addLabels: ["ns/database"] },
+    { matchFileNames: ["kubernetes/apps/default/**"], addLabels: ["ns/default"] },
+    { matchFileNames: ["kubernetes/apps/downloads/**"], addLabels: ["ns/downloads"] },
+    { matchFileNames: ["kubernetes/apps/flux-system/**"], addLabels: ["ns/flux-system"] },
+    { matchFileNames: ["kubernetes/apps/home/**"], addLabels: ["ns/home"] },
+    { matchFileNames: ["kubernetes/apps/kube-system/**"], addLabels: ["ns/kube-system"] },
+    { matchFileNames: ["kubernetes/apps/media/**"], addLabels: ["ns/media"] },
+    { matchFileNames: ["kubernetes/apps/network/**"], addLabels: ["ns/network"] },
+    { matchFileNames: ["kubernetes/apps/observability/**"], addLabels: ["ns/observability"] },
+    { matchFileNames: ["kubernetes/apps/openebs-system/**"], addLabels: ["ns/openebs-system"] },
+    { matchFileNames: ["kubernetes/apps/rook-ceph/**"], addLabels: ["ns/rook-ceph"] },
+    { matchFileNames: ["kubernetes/apps/security/**"], addLabels: ["ns/security"] },
+    { matchFileNames: ["kubernetes/apps/services/**"], addLabels: ["ns/services"] },
+    { matchFileNames: ["kubernetes/apps/system-upgrade/**"], addLabels: ["ns/system-upgrade"] },
+    { matchFileNames: ["kubernetes/apps/volsync-system/**"], addLabels: ["ns/volsync-system"] },
+
+    // ── Docker host labels ───────────────────────────────────────────
+    { matchFileNames: ["docker/donkey/**"], addLabels: ["host/donkey"] },
+    { matchFileNames: ["docker/elizabeth/**"], addLabels: ["host/elizabeth"] },
+    { matchFileNames: ["docker/navi/**"], addLabels: ["host/navi"] },
+    { matchFileNames: ["docker/doco-cd/**"], addLabels: ["host/doco-cd"] },
+
+    // ── Scope (non-k8s non-docker) ───────────────────────────────────
+    { matchFileNames: ["infra/**"], addLabels: ["scope/infra"] },
+    { matchFileNames: [".github/**"], addLabels: ["scope/ci"] },
+    { matchFileNames: [".mise.toml"], addLabels: ["scope/tooling"] },
+
+    // ── Macro category (stack) ───────────────────────────────────────
     {
-      matchUpdateTypes: ["major"],
-      labels: ["type/major"],
+      matchFileNames: [
+        "kubernetes/apps/home/esp-home/**",
+        "kubernetes/apps/home/frigate/**",
+        "kubernetes/apps/home/go2rtc/**",
+        "kubernetes/apps/home/home-assistant/**",
+        "kubernetes/apps/home/node-red/**",
+        "kubernetes/apps/home/zigbee2mqtt/**",
+        "kubernetes/apps/database/mosquitto/**",
+      ],
+      addLabels: ["stack/home-automation"],
+    },
+    { matchFileNames: ["kubernetes/apps/home/immich/**"], addLabels: ["stack/immich"] },
+    {
+      matchFileNames: [
+        "kubernetes/apps/downloads/radarr/**",
+        "kubernetes/apps/downloads/sonarr/**",
+        "kubernetes/apps/downloads/prowlarr/**",
+        "kubernetes/apps/downloads/readarr/**",
+        "kubernetes/apps/downloads/bazarr/**",
+        "kubernetes/apps/downloads/lidarr/**",
+        "kubernetes/apps/downloads/recyclarr/**",
+        "kubernetes/apps/downloads/autobrr/**",
+        "kubernetes/apps/downloads/kapowarr/**",
+        "kubernetes/apps/downloads/flaresolverr/**",
+      ],
+      addLabels: ["stack/arr"],
     },
     {
-      matchUpdateTypes: ["minor"],
-      labels: ["type/minor"],
+      matchFileNames: [
+        "kubernetes/apps/downloads/qbittorrent/**",
+        "kubernetes/apps/downloads/metube/**",
+        "kubernetes/apps/downloads/pyload-ng/**",
+      ],
+      addLabels: ["stack/downloads"],
+    },
+    { matchFileNames: ["kubernetes/apps/media/**"], addLabels: ["stack/media"] },
+    {
+      matchFileNames: [
+        "kubernetes/apps/database/cloudnative-pg/**",
+        "kubernetes/apps/database/dragonfly/**",
+        "kubernetes/apps/database/pgadmin/**",
+      ],
+      addLabels: ["stack/database"],
+    },
+    { matchFileNames: ["kubernetes/apps/observability/**"], addLabels: ["stack/observability"] },
+    { matchFileNames: ["kubernetes/apps/network/**"], addLabels: ["stack/network"] },
+    { matchFileNames: ["kubernetes/apps/security/**"], addLabels: ["stack/security"] },
+    { matchFileNames: ["kubernetes/apps/flux-system/**"], addLabels: ["stack/gitops"] },
+    {
+      matchFileNames: [
+        "kubernetes/apps/rook-ceph/**",
+        "kubernetes/apps/openebs-system/**",
+        "kubernetes/apps/volsync-system/**",
+      ],
+      addLabels: ["stack/storage"],
     },
     {
-      matchUpdateTypes: ["patch"],
-      labels: ["type/patch"],
+      matchFileNames: [
+        "kubernetes/apps/kube-system/**",
+        "kubernetes/apps/system-upgrade/**",
+      ],
+      addLabels: ["stack/platform"],
     },
-    {
-      matchUpdateTypes: ["digest"],
-      labels: ["type/digest"],
-    },
-    {
-      matchDatasources: ["docker"],
-      addLabels: ["renovate/container"],
-    },
-    {
-      matchDatasources: ["helm"],
-      addLabels: ["renovate/helm"],
-    },
-    {
-      matchManagers: ["github-actions"],
-      addLabels: ["renovate/github-action"],
-    },
-    {
-      matchDatasources: ["github-releases"],
-      addLabels: ["renovate/github-release"],
-    },
+    { matchFileNames: ["kubernetes/apps/services/**"], addLabels: ["stack/services"] },
   ],
 }

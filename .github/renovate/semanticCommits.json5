@@ -33,15 +33,25 @@
       commitMessageTopic: "chart {{depName}}",
     },
     {
+      matchDatasources: ["terraform-provider"],
+      semanticCommitScope: "terraform",
+      commitMessageTopic: "provider {{depName}}",
+    },
+    {
+      matchDatasources: ["github-releases"],
+      semanticCommitScope: "github-release",
+      commitMessageTopic: "release {{depName}}",
+    },
+    {
       matchManagers: ["github-actions"],
       semanticCommitType: "ci",
       semanticCommitScope: "github-action",
       commitMessageTopic: "action {{depName}}",
     },
     {
-      matchDatasources: ["github-releases"],
-      semanticCommitScope: "github-release",
-      commitMessageTopic: "release {{depName}}",
+      matchManagers: ["mise"],
+      semanticCommitScope: "mise",
+      commitMessageTopic: "tool {{depName}}",
     },
   ],
 }

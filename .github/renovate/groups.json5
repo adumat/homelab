@@ -1,111 +1,152 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
+    // ── Umbrella: every patch across all managers, once per week ──────
     {
-      description: "Actions Runner Controller Group",
-      groupName: "actions-runner-controller",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/gha-runner-scale-set-controller/", "/gha-runner-scale-set/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
+      description: "All patch updates (weekly batch)",
+      matchUpdateTypes: ["patch"],
+      groupName: "all patch updates",
+      commitMessageTopic: "patch updates",
+      schedule: ["before 6am on monday"],
     },
+
+    // ── k8s stack groups (by app directory) ───────────────────────────
     {
-      description: "Cert-Manager Group",
-      groupName: "Cert-Manager",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/cert-manager/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "Cilium Group",
-      groupName: "Cilium",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/cilium/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "CoreDNS Group",
-      groupName: "CoreDNS",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/coredns/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "External Secrets Operator Group",
-      groupName: "External Secrets Operator",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/external-secrets/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "Flux Operator Group",
-      groupName: "flux-operator",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/flux-operator/", "/flux-instance/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "Intel Device Plugins Group",
-      groupName: "intel-device-plugins",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/intel-device-plugins-operator/", "/intel-device-plugins-gpu/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
-    },
-    {
-      description: "Kubernetes Group",
-      groupName: "kubernetes",
-      matchDatasources: ["docker"],
-      matchPackageNames: [
-        "/kube-apiserver/",
-        "/kube-controller-manager/",
-        "/kube-proxy/",
-        "/kube-scheduler/",
-        "/kubelet/",
+      description: "Home automation stack",
+      groupName: "home-automation-stack",
+      matchFileNames: [
+        "kubernetes/apps/home/esp-home/**",
+        "kubernetes/apps/home/frigate/**",
+        "kubernetes/apps/home/go2rtc/**",
+        "kubernetes/apps/home/home-assistant/**",
+        "kubernetes/apps/home/node-red/**",
+        "kubernetes/apps/home/zigbee2mqtt/**",
+        "kubernetes/apps/database/mosquitto/**",
       ],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 5,
+      minimumGroupSize: 1,
     },
     {
-      description: "Rook-Ceph Group",
+      description: "Immich stack",
+      groupName: "immich-stack",
+      matchFileNames: ["kubernetes/apps/home/immich/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "*arr stack (includes flaresolverr)",
+      groupName: "arr-stack",
+      matchFileNames: [
+        "kubernetes/apps/downloads/radarr/**",
+        "kubernetes/apps/downloads/sonarr/**",
+        "kubernetes/apps/downloads/prowlarr/**",
+        "kubernetes/apps/downloads/readarr/**",
+        "kubernetes/apps/downloads/bazarr/**",
+        "kubernetes/apps/downloads/lidarr/**",
+        "kubernetes/apps/downloads/recyclarr/**",
+        "kubernetes/apps/downloads/autobrr/**",
+        "kubernetes/apps/downloads/kapowarr/**",
+        "kubernetes/apps/downloads/flaresolverr/**",
+      ],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Downloads stack (qbittorrent + sidecars, metube, pyload)",
+      groupName: "downloads-stack",
+      matchFileNames: [
+        "kubernetes/apps/downloads/qbittorrent/**",
+        "kubernetes/apps/downloads/metube/**",
+        "kubernetes/apps/downloads/pyload-ng/**",
+      ],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Media stack",
+      groupName: "media-stack",
+      matchFileNames: ["kubernetes/apps/media/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Database stack",
+      groupName: "database-stack",
+      matchFileNames: [
+        "kubernetes/apps/database/cloudnative-pg/**",
+        "kubernetes/apps/database/dragonfly/**",
+        "kubernetes/apps/database/pgadmin/**",
+      ],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Observability stack",
+      groupName: "observability-stack",
+      matchFileNames: ["kubernetes/apps/observability/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Network stack",
+      groupName: "network-stack",
+      matchFileNames: ["kubernetes/apps/network/**"],
+      minimumGroupSize: 1,
+    },
+
+    // ── k8s single-chart / ecosystem groups ───────────────────────────
+    {
+      description: "Cert-Manager",
+      groupName: "cert-manager",
+      matchFileNames: ["kubernetes/apps/security/cert-manager/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Cilium",
+      groupName: "cilium",
+      matchFileNames: ["kubernetes/apps/kube-system/cilium/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "External Secrets Operator",
+      groupName: "external-secrets-operator",
+      matchFileNames: ["kubernetes/apps/security/external-secrets/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Flux (operator + instance)",
+      groupName: "flux",
+      matchFileNames: [
+        "kubernetes/apps/flux-system/flux-operator/**",
+        "kubernetes/apps/flux-system/flux-instance/**",
+      ],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Rook-Ceph",
       groupName: "rook-ceph",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["/rook-ceph/", "/rook-ceph-cluster/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
+      matchFileNames: ["kubernetes/apps/rook-ceph/**"],
+      minimumGroupSize: 1,
     },
     {
-      description: "Talos Group",
+      description: "Talos (installer + talosctl, not in kubernetes/ path)",
       groupName: "talos",
       matchDatasources: ["docker"],
       matchPackageNames: ["/installer/", "/talosctl/"],
-      group: {
-        commitMessageTopic: "{{{groupName}}} group",
-      },
-      minimumGroupSize: 2,
+      minimumGroupSize: 1,
+    },
+
+    // ── Infra / tooling groups ────────────────────────────────────────
+    {
+      description: "Terraform/OpenTofu providers",
+      groupName: "terraform-providers",
+      matchDatasources: ["terraform-provider"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "mise tools",
+      groupName: "mise-tools",
+      matchManagers: ["mise"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "GitHub Actions",
+      groupName: "github-actions",
+      matchManagers: ["github-actions"],
+      minimumGroupSize: 1,
     },
   ],
 }
