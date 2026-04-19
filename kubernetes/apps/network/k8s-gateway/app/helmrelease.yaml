@@ -10,7 +10,7 @@ spec:
   interval: 1h
   values:
     fullnameOverride: k8s-gateway
-    domain: "${DOMAIN}"
+    domain: "${DOMAIN} ${LOCAL_DOMAIN}"
     ttl: 1
     service:
       type: LoadBalancer
@@ -18,4 +18,4 @@ spec:
       annotations:
         lbipam.cilium.io/ips: "10.1.11.1"
       externalTrafficPolicy: Cluster
-    watchedResources: ["HTTPRoute", "Service"]
+    watchedResources: ["HTTPRoute", "Service", "DNSEndpoint"]
