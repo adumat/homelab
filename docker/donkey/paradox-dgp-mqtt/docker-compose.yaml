@@ -3,9 +3,6 @@ services:
     image: ghcr.io/adumat/paradox-dgp-mqtt:0.1.1
     container_name: paradox-dgp-mqtt
     restart: unless-stopped
-    dns:
-      - 10.1.10.1
-    dns_search: lan
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0
     environment:
