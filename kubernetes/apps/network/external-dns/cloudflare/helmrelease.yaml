@@ -29,6 +29,8 @@ spec:
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
       - --crd-source-kind=DNSEndpoint
       - --gateway-name=envoy-external
+      # Skip resources meant for k8s-gateway (private IPs, internal only).
+      - --label-filter=external-dns.alpha.kubernetes.io/controller!=k8s-gateway
     triggerLoopOnEvent: true
     policy: sync
     sources:
