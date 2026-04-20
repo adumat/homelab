@@ -9,6 +9,7 @@ services:
       - TZ=Europe/Rome
       - DOTNET_ENVIRONMENT=Production
       - Serilog__MinimumLevel__Default=Information
+      - Serilog__MinimumLevel__Override__Digiplex=Information
       - Serial__PortName=/dev/ttyUSB0
       - Serial__Password=1234
       - Serial__BaudRate=19200
