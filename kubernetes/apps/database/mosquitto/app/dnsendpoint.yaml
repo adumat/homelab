@@ -4,6 +4,10 @@ apiVersion: externaldns.k8s.io/v1alpha1
 kind: DNSEndpoint
 metadata:
   name: mosquitto
+  annotations:
+    # Served by k8s-gateway only; keep external-dns-cloudflare from
+    # trying to publish a private IP to Cloudflare.
+    external-dns.alpha.kubernetes.io/controller: k8s-gateway
 spec:
   endpoints:
     # k8s-gateway only serves A/AAAA from DNSEndpoint (CNAME unsupported).
