@@ -158,6 +158,16 @@ zones:
       - name: google-home
         mac: '00:f6:20:dc:f9:9b'
         ip: 10.1.30.20
+      # ESPHome devices (10.1.30.30-39)
+      - name: power-outlet
+        mac: 'b4:e6:2d:5d:62:9b'
+        ip: 10.1.30.30
+      - name: iron-outlet
+        mac: 'b4:e6:2d:5d:73:88'
+        ip: 10.1.30.31
+      - name: hvac-controller
+        mac: 'f0:9e:9e:54:c1:a4'
+        ip: 10.1.30.32
     access:
       servers:
         - port: 1883
