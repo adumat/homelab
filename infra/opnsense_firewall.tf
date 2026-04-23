@@ -135,6 +135,29 @@ resource "opnsense_firewall_filter" "interzone" {
   }
 }
 
+# ── Allow WireGuard inbound on WAN ──────────────────────
+resource "opnsense_firewall_filter" "wan_wireguard" {
+  sequence    = 2
+  description = "Allow WireGuard inbound"
+  enabled     = true
+  interface   = { interface = ["wan"] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "UDP"
+
+    source = {
+      net = "any"
+    }
+    destination = {
+      net  = "(self)"
+      port = tostring(local.wireguard.port)
+    }
+  }
+}
+
 # ── Block internet for restricted zones (e.g., iot_local) ─
 resource "opnsense_firewall_filter" "block_internet" {
   for_each = local.no_internet_zones
