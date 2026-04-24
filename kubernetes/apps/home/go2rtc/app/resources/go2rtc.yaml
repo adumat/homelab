@@ -13,12 +13,12 @@ webrtc:
         - stun:stun.cloudflare.com:3478
 streams:
   sofias-room:
-    - rtsp://$${NVR_USERNAME}:$${NVR_PASSWORD}@192.168.1.156:554/stream1#backchannel=0
+    - rtsp://$${NVR_USERNAME}:$${NVR_PASSWORD}@sofia-camera.lan:554/stream1#backchannel=0
     - ffmpeg:sofias-room#audio=opus
   sofias-room_onvif:
-    - onvif://$${NVR_USERNAME}:$${NVR_PASSWORD}@192.168.1.156:2020
+    - onvif://$${NVR_USERNAME}:$${NVR_PASSWORD}@sofia-camera.lan:2020
   nicolos-room:
-    - rtsp://$${NVR_USERNAME}:$${NVR_PASSWORD}@192.168.1.141:554/stream1#backchannel=0
+    - rtsp://$${NVR_USERNAME}:$${NVR_PASSWORD}@nicolo-camera.lan:554/stream1#backchannel=0
     - ffmpeg:nicolos-room#audio=opus
   nicolos-room_onvif:
-    - onvif://$${NVR_USERNAME}:$${NVR_PASSWORD}@192.168.1.141:2020
+    - onvif://$${NVR_USERNAME}:$${NVR_PASSWORD}@nicolo-camera.lan:2020

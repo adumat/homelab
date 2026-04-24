@@ -168,6 +168,13 @@ zones:
       - name: hvac-controller
         mac: 'f0:9e:9e:54:c1:a4'
         ip: 10.1.30.32
+      # Cameras (10.1.30.40-49)
+      - name: sofia-camera
+        mac: '34:60:f9:4b:b2:8d'
+        ip: 10.1.30.40
+      - name: nicolo-camera
+        mac: 'ec:75:0c:11:61:1c'
+        ip: 10.1.30.41
     access:
       servers:
         - port: 1883
