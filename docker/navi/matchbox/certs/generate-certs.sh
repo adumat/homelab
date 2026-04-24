@@ -2,7 +2,7 @@
 # note: Script uses -batch and -subj, instead of interactive prompts.
 set -e
 
-export SAN=DNS:donkey.lan,IP:192.168.1.2
+export SAN=DNS:navi.lan,IP:10.1.10.5
 
 # Set working directory to the location of the script
 SCRIPT_DIR=$(dirname "$(realpath "$0")")

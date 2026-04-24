@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Paths inside the init container
-NETWORKS="/work/infrastructure/vars/networks.yaml"
+NETWORKS="/work/infra/data/networks.yaml"
 TALCONFIG="/work/talos/talconfig.yaml"
 TALENV="/work/talos/talenv.yaml"
 OUTPUT="/work/power-nap-over/config.yaml"

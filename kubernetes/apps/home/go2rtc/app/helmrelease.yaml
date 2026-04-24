@@ -55,6 +55,7 @@ spec:
       app:
         type: LoadBalancer
         annotations:
+          lbipam.cilium.io/ips: "10.1.11.6"
           external-dns.alpha.kubernetes.io/hostname: local.go2rtc.${DOMAIN}
           gatus.home-operations.com/endpoint: |-
             group: services
