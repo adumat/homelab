@@ -135,6 +135,28 @@ resource "opnsense_firewall_filter" "interzone" {
   }
 }
 
+# ── Allow VPN clients to reach OPNsense services (DNS, etc.) ───
+resource "opnsense_firewall_filter" "vpn_to_self" {
+  sequence    = 2
+  description = "Allow VPN clients to OPNsense services (DNS etc.)"
+  enabled     = true
+  interface   = { interface = [local.zone_interface["vpn"]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+
+    source = {
+      net = "VPN"
+    }
+    destination = {
+      net = "(self)"
+    }
+  }
+}
+
 # ── Allow WireGuard inbound on WAN ──────────────────────
 resource "opnsense_firewall_filter" "wan_wireguard" {
   sequence    = 2
