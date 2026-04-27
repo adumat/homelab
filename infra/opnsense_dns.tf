@@ -46,6 +46,32 @@ resource "restapi_object" "unbound_forward_k8s_gateway" {
   id_attribute = "uuid"
 }
 
+# ── DNS blocklists (replaces AdGuard) ───────────────────
+# OPNsense Unbound DNSBL with curated lists. Add more by appending to `type`.
+resource "restapi_object" "unbound_dnsbl" {
+  path           = "/api/unbound/settings/set"
+  read_path      = "/api/unbound/settings/get"
+  create_method  = "POST"
+  read_method    = "GET"
+  update_method  = "POST"
+  destroy_method = "POST"
+
+  data = jsonencode({
+    unbound = {
+      dnsbl = {
+        enabled    = "1"
+        safesearch = "0"
+        type       = "aa,ag" # AdAway + AdGuard List
+        nxdomain   = "0"
+        address    = ""
+      }
+    }
+  })
+
+  id_attribute = "result"
+  object_id    = "unbound-dnsbl"
+}
+
 resource "restapi_object" "unbound_reconfigure" {
   path           = "/api/unbound/service/reconfigure"
   create_method  = "POST"
@@ -55,10 +81,16 @@ resource "restapi_object" "unbound_reconfigure" {
   id_attribute   = "status"
   object_id      = "unbound-reconfigure"
 
-  depends_on = [restapi_object.unbound_forward_k8s_gateway]
+  depends_on = [
+    restapi_object.unbound_forward_k8s_gateway,
+    restapi_object.unbound_dnsbl,
+  ]
 
   lifecycle {
-    replace_triggered_by = [restapi_object.unbound_forward_k8s_gateway]
+    replace_triggered_by = [
+      restapi_object.unbound_forward_k8s_gateway,
+      restapi_object.unbound_dnsbl,
+    ]
   }
 }
 
