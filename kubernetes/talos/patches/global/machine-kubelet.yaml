@@ -4,6 +4,11 @@ machine:
       featureGates:
         ResourceHealthStatus: true
       serializeImagePulls: false
+      # Prune unused images more aggressively (defaults: 85/80%) to avoid
+      # /var filling on small node disks (~50 GB) after reboot image storms.
+      imageGCHighThresholdPercent: 75
+      imageGCLowThresholdPercent: 60
+      imageMinimumGCAge: 1h
     nodeIP:
       validSubnets:
         - 10.1.10.0/24
