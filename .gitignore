@@ -27,6 +27,11 @@ infra/.terraform.lock.hcl
 .private/
 .task/
 .venv/
+# NFS mount points (mount-nfs.sh)
+/mnt/
+# Claude Code (local-only)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 # Trash
 .DS_Store
 Thumbs.db

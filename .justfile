@@ -15,6 +15,22 @@ default:
 check-nodes:
     "{{ justfile_dir() }}/scripts/check-nodes.sh"
 
+[doc('Mount an NFS share from elizabeth.lan to ./mnt/<name> (sudo)')]
+mount name:
+    sudo "{{ justfile_dir() }}/scripts/mount-nfs.sh" mount "{{ name }}"
+
+[doc('Unmount an NFS share at ./mnt/<name> (sudo)')]
+unmount name:
+    sudo "{{ justfile_dir() }}/scripts/mount-nfs.sh" unmount "{{ name }}"
+
+[doc('Force-unmount all NFS shares under ./mnt/ (sudo)')]
+unmount-all:
+    sudo "{{ justfile_dir() }}/scripts/mount-nfs.sh" unmount-all
+
+[doc('List available NFS shares and their mount status')]
+mounts:
+    "{{ justfile_dir() }}/scripts/mount-nfs.sh" list
+
 [private]
 log lvl msg *args:
     gum log -t rfc3339 -s -l "{{ lvl }}" "{{ msg }}" {{ args }}
