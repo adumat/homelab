@@ -53,10 +53,7 @@ resource "opnsense_kea_dhcpv4_subnet" "zone" {
   domain_name   = local.services.domain
   domain_search = [local.services.domain]
   dns_servers   = [each.value.gateway]
-  # NTP not advertised via DHCP — clients use machine.time.servers
-  # (public pools). glados ntpd's default `restrict default kod limited`
-  # rate-limits LAN clients into a KOD blacklist; not worth fighting.
-  ntp_servers   = []
+  ntp_servers   = [each.value.gateway]
 
   next_server   = try(each.value.pxe, false) ? each.value.gateway : null
   tftp_server   = try(each.value.pxe, false) ? each.value.gateway : null

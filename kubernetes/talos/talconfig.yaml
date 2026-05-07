@@ -197,7 +197,6 @@ patches:
   - "@./patches/global/machine-network.yaml"  # search Domain
   - "@./patches/global/machine-sysctls.yaml"  # network tweaks
   - "@./patches/global/machine-longhorn.yaml" # longhorn settings
-  - "@./patches/global/machine-time.yaml"     # NTP servers (skip glados)
 
 # Controller patches
 controlPlane:
