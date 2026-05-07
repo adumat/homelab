@@ -148,5 +148,38 @@
       matchManagers: ["github-actions"],
       minimumGroupSize: 1,
     },
+
+    // ── Shared charts: group by package name (overrides path-based) ───
+    // These charts are referenced from both kubernetes/apps/** and
+    // kubernetes/bootstrap/helmfile.d/** (or kubernetes/components/**),
+    // so a path-based group misses the bootstrap/components copy and
+    // Renovate opens a duplicate ungrouped PR. Match by package instead.
+    {
+      description: "Flux operator + instance (all locations)",
+      groupName: "flux",
+      matchPackageNames: [
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+      ],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "External Secrets (all locations)",
+      groupName: "external-secrets-operator",
+      matchPackageNames: ["ghcr.io/external-secrets/charts/external-secrets"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "Kube Prometheus Stack (all locations)",
+      groupName: "observability-stack",
+      matchPackageNames: ["ghcr.io/prometheus-community/charts/kube-prometheus-stack"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "App-template chart (all locations)",
+      groupName: "app-template",
+      matchPackageNames: ["ghcr.io/bjw-s-labs/helm/app-template"],
+      minimumGroupSize: 1,
+    },
   ],
 }
