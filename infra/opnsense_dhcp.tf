@@ -34,8 +34,8 @@ resource "restapi_object" "kea_reconfigure" {
 
   depends_on = [
     restapi_object.kea_enable,
-    opnsense_kea_subnet.zone,
-    opnsense_kea_reservation.host,
+    opnsense_kea_dhcpv4_subnet.zone,
+    opnsense_kea_dhcpv4_reservation.host,
   ]
 
   lifecycle {
@@ -43,7 +43,7 @@ resource "restapi_object" "kea_reconfigure" {
   }
 }
 
-resource "opnsense_kea_subnet" "zone" {
+resource "opnsense_kea_dhcpv4_subnet" "zone" {
   for_each = local.dhcp_zones
 
   subnet        = each.value.subnet
@@ -62,12 +62,12 @@ resource "opnsense_kea_subnet" "zone" {
   depends_on = [restapi_object.kea_enable]
 }
 
-resource "opnsense_kea_reservation" "host" {
+resource "opnsense_kea_dhcpv4_reservation" "host" {
   for_each = {
     for host in local.all_static_hosts : host.name => host
   }
 
-  subnet_id   = opnsense_kea_subnet.zone[each.value.zone].id
+  subnet_id   = opnsense_kea_dhcpv4_subnet.zone[each.value.zone].id
   ip_address  = each.value.ip
   mac_address = each.value.mac
   hostname    = each.value.name
