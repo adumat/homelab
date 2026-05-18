@@ -22,7 +22,7 @@ spec:
           app:
             image:
               repository: docker.io/mongo
-              tag: "8.3.2"
+              tag: '8.3.2'
             envFrom:
               - secretRef:
                   name: unifi-mongo-secret
@@ -32,21 +32,21 @@ spec:
                 custom: true
                 spec:
                   exec:
-                    command: ["mongosh", "--eval", "db.runCommand('ping')"]
+                    command: ['mongosh', '--eval', "db.runCommand('ping')"]
                   failureThreshold: 30
                   periodSeconds: 5
               readiness:
                 enabled: true
                 custom: true
                 spec:
-                  exec:
-                    command: ["mongosh", "--eval", "db.runCommand('ping')"]
+                  tcpSocket:
+                    port: &port 27017
                   periodSeconds: 10
                   failureThreshold: 3
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
-              capabilities: { drop: ["ALL"] }
+              capabilities: { drop: ['ALL'] }
     defaultPodOptions:
       securityContext:
         # runAsNonRoot: true
@@ -60,7 +60,7 @@ spec:
         controller: *app
         ports:
           http:
-            port: &port 27017
+            port: *port
     persistence:
       data:
         existingClaim: *app
