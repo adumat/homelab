@@ -16,3 +16,10 @@ spec:
     kubeletPlugin:
       nodeSelector:
         intel.feature.node.kubernetes.io/gpu: 'true'
+      # 0.10.x defaults to xpumd-based health monitoring, which requires the
+      # XPUM Daemon to be deployed separately. We don't run xpumd, so disable
+      # monitoring and use privileged mode for direct device discovery (the
+      # 0.9.x behaviour).
+      healthMonitoring:
+        enabled: false
+      privileged: true
