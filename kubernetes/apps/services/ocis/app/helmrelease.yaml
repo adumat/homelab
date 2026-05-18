@@ -18,7 +18,7 @@ spec:
           init-config:
             image:
               repository: docker.io/owncloud/ocis
-              tag: 8.0.2
+              tag: 8.0.3
             command:
               - /bin/sh
               - -c
@@ -31,7 +31,7 @@ spec:
           ocis:
             image:
               repository: docker.io/owncloud/ocis
-              tag: 8.0.2
+              tag: 8.0.3
             env:
               OCIS_INSECURE: false
               OCIS_URL: https://files.${DOMAIN}
