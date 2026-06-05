@@ -29,7 +29,7 @@ spec:
           app:
             image:
               repository: "ghcr.io/home-assistant/home-assistant"
-              tag: 2026.5.4@sha256:ceb1202133a5a036e8b03e20a10eb113186cc2f871968323c6fc6c3fc4205716
+              tag: 2026.6.1@sha256:59aa8824955c9db491b75d2eebe42bd68494f80c2ec69ec0d66d9dae37d37514
             securityContext:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
@@ -51,7 +51,7 @@ spec:
           code-server:
             image:
               repository: ghcr.io/coder/code-server
-              tag: 4.121.0@sha256:ea5f42d99998e2ba44297eca9b8a38a101e718ef54caaa41d649f6c6f1c8c71e
+              tag: 4.123.0@sha256:6d46b83ea0687ab1826ec029b6d0e6342bbd55cc5c29b98258463e7faee16d1e
             env:
               TZ: "Europe/Rome"
             args:
