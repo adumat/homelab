@@ -25,6 +25,17 @@ spec:
               - |
                 mkdir -p /config/dashboards
                 cp /dashboards-src/* /config/dashboards/
+          init-perms:
+            image:
+              repository: busybox
+              tag: 1.38.0
+            command:
+              - sh
+              - -c
+              - chown 1000:1000 /run /tmp
+            securityContext:
+              runAsUser: 0
+              runAsGroup: 0
         containers:
           app:
             image:
@@ -166,6 +177,11 @@ spec:
                 subPath: hass-tmp
               - path: /run
                 subPath: hass-run
+            init-perms:
+              - path: /run
+                subPath: hass-run
+              - path: /tmp
+                subPath: hass-tmp
             code:
               - path: /tmp
                 subPath: code-server-tmp
