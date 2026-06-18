@@ -168,6 +168,9 @@ zones:
       - name: hvac-controller
         mac: 'f0:9e:9e:54:c1:a4'
         ip: 10.1.30.32
+      - name: intercom-controller
+        mac: '48:9d:31:c7:4f:c0'
+        ip: 10.1.30.33
       # Cameras (10.1.30.40-49)
       - name: sofia-camera
         mac: '34:60:f9:4b:b2:8d'
