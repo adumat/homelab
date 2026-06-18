@@ -40,6 +40,11 @@ resource "opnsense_wireguard_server" "wg0" {
   tunnel_address = [local.wireguard.address]
   private_key    = var.wg_private_key
   public_key     = var.wg_public_key
+  # 1380 leaves room for WG's ~60 bytes of overhead within a 1500 underlay
+  # while staying clear of intermediate path-MTU dips. Chiaki video streams
+  # were silently dropped at the default 1420 (PMTU black hole, no ICMP
+  # needs-frag delivered back to the client).
+  mtu            = 1380
   peers          = [for peer in opnsense_wireguard_client.peer : peer.id]
   enabled        = true
 

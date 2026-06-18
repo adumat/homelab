@@ -64,6 +64,9 @@ wireguard:
     - name: matteo-iphone
       allowed_ips: 10.1.100.11/32
       persistent_keepalive: 25
+    - name: matteo-retroid
+      allowed_ips: 10.1.100.12/32
+      persistent_keepalive: 25
 
 # TFTP/PXE — iPXE chainloads to matchbox on navi LXC
 tftp:
