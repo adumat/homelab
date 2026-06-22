@@ -59,6 +59,10 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      # app-template v5 defaults automountServiceAccountToken to false; the
+      # operator needs its SA token to reach the Kubernetes API.
+      automountServiceAccountToken: true
     service:
       app:
         controller: *app

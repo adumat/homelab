@@ -10,6 +10,10 @@ spec:
     kind: OCIRepository
     name: app-template
   values:
+    global:
+      # barman-cloud provides its own ServiceAccount via rbac.yaml; disable
+      # app-template v5's auto-created default SA to avoid a name collision.
+      createDefaultServiceAccount: false
     controllers:
       barman-cloud:
         containers:
@@ -61,6 +65,9 @@ spec:
         serviceAccount:
           name: *app
     defaultPodOptions:
+      # app-template v5 defaults automountServiceAccountToken to false; the
+      # leader-elected plugin needs its SA token to reach the Kubernetes API.
+      automountServiceAccountToken: true
       securityContext:
         runAsNonRoot: true
         runAsUser: 568
