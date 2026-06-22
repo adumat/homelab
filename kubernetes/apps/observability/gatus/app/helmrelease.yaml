@@ -128,6 +128,11 @@ spec:
       # app-template v5 defaults automountServiceAccountToken to false; the
       # gatus-sidecar needs the SA token for in-cluster Kubernetes discovery.
       automountServiceAccountToken: true
+      # The /config RBD PVC mounts as root:root; fsGroup makes it group-writable
+      # so the non-root gatus-sidecar can write auto-discovered endpoint config.
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
     serviceAccount:
       gatus: {}
     persistence:
