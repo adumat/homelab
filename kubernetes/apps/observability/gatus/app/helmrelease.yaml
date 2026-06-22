@@ -124,6 +124,10 @@ spec:
             identifier: gatus
           subjects:
             - identifier: gatus
+    defaultPodOptions:
+      # app-template v5 defaults automountServiceAccountToken to false; the
+      # gatus-sidecar needs the SA token for in-cluster Kubernetes discovery.
+      automountServiceAccountToken: true
     serviceAccount:
       gatus: {}
     persistence:
