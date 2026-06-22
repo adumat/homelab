@@ -35,8 +35,9 @@ cloudflare_api_token = "$(bws_get "$CF_SECRET" | jq -r '.CF_API_TOKEN')"
 base_domain          = "$(bws_get "$BASE_DOMAIN")"
 
 wg_peer_public_keys = {
-  matteo-mac    = "$(bws_get "$GLADOS_WG_PEERS" | jq -r '.[] | select(.name == "matteo-mac") | .public')"
-  matteo-iphone = "$(bws_get "$GLADOS_WG_PEERS" | jq -r '.[] | select(.name == "matteo-iphone") | .public')"
+  matteo-mac     = "$(bws_get "$GLADOS_WG_PEERS" | jq -r '.[] | select(.name == "matteo-mac") | .public')"
+  matteo-iphone  = "$(bws_get "$GLADOS_WG_PEERS" | jq -r '.[] | select(.name == "matteo-iphone") | .public')"
+  matteo-retroid = "$(bws_get "$GLADOS_WG_PEERS" | jq -r '.[] | select(.name == "matteo-retroid") | .public')"
 }
 EOF
 
