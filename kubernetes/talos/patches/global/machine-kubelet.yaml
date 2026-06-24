@@ -8,7 +8,13 @@ machine:
       # /var filling on small node disks (~50 GB) after reboot image storms.
       imageGCHighThresholdPercent: 75
       imageGCLowThresholdPercent: 60
-      imageMinimumGCAge: 1h
+      # 10m lets kubelet GC just-pulled images during a Talos rolling upgrade
+      # (1h previously blocked it). Re-pulls from Spegel keep traffic in-cluster.
+      imageMinimumGCAge: 10m
+      # Cap per-container log volume so a flapping pod can't fill /var/log
+      # (Talos v1.13.5 upgrade tipped over by 10 evicted paperless pods).
+      containerLogMaxSize: 10Mi
+      containerLogMaxFiles: 3
     nodeIP:
       validSubnets:
         - 10.1.10.0/24
