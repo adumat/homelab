@@ -5,6 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ROOT_DIR="$(cd "$INFRA_DIR/.." && pwd)"
 
+command -v bws >/dev/null || {
+  echo "bws not on PATH — run via 'mise exec --' or activate mise first." >&2
+  exit 1
+}
+
 source "$ROOT_DIR/.env"
 
 SECRETS_FILE="$INFRA_DIR/secrets.auto.tfvars"
