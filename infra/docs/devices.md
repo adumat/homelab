@@ -36,7 +36,7 @@ Default VLAN — any untagged port gets untrusted by default.
 | 76:2b:f9 (unknown phone) | 76:2b:f9:a5:f7:e0 | — | WiFi EXT | Randomized MAC |
 | switch-living (TP-Link) | d8:07:b6:d7:94:67 | 10.1.20.11 | Wired HPE port 15 | Dumb switch |
 | PS5 | 80:60:b7:10:03:3e (WiFi) | 10.1.20.30 | WiFi EXT | |
-| PS5 | 78:c8:81:cf:4a:27 (LAN) | 10.1.20.30 | Wired (TP-Link) | Same IP for both MACs |
+| PS5 | 78:c8:81:cf:4a:27 (LAN) | 10.1.20.31 | Wired (TP-Link) | Separate reservation per MAC |
 
 ### Shared devices (10.1.20.20-29 — accessible from Guest VLAN)
 
