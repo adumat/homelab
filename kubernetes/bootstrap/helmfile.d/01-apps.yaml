@@ -46,7 +46,7 @@ releases:
   - name: spegel
     namespace: kube-system
     chart: oci://ghcr.io/spegel-org/helm-charts/spegel
-    version: 0.7.2
+    version: 0.7.3
     values:
       - ./templates/values.yaml.gotmpl
     needs:
@@ -55,7 +55,7 @@ releases:
   - name: cert-manager
     namespace: security
     chart: oci://quay.io/jetstack/charts/cert-manager
-    version: v1.20.2
+    version: v1.20.3
     values:
       - ./templates/values.yaml.gotmpl
     needs:
