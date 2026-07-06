@@ -83,11 +83,11 @@ spec:
               # Disabling the admin token will make the admin portal accessible to anyone, use carefully: https://github.com/dani-garcia/vaultwarden/wiki/Disable-admin-token
               DISABLE_ADMIN_TOKEN: 'false'
               ## Token for admin login, will be generated if not defined. https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
-              ADMIN_TOKEN:
-                valueFrom:
-                  secretKeyRef:
-                    name: vaultwarden
-                    key: admin-token
+              # ADMIN_TOKEN:
+              #   valueFrom:
+              #     secretKeyRef:
+              #       name: vaultwarden
+              #       key: admin-token
               ## Allow any user to enable emergency access.
               EMERGENCY_ACCESS_ALLOWED: 'true'
               ## Schedule to send expiration reminders to emergency access grantors. Cron schedule format.
