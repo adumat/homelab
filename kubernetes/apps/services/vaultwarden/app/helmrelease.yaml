@@ -96,21 +96,17 @@ spec:
               # EMERGENCY_REQUEST_TIMEOUT_SCHEDULE: {{ .Values.vaultwarden.emergency.timeout | quote }}
 
               ## SMTP hostname, required if SMTP is enabled.
-              SMTP_HOST: 'smtp.sendgrid.net'
-              ## SMTP sender e-mail address, required if SMTP is enabled.
+              ## Internal smtp-relay (maddy) in the services namespace; it handles STARTTLS + auth to the upstream provider.
+              SMTP_HOST: 'smtp-relay.services.svc.cluster.local'
+              ## SMTP sender e-mail address, required if SMTP is enabled. Envelope-from domain must match the relay's SMTP_DOMAIN.
               SMTP_FROM: '${EMAIL_ADDRESS_1}'
               ## SMTP sender name, defaults to 'Vaultwarden'.
               SMTP_FROM_NAME: 'vault'
               ## Enable secure SSL connection. Options are: "starttls", "force_tls" and "off"
-              ## Users migrating from 1.24 or lower using ssl/explicitTLS settings:
-              ##   ssl = false -> "off"
-              ##   ssl = true and explicitTLS = false -> "starttls"
-              ##   ssl = true and explicitTLS = true -> "force_tls"
-              SMTP_SSL: 'true'
-              SMTP_EXPLICIT_TLS: 'false'
-              SMTP_SECURITY: 'starttls'
+              ## Relay listens plaintext with no auth on port 25, so no TLS/credentials from vaultwarden.
+              SMTP_SECURITY: 'off'
               ## SMTP port. Defaults depends on security: 465 for "force_tls", 587 for "starttls" and 25 for "off"
-              SMTP_PORT: '587'
+              SMTP_PORT: '25'
               ## SMTP Authentication Mechanisms. Comma-separated options: 'Plain', 'Login' and 'Xoauth2'. Defaults to 'Plain'.
               # SMTP_AUTH_MECHANISM: {{ .Values.vaultwarden.smtp.authMechanism | quote }}
               ## Hostname to be sent for SMTP HELO. Defaults to pod name.
@@ -121,18 +117,6 @@ spec:
               # SMTP_ACCEPT_INVALID_HOSTNAMES: {{ .Values.vaultwarden.smtp.invalidHostname | quote }}
               ## Accept invalid certificates. DANGEROUS, vulnerable to men-in-the-middle attacks!
               # SMTP_ACCEPT_INVALID_CERTS: {{ .Values.vaultwarden.smtp.invalidCertificate | quote }}
-              ## SMTP username.
-              SMTP_USERNAME:
-                valueFrom:
-                  secretKeyRef:
-                    name: vaultwarden
-                    key: smtp-user
-              ## SMTP password. Required is user is specified, ignored if no user provided.
-              SMTP_PASSWORD:
-                valueFrom:
-                  secretKeyRef:
-                    name: vaultwarden
-                    key: smtp-password
               ## Embed images as email attachments
               # SMTP_EMBED_IMAGES: {{ .Values.vaultwarden.smtp.embedImages | quote }}
 
