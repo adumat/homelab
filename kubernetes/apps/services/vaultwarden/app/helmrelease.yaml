@@ -99,7 +99,7 @@ spec:
               ## Internal smtp-relay (maddy) in the services namespace; it handles STARTTLS + auth to the upstream provider.
               SMTP_HOST: 'smtp-relay.services.svc.cluster.local'
               ## SMTP sender e-mail address, required if SMTP is enabled. Envelope-from domain must match the relay's SMTP_DOMAIN.
-              SMTP_FROM: '${EMAIL_ADDRESS_1}'
+              SMTP_FROM: 'vault@${DOMAIN}'
               ## SMTP sender name, defaults to 'Vaultwarden'.
               SMTP_FROM_NAME: 'vault'
               ## Enable secure SSL connection. Options are: "starttls", "force_tls" and "off"
