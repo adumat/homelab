@@ -55,7 +55,7 @@ Default VLAN — any untagged port gets untrusted by default.
 | G7-ThinQ (LG washer) | 48:60:5f:6b:0e:b8 | — | WiFi P1 | |
 | LG Smart Dryer | 80:5b:65:67:16:b0 | — | WiFi PT | |
 | dreame vacuum | 70:c9:32:44:77:59 | — | WiFi P1 | |
-| SolarEdge inverter | 84:d6:c5:58:d9:b0 | — | Wired HPE port 16 | |
+| SolarEdge inverter | 84:d6:c5:58:d9:b0 | 10.1.30.50 | Wired HPE port 16 | |
 
 ### Shared devices (10.1.30.20-29 — accessible from Guest VLAN)
 

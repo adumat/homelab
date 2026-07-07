@@ -178,6 +178,10 @@ zones:
       - name: nicolo-camera
         mac: 'ec:75:0c:11:61:1c'
         ip: 10.1.30.41
+      # Energy (10.1.30.50-59)
+      - name: solaredge-inverter
+        mac: '84:d6:c5:58:d9:b0'
+        ip: 10.1.30.50
     access:
       servers:
         - port: 1883
