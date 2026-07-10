@@ -28,7 +28,7 @@ releases:
   - name: kube-prometheus-stack
     namespace: observability
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: 87.10.0
+    version: 87.12.5
 
   - name: external-secrets
     namespace: security
