@@ -24,7 +24,7 @@ spec:
           app:
             image:
               repository: esphome/esphome
-              tag: 2026.6.4@sha256:3df4d482ee77ef65a1b5ae2175779529998d0cfb370f1d95ca008110a015d475
+              tag: 2026.7.2@sha256:fc149ed99a3d907135f9dc5a5ee5ae76109b009979d04d0e05718151f492451a
             env:
               ESPHOME_DASHBOARD_USE_PING: true
             probes:
