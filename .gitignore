@@ -32,6 +32,8 @@ infra/.terraform.lock.hcl
 # Claude Code (local-only)
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+# Superpowers brainstorming/specs (local-only, not versioned)
+docs/superpowers/
 # Trash
 .DS_Store
 Thumbs.db
