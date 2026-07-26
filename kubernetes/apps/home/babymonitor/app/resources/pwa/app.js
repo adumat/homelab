@@ -62,7 +62,7 @@ document.querySelectorAll("button[data-stream]").forEach(b =>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
 // --- Foreground video (go2rtc WebRTC) + visibility handoff -------------------
-const GO2RTC = "https://go2rtc." + location.hostname.split(".").slice(1).join(".");
+const GO2RTC_WS = location.origin.replace(/^http/, "ws") + "/go2rtc/api/ws";
 const SRC = { sofia: "sofias-room", nicolo: "nicolos-room" };
 const videoBox = document.getElementById("video");
 
@@ -72,7 +72,7 @@ function showVideo(stream){
   videoBox.innerHTML = "";
   for (const r of roomsFor(stream)){
     const el = document.createElement("video-stream");
-    el.setAttribute("src", GO2RTC + "/api/ws?src=" + SRC[r]);
+    el.setAttribute("src", GO2RTC_WS + "?src=" + SRC[r]);
     el.setAttribute("mode", "webrtc");
     el.setAttribute("background", "true");
     videoBox.appendChild(el);
