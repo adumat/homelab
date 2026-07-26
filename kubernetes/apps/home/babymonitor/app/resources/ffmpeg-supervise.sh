@@ -7,7 +7,9 @@ RTSP="rtsp://go2rtc.home.svc.cluster.local:554"
 # leaves it for the runtime shell to expand from the injected env var.
 ICE="icecast://source:$ICECAST_SOURCE_PASSWORD@localhost:8000"
 COMMON="-rtsp_transport tcp -fflags nobuffer -flags low_delay -timeout 15000000"
-ENC="-vn -c:a libmp3lame -b:a 96k -ac 1 -content_type audio/mpeg -f mp3"
+# -ar 44100: Tapo cameras output 8 kHz audio; 8 kHz MP3 is MPEG-2.5, which Chrome
+# cannot decode (bytes arrive but readyState stays 0). Resample to 44.1 kHz (MPEG-1).
+ENC="-vn -c:a libmp3lame -b:a 96k -ar 44100 -ac 1 -content_type audio/mpeg -f mp3"
 
 run_single() { # $1 = go2rtc stream, $2 = mount
   while true; do
