@@ -4,6 +4,7 @@ const au = document.getElementById("au");
 const statusEl = document.getElementById("status");
 let current = null;         // "both" | "sofia" | "nicolo" | null
 let reconnectTimer = null;
+let lastT = 0, lastAdv = 0; // stall watchdog
 
 function setStatus(t){ statusEl.textContent = t; }
 
@@ -14,6 +15,7 @@ function highlight(){
 
 function playAudio(stream){
   clearTimeout(reconnectTimer);
+  lastT = 0; lastAdv = Date.now();       // reset stall watchdog baseline
   // cache-bust so a stalled/broken connection is dropped, not resumed
   au.src = AUDIO[stream] + "?t=" + Date.now();
   au.play().then(() => setStatus("In ascolto: " + LABEL[stream]))
@@ -26,10 +28,17 @@ function scheduleReconnect(){
   reconnectTimer = setTimeout(() => { if (current) playAudio(current); }, 2000);
 }
 
-// Auto-recover: any stall/error/end while we intend to be playing -> reconnect
-["stalled","error","ended","waiting"].forEach(ev =>
-  au.addEventListener(ev, () => { if (current) { setStatus("Riconnessione…"); scheduleReconnect(); } }));
+// Reconnect ONLY on a genuine media error. 'waiting'/'stalled' fire during normal
+// startup buffering; reacting to them resets src and aborts the load in a tight loop.
+au.addEventListener("error", () => { if (current) { setStatus("Riconnessione…"); scheduleReconnect(); } });
 au.addEventListener("playing", () => { if (current) setStatus("In ascolto: " + LABEL[current]); });
+
+// Stall watchdog: reconnect only if playback is genuinely stuck (no progress for 8s).
+setInterval(() => {
+  if (!current || au.paused) return;
+  if (au.currentTime > lastT) { lastT = au.currentTime; lastAdv = Date.now(); }
+  else if (Date.now() - lastAdv > 8000) { setStatus("Riconnessione…"); playAudio(current); }
+}, 3000);
 
 function updateMediaSession(stream){
   if (!("mediaSession" in navigator)) return;
