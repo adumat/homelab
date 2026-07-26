@@ -12,7 +12,6 @@
   <link rel="apple-touch-icon" href="/icon-192.png">
   <link rel="manifest" href="/manifest.webmanifest">
   <title>Baby Monitor</title>
-  <script type="module" src="/go2rtc/video-stream.js"></script>
   <style>
     :root { color-scheme: dark; }
     body { margin:0; font-family:system-ui,sans-serif; background:#111; color:#eee;
@@ -22,10 +21,10 @@
     #video { flex:1; display:grid; gap:8px; padding:0 12px; grid-auto-rows:1fr; }
     #video:empty { display:none; }
     .tile { position:relative; overflow:hidden; background:#000; border-radius:12px; aspect-ratio:16/9; touch-action:none; }
-    .tile video-stream { display:block; width:100%; height:100%;
+    .tile iframe { display:block; width:100%; height:100%; border:0;
       transform-origin:center center;
       transform: scale(var(--z,1)) translate(var(--x,0%), var(--y,0%)); }
-    .tile video-stream video { width:100% !important; height:100% !important; object-fit:cover !important; }
+    .tile .drag { position:absolute; inset:0; z-index:1; }
     .zctl { position:absolute; top:6px; right:6px; display:flex; gap:5px; z-index:2; }
     .zbtn { width:36px; height:36px; border:0; border-radius:9px; background:rgba(0,0,0,.55);
             color:#fff; font-size:18px; line-height:1; }

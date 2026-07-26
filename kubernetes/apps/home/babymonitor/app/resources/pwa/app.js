@@ -1,6 +1,6 @@
 const AUDIO = { both: "/audio/both.mp3", sofia: "/audio/sofia.mp3", nicolo: "/audio/nicolo.mp3" };
 const LABEL = { both: "Entrambe", sofia: "Sofia", nicolo: "Nicolò" };
-const APP_VERSION = "v6";
+const APP_VERSION = "v7";
 document.getElementById("ver").textContent = APP_VERSION;
 const au = document.getElementById("au");
 const statusEl = document.getElementById("status");
@@ -75,7 +75,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
 // --- Foreground video (go2rtc WebRTC component, DIRECT ws) + per-camera zoom ----
 // WS goes straight to go2rtc (WS isn't CORS-blocked; the nginx WS proxy didn't relay
 // the signaling). The video-stream JS module is still loaded same-origin (/go2rtc/).
-const GO2RTC_WS = "wss://go2rtc." + location.hostname.split(".").slice(1).join(".") + "/api/ws";
+const GO2RTC_BASE = "https://go2rtc." + location.hostname.split(".").slice(1).join(".");
 const SRC = { sofia: "sofias-room", nicolo: "nicolos-room" };
 const videoBox = document.getElementById("video");
 
@@ -85,11 +85,15 @@ function makeTile(room){
   const tile = document.createElement("div");
   tile.className = "tile";
 
-  const vs = document.createElement("video-stream");
-  vs.setAttribute("src", GO2RTC_WS + "?src=" + SRC[room]);
-  vs.setAttribute("mode", "webrtc");
-  vs.setAttribute("media", "video");   // video only -> no audio track (Icecast carries sound)
-  vs.setAttribute("background", "true");
+  // go2rtc's own WebRTC page (video-only, no audio -> no doubling with Icecast).
+  // Rendered in an iframe (go2rtc rejects the cross-origin WS the component needs);
+  // we zoom by transforming the iframe box inside the overflow-hidden 16:9 tile.
+  const frame = document.createElement("iframe");
+  frame.src = GO2RTC_BASE + "/webrtc.html?src=" + SRC[room] + "&media=video";
+  frame.allow = "autoplay; fullscreen";
+
+  // Transparent overlay captures drag-to-pan (the cross-origin iframe eats pointer events).
+  const overlay = document.createElement("div"); overlay.className = "drag";
 
   const label = document.createElement("div");
   label.className = "label"; label.textContent = LABEL[room];
@@ -99,9 +103,9 @@ function makeTile(room){
   let z = { s: 1, x: 0, y: 0 };
   try { z = Object.assign(z, JSON.parse(localStorage.getItem(key) || "{}")); } catch (e) {}
   const apply = () => {
-    vs.style.setProperty("--z", z.s);
-    vs.style.setProperty("--x", z.x + "%");
-    vs.style.setProperty("--y", z.y + "%");
+    frame.style.setProperty("--z", z.s);
+    frame.style.setProperty("--x", z.x + "%");
+    frame.style.setProperty("--y", z.y + "%");
     localStorage.setItem(key, JSON.stringify(z));
   };
 
@@ -117,12 +121,12 @@ function makeTile(room){
     btn("⟲", () => { z = { s: 1, x: 0, y: 0 }; apply(); })
   );
 
-  // Drag to pan when zoomed in.
+  // Drag to pan when zoomed in (on the overlay).
   let drag = null;
-  tile.addEventListener("pointerdown", e => {
-    if (z.s > 1) { drag = { x: e.clientX, y: e.clientY, ox: z.x, oy: z.y }; try { tile.setPointerCapture(e.pointerId); } catch (_) {} }
+  overlay.addEventListener("pointerdown", e => {
+    if (z.s > 1) { drag = { x: e.clientX, y: e.clientY, ox: z.x, oy: z.y }; try { overlay.setPointerCapture(e.pointerId); } catch (_) {} }
   });
-  tile.addEventListener("pointermove", e => {
+  overlay.addEventListener("pointermove", e => {
     if (!drag) return;
     const lim = 50 * (1 - 1 / z.s);
     z.x = Math.max(-lim, Math.min(lim, drag.ox + (e.clientX - drag.x) / tile.clientWidth * 100 / z.s));
@@ -130,10 +134,10 @@ function makeTile(room){
     apply();
   });
   const end = () => { drag = null; };
-  tile.addEventListener("pointerup", end);
-  tile.addEventListener("pointercancel", end);
+  overlay.addEventListener("pointerup", end);
+  overlay.addEventListener("pointercancel", end);
 
-  tile.append(vs, label, ctl);
+  tile.append(frame, overlay, label, ctl);
   apply();
   return tile;
 }
