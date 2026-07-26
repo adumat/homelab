@@ -3,7 +3,9 @@
 # Each stream runs in a loop so a camera drop just reconnects.
 set -u
 RTSP="rtsp://go2rtc.home.svc.cluster.local:554"
-ICE="icecast://source:${ICECAST_SOURCE_PASSWORD}@localhost:8000"
+# NOTE: no-brace $VAR so Flux postBuild envsubst (which only rewrites ${VAR})
+# leaves it for the runtime shell to expand from the injected env var.
+ICE="icecast://source:$ICECAST_SOURCE_PASSWORD@localhost:8000"
 COMMON="-rtsp_transport tcp -fflags nobuffer -flags low_delay -timeout 15000000"
 ENC="-vn -c:a libmp3lame -b:a 96k -ac 1 -content_type audio/mpeg -f mp3"
 
