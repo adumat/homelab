@@ -9,19 +9,14 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  components:
-    - ../../../../components/volsync
   interval: 1h
   path: ./kubernetes/apps/services/atuin/app
   dependsOn:
     - name: external-secrets-store
       namespace: security
-    - name: volsync
-      namespace: storage
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
     substituteFrom:
       - name: cluster-secrets
         kind: Secret

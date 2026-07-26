@@ -26,12 +26,13 @@ spec:
           app:
             image:
               repository: ghcr.io/atuinsh/atuin
-              tag: 18.16.1@sha256:9d4d79507b51be6d292b218f5cc791d79ca0a72f51ab48f786b091bd6eafb39f
-            command: ["atuin", "server", "start"]
+              tag: 18.17.1@sha256:b2567e0d80a5622dba8d6c5319b198a94ef5166003c2559b91a5406ac688aac7
+            # image entrypoint is /usr/local/bin/atuin-server; just pass the subcommand
+            args: ["start"]
             env:
               ATUIN_HOST: 0.0.0.0
               ATUIN_PORT: &port 8888
-              ATUIN_OPEN_REGISTRATION: true
+              ATUIN_OPEN_REGISTRATION: false
               RUST_LOG: info,atuin_server=debug
             envFrom: *envFrom
             probes:
@@ -77,9 +78,6 @@ spec:
         hostnames:
           - atuin.${DOMAIN}
         parentRefs:
-          - name: envoy-external
-            namespace: network
-            sectionName: https
           - name: envoy-internal
             namespace: network
             sectionName: https
@@ -89,4 +87,6 @@ spec:
                 port: *port
     persistence:
       config:
-        existingClaim: *app
+        # atuin keeps no durable state here (all data is in Postgres); server.toml
+        # is just regenerated from env vars, so an emptyDir is sufficient.
+        type: emptyDir

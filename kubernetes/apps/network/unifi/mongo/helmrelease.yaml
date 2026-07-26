@@ -22,7 +22,7 @@ spec:
           app:
             image:
               repository: docker.io/mongo
-              tag: '8.3.4'
+              tag: '8.3.7'
             envFrom:
               - secretRef:
                   name: unifi-mongo-secret

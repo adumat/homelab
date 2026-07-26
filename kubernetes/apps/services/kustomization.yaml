@@ -6,7 +6,7 @@ namespace: services
 components:
   - ../../components/common
 resources:
-  # - ./atuin/ks.yaml
+  - ./atuin/ks.yaml
   - ./filebrowser/ks.yaml
   - ./homepage/ks.yaml
   - ./it-tools/ks.yaml

@@ -6,6 +6,9 @@ metadata:
   name: &app paperless
 spec:
   interval: 1h
+  # v3 first boot runs schema + SHA256-checksum data migrations; give Helm room
+  # so a slow boot can't time out and trigger a rollback mid-migration.
+  timeout: 15m
   chartRef:
     kind: OCIRepository
     name: app-template
@@ -32,7 +35,7 @@ spec:
           app:
             image:
               repository: ghcr.io/paperless-ngx/paperless-ngx
-              tag: 2.20.15
+              tag: 3.0.3
             env:
               # Configure application
               PAPERLESS_URL: https://paperless.${DOMAIN}
@@ -84,7 +87,8 @@ spec:
               startup:
                 enabled: true
                 spec:
-                  failureThreshold: 60
+                  # allow up to 15m for the v3 first-boot data migrations
+                  failureThreshold: 180
                   periodSeconds: 5
             resources:
               requests:

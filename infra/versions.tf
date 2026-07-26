@@ -4,11 +4,11 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.101"
+      version = "~> 0.111"
     }
     opnsense = {
       source  = "browningluke/opnsense"
-      version = "~> 0.18"
+      version = "~> 0.24"
     }
     restapi = {
       source  = "Mastercard/restapi"
