@@ -91,7 +91,9 @@
     {
       description: "Cert-Manager",
       groupName: "cert-manager",
-      matchFileNames: ["kubernetes/apps/security/cert-manager/**"],
+      // Match by package (not path) so both the Flux OCIRepository and the
+      // bootstrap helmfile (kubernetes/bootstrap/helmfile.d) land in one PR.
+      matchPackageNames: ["quay.io/jetstack/charts/cert-manager"],
       minimumGroupSize: 1,
     },
     {
