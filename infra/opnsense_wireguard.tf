@@ -11,6 +11,8 @@ resource "restapi_object" "wireguard_enable" {
   data           = jsonencode({ general = { enabled = "1" } })
   id_attribute   = "result"
   object_id      = "wireguard-enable"
+
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "wireguard_reconfigure" {
@@ -22,6 +24,8 @@ resource "restapi_object" "wireguard_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "result"
   object_id      = "wireguard-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [
     restapi_object.wireguard_enable,
@@ -44,9 +48,9 @@ resource "opnsense_wireguard_server" "wg0" {
   # while staying clear of intermediate path-MTU dips. Chiaki video streams
   # were silently dropped at the default 1420 (PMTU black hole, no ICMP
   # needs-frag delivered back to the client).
-  mtu            = 1380
-  peers          = [for peer in opnsense_wireguard_client.peer : peer.id]
-  enabled        = true
+  mtu     = 1380
+  peers   = [for peer in opnsense_wireguard_client.peer : peer.id]
+  enabled = true
 
   depends_on = [restapi_object.wireguard_enable]
 }

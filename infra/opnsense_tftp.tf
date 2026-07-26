@@ -18,6 +18,8 @@ resource "restapi_object" "tftp" {
   })
   id_attribute = "result"
   object_id    = "tftp-general"
+
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "tftp_reconfigure" {
@@ -29,6 +31,8 @@ resource "restapi_object" "tftp_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "tftp-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [restapi_object.tftp]
 

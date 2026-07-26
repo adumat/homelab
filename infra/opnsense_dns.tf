@@ -44,6 +44,8 @@ resource "restapi_object" "unbound_forward_k8s_gateway" {
   })
 
   id_attribute = "uuid"
+
+  ignore_all_server_changes = true
 }
 
 # ── DNS blocklists (replaces AdGuard) ───────────────────
@@ -70,6 +72,8 @@ resource "restapi_object" "unbound_dnsbl" {
 
   id_attribute = "result"
   object_id    = "unbound-dnsbl"
+
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "unbound_reconfigure" {
@@ -80,6 +84,8 @@ resource "restapi_object" "unbound_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "unbound-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [
     restapi_object.unbound_forward_k8s_gateway,

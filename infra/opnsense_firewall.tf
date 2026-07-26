@@ -89,7 +89,7 @@ resource "opnsense_firewall_filter" "established" {
   sequence    = 1
   description = "Allow established/related"
   enabled     = true
-  interface   = { interface = concat(
+  interface = { interface = concat(
     ["lan", "wan"],
     [for name, zone in local.zones : local.zone_interface[name] if zone.vlan_id != null && zone.vlan_id != 1]
   ) }

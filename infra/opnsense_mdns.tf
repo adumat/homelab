@@ -27,6 +27,8 @@ resource "restapi_object" "mdns_repeater_settings" {
 
   id_attribute = "result"
   object_id    = "mdns-repeater-settings"
+
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "mdns_repeater_reconfigure" {
@@ -37,6 +39,8 @@ resource "restapi_object" "mdns_repeater_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "mdns-repeater-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [restapi_object.mdns_repeater_settings]
 

@@ -11,7 +11,7 @@ resource "restapi_object" "kea_enable" {
   data = jsonencode({
     dhcpv4 = {
       general = {
-        enabled    = "1"
+        enabled = "1"
         interfaces = join(",", [
           for name, zone in local.dhcp_zones : local.zone_interface[name]
         ])
@@ -20,6 +20,8 @@ resource "restapi_object" "kea_enable" {
   })
   id_attribute = "result"
   object_id    = "kea-enable"
+
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "kea_reconfigure" {
@@ -31,6 +33,8 @@ resource "restapi_object" "kea_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "kea-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [
     restapi_object.kea_enable,

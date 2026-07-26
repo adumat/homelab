@@ -14,6 +14,8 @@ resource "restapi_object" "frr_general" {
   data           = jsonencode({ general = { enabled = "1" } })
   id_attribute   = "result"
   object_id      = "frr-general"
+
+  ignore_all_server_changes = true
 }
 
 # Enable BGP + set AS number and router-id
@@ -34,6 +36,8 @@ resource "restapi_object" "bgp_settings" {
   id_attribute = "result"
   object_id    = "bgp-settings"
 
+  ignore_all_server_changes = true
+
   depends_on = [restapi_object.frr_general]
 }
 
@@ -47,6 +51,8 @@ resource "restapi_object" "frr_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "frr-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [
     restapi_object.bgp_settings,

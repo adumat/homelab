@@ -27,6 +27,9 @@ resource "restapi_object" "ddns_cloudflare" {
   })
 
   id_attribute = "uuid"
+  # OPNsense returns the full option-list response (more fields than we send);
+  # restapi v3 would otherwise show a perpetual diff. We push config, not reconcile.
+  ignore_all_server_changes = true
 }
 
 resource "restapi_object" "ddns_reconfigure" {
@@ -37,6 +40,8 @@ resource "restapi_object" "ddns_reconfigure" {
   data           = jsonencode({})
   id_attribute   = "status"
   object_id      = "ddns-reconfigure"
+
+  ignore_all_server_changes = true
 
   depends_on = [restapi_object.ddns_cloudflare]
 

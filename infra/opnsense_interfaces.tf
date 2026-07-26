@@ -10,10 +10,10 @@ resource "opnsense_interfaces_vlan" "zone" {
     if zone.vlan_id != 1
   }
 
-  parent      = local.networks.lan_interface
-  tag         = each.value.vlan_id
-  priority    = 0
-  device      = "vlan0.${each.value.vlan_id}"
+  parent   = local.networks.lan_interface
+  tag      = each.value.vlan_id
+  priority = 0
+  device   = "vlan0.${each.value.vlan_id}"
   description = lookup({
     servers   = "SRV"
     clients   = "CLI"
