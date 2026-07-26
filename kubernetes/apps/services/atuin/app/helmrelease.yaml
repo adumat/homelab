@@ -32,7 +32,7 @@ spec:
             env:
               ATUIN_HOST: 0.0.0.0
               ATUIN_PORT: &port 8888
-              ATUIN_OPEN_REGISTRATION: true
+              ATUIN_OPEN_REGISTRATION: false
               RUST_LOG: info,atuin_server=debug
             envFrom: *envFrom
             probes:
