@@ -71,7 +71,7 @@ document.querySelectorAll("button[data-stream]").forEach(b =>
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
 
 // --- Foreground video (go2rtc WebRTC) + visibility handoff -------------------
-const GO2RTC_WS = location.origin.replace(/^http/, "ws") + "/go2rtc/api/ws";
+const GO2RTC_BASE = "https://go2rtc." + location.hostname.split(".").slice(1).join(".");
 const SRC = { sofia: "sofias-room", nicolo: "nicolos-room" };
 const videoBox = document.getElementById("video");
 
@@ -80,11 +80,12 @@ function roomsFor(stream){ return stream === "both" ? ["sofia","nicolo"] : [stre
 function showVideo(stream){
   videoBox.innerHTML = "";
   for (const r of roomsFor(stream)){
-    const el = document.createElement("video-stream");
-    el.setAttribute("src", GO2RTC_WS + "?src=" + SRC[r]);
-    el.setAttribute("mode", "webrtc");
-    el.setAttribute("media", "video"); // video-only: audio comes from Icecast, no doubling
-    videoBox.appendChild(el);
+    // Embed go2rtc's own WebRTC page directly (proven path). media=video => no audio
+    // track, so no doubling with the Icecast stream. Avoids the WS-proxy relay issue.
+    const f = document.createElement("iframe");
+    f.src = GO2RTC_BASE + "/webrtc.html?src=" + SRC[r] + "&media=video";
+    f.allow = "autoplay; fullscreen";
+    videoBox.appendChild(f);
   }
 }
 function hideVideo(){ videoBox.innerHTML = ""; }
