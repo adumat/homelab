@@ -74,7 +74,7 @@ function showVideo(stream){
     const el = document.createElement("video-stream");
     el.setAttribute("src", GO2RTC_WS + "?src=" + SRC[r]);
     el.setAttribute("mode", "webrtc");
-    el.setAttribute("background", "true");
+    el.setAttribute("media", "video"); // video-only: audio comes from Icecast, no doubling
     videoBox.appendChild(el);
   }
 }
@@ -84,11 +84,10 @@ function hideVideo(){ videoBox.innerHTML = ""; }
 // When hidden: kill video, unmute + ensure Icecast audio is playing (the reliable path).
 function applyVisibility(){
   if (!current) { hideVideo(); return; }
-  if (document.visibilityState === "visible"){
-    showVideo(current); au.muted = true;
-  } else {
-    hideVideo(); au.muted = false; if (au.paused) playAudio(current);
-  }
+  if (document.visibilityState === "visible") showVideo(current);
+  else hideVideo();
+  au.muted = false;                    // Icecast audio ALWAYS plays (never rely on WebRTC for sound)
+  if (au.paused) playAudio(current);
 }
 document.addEventListener("visibilitychange", applyVisibility);
 
