@@ -1,7 +1,6 @@
 const AUDIO = { both: "/audio/both.mp3", sofia: "/audio/sofia.mp3", nicolo: "/audio/nicolo.mp3" };
 const LABEL = { both: "Entrambe", sofia: "Sofia", nicolo: "Nicolò" };
-const APP_VERSION = "v7";
-document.getElementById("ver").textContent = APP_VERSION;
+document.getElementById("ver").textContent = APP_VERSION; // APP_VERSION from version.js (single source)
 const au = document.getElementById("au");
 const statusEl = document.getElementById("status");
 let current = null;         // "both" | "sofia" | "nicolo" | null
@@ -70,7 +69,7 @@ function select(stream){
 document.querySelectorAll("button[data-stream]").forEach(b =>
   b.addEventListener("click", () => current === b.dataset.stream ? stop() : select(b.dataset.stream)));
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js?v=" + APP_VERSION).catch(()=>{});
 
 // --- Foreground video (go2rtc WebRTC component, DIRECT ws) + per-camera zoom ----
 // WS goes straight to go2rtc (WS isn't CORS-blocked; the nginx WS proxy didn't relay
@@ -78,6 +77,19 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").cat
 const GO2RTC_BASE = "https://go2rtc." + location.hostname.split(".").slice(1).join(".");
 const SRC = { sofia: "sofias-room", nicolo: "nicolos-room" };
 const videoBox = document.getElementById("video");
+
+// Layout toggle for "Entrambe": stacked (default) vs side-by-side. Persisted.
+let layout = localStorage.getItem("layout") || "stack";
+const layoutBtn = document.getElementById("layout");
+function applyLayout(){
+  videoBox.classList.toggle("side", layout === "side");
+  if (layoutBtn) layoutBtn.textContent = layout === "side" ? "⬍" : "⬌";
+}
+if (layoutBtn) layoutBtn.addEventListener("click", () => {
+  layout = layout === "side" ? "stack" : "side";
+  localStorage.setItem("layout", layout);
+  applyLayout();
+});
 
 function roomsFor(stream){ return stream === "both" ? ["sofia","nicolo"] : [stream]; }
 
@@ -145,8 +157,10 @@ function makeTile(room){
 function showVideo(stream){
   videoBox.innerHTML = "";
   for (const r of roomsFor(stream)) videoBox.appendChild(makeTile(r));
+  if (layoutBtn) layoutBtn.hidden = (stream !== "both");
+  applyLayout();
 }
-function hideVideo(){ videoBox.innerHTML = ""; }
+function hideVideo(){ videoBox.innerHTML = ""; if (layoutBtn) layoutBtn.hidden = true; }
 
 // When visible: show WebRTC video (its own audio) and mute the Icecast audio to avoid doubling.
 // When hidden: kill video, unmute + ensure Icecast audio is playing (the reliable path).

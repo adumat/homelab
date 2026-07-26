@@ -12,6 +12,7 @@ configMapGenerator:
   - name: babymonitor-pwa
     files:
       - index.html=./resources/pwa/index.html
+      - version.js=./resources/pwa/version.js
       - app.js=./resources/pwa/app.js
       - manifest.webmanifest=./resources/pwa/manifest.webmanifest
       - sw.js=./resources/pwa/sw.js

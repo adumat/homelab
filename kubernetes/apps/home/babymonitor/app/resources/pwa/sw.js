@@ -1,4 +1,5 @@
-const CACHE = "babymon-v7";
+const APP_VERSION = new URL(self.location).searchParams.get("v") || "dev";
+const CACHE = "babymon-" + APP_VERSION;
 const SHELL = ["/", "/app.js", "/manifest.webmanifest"];
 self.addEventListener("install", e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); });
 self.addEventListener("activate", e => e.waitUntil(
