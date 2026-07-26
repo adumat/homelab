@@ -56,7 +56,7 @@ spec:
           ffmpeg:
             image:
               repository: docker.io/jrottenberg/ffmpeg
-              tag: 7.1-alpine
+              tag: 8.1-alpine
             command: ["/bin/sh", "/scripts/ffmpeg-supervise.sh"]
             env:
               ICECAST_SOURCE_PASSWORD:
