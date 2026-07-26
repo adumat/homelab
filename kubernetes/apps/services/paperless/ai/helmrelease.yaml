@@ -21,6 +21,8 @@ spec:
               tag: 3.0.9
             env:
               PAPERLESS_API_URL: http://paperless.services.svc.cluster.local:8000/api
+              # required for getOwnUserID(); without it the scanner aborts on start
+              PAPERLESS_USERNAME: admin
               AI_PROVIDER: custom
               CUSTOM_BASE_URL: http://litellm.services.svc.cluster.local:4000/v1
               CUSTOM_MODEL: auto
@@ -87,6 +89,10 @@ spec:
                 port: *port
     persistence:
       data:
-        type: emptyDir
+        # PVC (not emptyDir) so onboarding/.env + RAG index survive restarts
+        type: persistentVolumeClaim
+        accessMode: ReadWriteOnce
+        size: 2Gi
+        storageClass: ceph-block
         globalMounts:
           - path: /app/data
