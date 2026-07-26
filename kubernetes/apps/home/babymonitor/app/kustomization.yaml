@@ -12,6 +12,11 @@ configMapGenerator:
   - name: babymonitor-pwa
     files:
       - index.html=./resources/pwa/index.html
+      - app.js=./resources/pwa/app.js
+      - manifest.webmanifest=./resources/pwa/manifest.webmanifest
+      - sw.js=./resources/pwa/sw.js
+      - icon-192.png=./resources/pwa/icon-192.png
+      - icon-512.png=./resources/pwa/icon-512.png
   - name: babymonitor-ffmpeg
     files:
       - ffmpeg-supervise.sh=./resources/ffmpeg-supervise.sh
