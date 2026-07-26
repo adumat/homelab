@@ -9,21 +9,14 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
-  components:
-    - ../../../../components/persistence
   interval: 1h
   path: ./kubernetes/apps/services/atuin/app
   dependsOn:
     - name: external-secrets-store
       namespace: security
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
-    - name: volsync
-      namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 2Gi
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
