@@ -6,6 +6,7 @@ namespace: home
 components:
   - ../../components/common
 resources:
+  - ./babymonitor/ks.yaml
   - ./esp-home/ks.yaml
   - ./frigate/ks.yaml
   - ./go2rtc/ks.yaml
