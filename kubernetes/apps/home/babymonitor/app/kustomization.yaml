@@ -12,5 +12,8 @@ configMapGenerator:
   - name: babymonitor-pwa
     files:
       - index.html=./resources/pwa/index.html
+  - name: babymonitor-ffmpeg
+    files:
+      - ffmpeg-supervise.sh=./resources/ffmpeg-supervise.sh
 generatorOptions:
   disableNameSuffixHash: true

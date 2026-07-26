@@ -35,6 +35,39 @@ spec:
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+          icecast:
+            image:
+              repository: docker.io/libretime/icecast
+              tag: latest
+            # NOTE: this image's binary is `icecast` (not `icecast2`) at /usr/bin/icecast
+            command: ["icecast", "-c", "/etc/icecast.xml"]
+            probes:
+              liveness: &icy
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: 8000 }
+                  periodSeconds: 15
+              readiness: *icy
+            resources:
+              requests: { cpu: 25m, memory: 32Mi }
+              limits: { memory: 128Mi }
+            securityContext: *sec
+          ffmpeg:
+            image:
+              repository: docker.io/jrottenberg/ffmpeg
+              tag: 7.1-alpine
+            command: ["/bin/sh", "/scripts/ffmpeg-supervise.sh"]
+            env:
+              ICECAST_SOURCE_PASSWORD:
+                valueFrom:
+                  secretKeyRef:
+                    name: babymonitor-secret
+                    key: ICECAST_SOURCE_PASSWORD
+            resources:
+              requests: { cpu: 200m, memory: 64Mi }
+              limits: { memory: 256Mi }
+            securityContext: *sec
     defaultPodOptions:
       securityContext:
         runAsNonRoot: true
@@ -75,3 +108,25 @@ spec:
           babymonitor:
             web:
               - path: /tmp
+      icecast-conf:
+        type: secret
+        name: babymonitor-secret
+        advancedMounts:
+          babymonitor:
+            icecast:
+              - path: /etc/icecast.xml
+                subPath: icecast.xml
+                readOnly: true
+      icecast-tmp:
+        type: emptyDir
+        advancedMounts:
+          babymonitor:
+            icecast:
+              - path: /tmp
+      ffmpeg-script:
+        type: configMap
+        name: babymonitor-ffmpeg
+        advancedMounts:
+          babymonitor:
+            ffmpeg:
+              - path: /scripts
