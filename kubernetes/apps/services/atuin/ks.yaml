@@ -10,14 +10,16 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/volsync
+    - ../../../../components/persistence
   interval: 1h
   path: ./kubernetes/apps/services/atuin/app
   dependsOn:
     - name: external-secrets-store
       namespace: security
+    - name: rook-ceph-cluster
+      namespace: rook-ceph
     - name: volsync
-      namespace: storage
+      namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
