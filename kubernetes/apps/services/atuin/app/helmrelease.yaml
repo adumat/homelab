@@ -87,4 +87,6 @@ spec:
                 port: *port
     persistence:
       config:
-        existingClaim: *app
+        # atuin keeps no durable state here (all data is in Postgres); server.toml
+        # is just regenerated from env vars, so an emptyDir is sufficient.
+        type: emptyDir
