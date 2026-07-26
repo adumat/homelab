@@ -13,6 +13,9 @@ spec:
       main:
         containers:
           main:
+            image:
+              # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
+              tag: v2.7.5
             env:
               REDIS_HOSTNAME: dragonfly.database.svc.cluster.local
               REDIS_PORT: "6379"
@@ -32,25 +35,9 @@ spec:
     immich:
       metrics:
         enabled: true
-      logLevel: 'log'
-      concurrency:
-        backgroundTask: 10
-        smartSearch: 5
-        metadataExtraction: 10
-        faceDetection: 5
-        search: 5
-        sidecar: 5
-        library: 5
-        migration: 5
-        thumbnailGeneration: 10
-        videoConversion: 1
-      enablePasswordLogin: true
       persistence:
         library:
           existingClaim: immich-photos
-    image:
-      # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-      tag: v2.7.5
     valkey:
       enabled: false
     server:
