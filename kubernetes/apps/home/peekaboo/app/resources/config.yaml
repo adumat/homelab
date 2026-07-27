@@ -1,0 +1,9 @@
+go2rtc:
+  url: "https://go2rtc.${DOMAIN}"
+  rtsp: "go2rtc.home.svc.cluster.local:554"
+idleTimeout: 15
+cameras:
+  - name: sofias-room
+    label: "Sofia"
+  - name: nicolos-room
+    label: "Nicolò"
