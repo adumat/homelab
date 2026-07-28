@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: docker.io/filebrowser/filebrowser
-              tag: v2.63.19
+              tag: v2.63.23
             args:
               - --database=/config/filebrowser.db
               - --root=/srv
