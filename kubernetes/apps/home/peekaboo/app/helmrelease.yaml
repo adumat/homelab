@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: ghcr.io/adumat/peekaboo
-              tag: "0.4.0"
+              tag: "0.5.0"
             env:
               PEEKABOO_CONFIG: /config/config.yaml
             probes:
@@ -26,7 +26,7 @@ spec:
                 enabled: true
                 custom: true
                 spec:
-                  httpGet: { path: /, port: &port 3000 }
+                  httpGet: { path: /healthz, port: &port 3000 }
                   periodSeconds: 10
               readiness: *probes
             resources:

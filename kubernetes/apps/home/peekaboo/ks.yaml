@@ -9,12 +9,21 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/oidc-auth
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: authentik
+      namespace: security
   interval: 1h
   path: ./kubernetes/apps/home/peekaboo/app
   postBuild:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
+    substitute:
+      APP: *app
   prune: true
   retryInterval: 2m
   sourceRef:
