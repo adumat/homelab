@@ -496,6 +496,11 @@ entries:
       client_type: confidential
       client_id: peekaboo
       client_secret: !Env PEEKABOO_OIDC_CLIENT_SECRET
+      # blueprint-created providers are born with grant_types=[] in authentik
+      # 2026.5 -> must set explicitly or the auth-code flow is rejected
+      grant_types:
+        - authorization_code
+        - refresh_token
       redirect_uris:
         - url: "https://peekaboo.${DOMAIN}/oauth2/callback"
           matching_mode: "strict"
