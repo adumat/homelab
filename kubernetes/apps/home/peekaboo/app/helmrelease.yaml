@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: ghcr.io/adumat/peekaboo
-              tag: "0.3.0"
+              tag: "0.4.0"
             env:
               PEEKABOO_CONFIG: /config/config.yaml
             probes:
