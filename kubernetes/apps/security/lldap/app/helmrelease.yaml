@@ -1,0 +1,148 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: lldap
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      lldap:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: "18"
+            envFrom:
+              - secretRef:
+                  name: lldap-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/lldap/lldap
+              tag: v0.6.3-alpine
+            env:
+              # Never DNS-resolved; just the root of the naming hierarchy.
+              # Deliberately domain-independent so it is not secret. Embedded in
+              # every stored DN, so it cannot change without recreating users.
+              LLDAP_LDAP_BASE_DN: dc=homelab,dc=internal
+              LLDAP_HTTP_URL: https://lldap.${DOMAIN}
+              # Password reset is Authelia's job, driven through its own notifier
+              # and identity verification. Two competing reset mechanisms would
+              # send two different emails for the same action.
+              LLDAP_SMTP_OPTIONS__ENABLE_PASSWORD_RESET: "false"
+            envFrom:
+              - secretRef:
+                  name: lldap-secret
+            probes:
+              # TCP rather than httpGet: a wrong health path would CrashLoop the
+              # directory, and a listening socket is sufficient signal here.
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  tcpSocket: { port: &web 17170 }
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  failureThreshold: 3
+              readiness: *probes
+            resources:
+              requests: { cpu: 10m, memory: 32Mi }
+              limits: { memory: 128Mi }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+
+      # Converges users, groups and membership from git.
+      #
+      # A CronJob rather than a Job: Job pod specs are immutable, and the spec
+      # references the bootstrap Secret by name rather than content, so a group
+      # change in git would never re-trigger a Job. This re-reads the mounted
+      # Secret on every run, so revoking a group in git actually takes effect.
+      bootstrap:
+        type: cronjob
+        cronjob:
+          schedule: "0 */6 * * *"
+          concurrencyPolicy: Forbid
+          successfulJobsHistoryLimit: 1
+          failedJobsHistoryLimit: 3
+          backoffLimit: 2
+          ttlSecondsAfterFinished: 3600
+        containers:
+          bootstrap:
+            image:
+              repository: ghcr.io/lldap/lldap
+              tag: v0.6.3-alpine
+            # curl, jq and jo are already present in the image, so the script
+            # never needs to apk-add and can run unprivileged.
+            command: ["/app/bootstrap.sh"]
+            env:
+              LLDAP_URL: http://lldap.security.svc.cluster.local:17170
+              LLDAP_ADMIN_USERNAME: admin
+              USER_CONFIGS_DIR: /bootstrap/user-configs
+              GROUP_CONFIGS_DIR: /bootstrap/group-configs
+              # Revoking a group in git must actually revoke access, otherwise
+              # the declared state is merely advisory.
+              DO_CLEANUP_GROUP_MEMBERSHIP: "true"
+              # Deletions stay a deliberate manual act: a mistake in git must not
+              # destroy a person along with their credentials.
+              DO_CLEANUP_USERS: "false"
+              DO_CLEANUP_GROUPS: "false"
+            envFrom:
+              - secretRef:
+                  name: lldap-secret
+            resources:
+              requests: { cpu: 10m, memory: 32Mi }
+              limits: { memory: 128Mi }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+
+    defaultPodOptions:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+
+    service:
+      app:
+        controller: lldap
+        ports:
+          http:
+            port: 17170
+            targetPort: *web
+          ldap:
+            port: 3890
+            targetPort: 3890
+
+    persistence:
+      bootstrap-users:
+        type: secret
+        name: lldap-bootstrap-users
+        advancedMounts:
+          bootstrap:
+            bootstrap:
+              - path: /bootstrap/user-configs
+                readOnly: true
+      bootstrap-groups:
+        type: configMap
+        name: lldap-groups
+        advancedMounts:
+          bootstrap:
+            bootstrap:
+              - path: /bootstrap/group-configs
+                readOnly: true
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
