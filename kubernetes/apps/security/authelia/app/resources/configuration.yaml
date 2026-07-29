@@ -3,8 +3,13 @@
 #
 # Two substitution mechanisms operate on this file at different times and do not
 # collide: Flux replaces ${DOMAIN} when applying the ConfigMap, then Authelia's
-# template filter (X_AUTHELIA_CONFIG_FILTERS=template) resolves
-# {{ secret "..." }} from mounted files at startup.
+# template filter (X_AUTHELIA_CONFIG_FILTERS=template) resolves the secret
+# function calls below, reading each value from a mounted file at startup.
+#
+# CAUTION: the template filter processes this ENTIRE FILE, comments included.
+# Never write example Go-template syntax in a comment here - it will be
+# executed, and a bad call makes the whole config fail to render, producing a
+# misleading cascade of "option is required" errors for unrelated sections.
 theme: auto
 
 server:
