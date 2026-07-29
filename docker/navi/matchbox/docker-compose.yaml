@@ -12,10 +12,10 @@ services:
     volumes:
       - ../assets:/assets
       - matchbox-certs:/certs
-      - ../../donkey/matchbox/scripts:/scripts:ro
+      - ./scripts:/scripts:ro
       - ../../../kubernetes/talos:/work/talos:ro
-      - ../../donkey/matchbox/certs/openssl.conf:/certs/openssl.conf:ro
-      - ../../donkey/matchbox/certs/generate-certs.sh:/certs/generate-certs.sh:ro
+      - ./certs/openssl.conf:/certs/openssl.conf:ro
+      - ./certs/generate-certs.sh:/certs/generate-certs.sh:ro
 
   matchbox:
     image: quay.io/poseidon/matchbox:v0.11.0
@@ -33,8 +33,8 @@ services:
       - -ca-file=/etc/matchbox/cert/ca.crt
       - -assets-path=/var/lib/matchbox/assets
     volumes:
-      - ../../donkey/matchbox/profiles:/var/lib/matchbox/profiles:ro
-      - ../../donkey/matchbox/groups:/var/lib/matchbox/groups:ro
+      - ./profiles:/var/lib/matchbox/profiles:ro
+      - ./groups:/var/lib/matchbox/groups:ro
       - ../assets:/var/lib/matchbox/assets:ro
       - matchbox-certs:/etc/matchbox/cert:ro
     ports:
