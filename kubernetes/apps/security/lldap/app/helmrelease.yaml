@@ -71,10 +71,12 @@ spec:
         cronjob:
           schedule: "0 */6 * * *"
           concurrencyPolicy: Forbid
-          successfulJobsHistoryLimit: 1
-          failedJobsHistoryLimit: 3
+          successfulJobsHistory: 1
+          failedJobsHistory: 3
           backoffLimit: 2
           ttlSecondsAfterFinished: 3600
+        pod:
+          restartPolicy: OnFailure
         containers:
           bootstrap:
             image:
