@@ -172,6 +172,18 @@ identity_providers:
       headlamp:
         id_token: ['groups', 'email', 'preferred_username']
 
+      # Authelia deliberately keeps ID tokens minimal, putting most claims only at
+      # userinfo. Several apps read identity straight from the ID token and fail
+      # outright without these:
+      #   romm     -> {"detail":"Email is missing from token."}
+      #   karakeep -> "Provider didn't provide an email during signin"
+      #   grafana  -> "Failed to create user: user not found", because Authelia
+      #               issues OPAQUE access tokens (authelia_at_...) so Grafana
+      #               cannot parse claims out of them either
+      # Authentik included these by default, which is why nothing surfaced before.
+      standard:
+        id_token: ['email', 'email_verified', 'alt_emails', 'groups', 'preferred_username', 'name']
+
     clients:
       # ---------- Envoy Gateway SecurityPolicy apps ----------
       - client_id: 'sonarr'
@@ -273,6 +285,7 @@ identity_providers:
         client_secret: '{{ secret "/secrets/oidc/grafana" }}'
         public: false
         authorization_policy: 'admin'
+        claims_policy: 'standard'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
@@ -287,6 +300,12 @@ identity_providers:
         public: false
         authorization_policy: 'admin'
         claims_policy: 'headlamp'
+        # Headlamp sends its credentials in the POST body. Authelia defaults
+        # confidential clients to client_secret_basic and rejects anything else:
+        #   invalid_client ... "'token_endpoint_auth_method' method
+        #   'client_secret_post', however the OAuth 2.0 client registration does
+        #   not allow this method"
+        token_endpoint_auth_method: 'client_secret_post'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
@@ -303,6 +322,7 @@ identity_providers:
         client_secret: '{{ secret "/secrets/oidc/paperless" }}'
         public: false
         authorization_policy: 'household'
+        claims_policy: 'standard'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
@@ -316,6 +336,7 @@ identity_providers:
         client_secret: '{{ secret "/secrets/oidc/karakeep" }}'
         public: false
         authorization_policy: 'household'
+        claims_policy: 'standard'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
@@ -329,6 +350,7 @@ identity_providers:
         client_secret: '{{ secret "/secrets/oidc/romm" }}'
         public: false
         authorization_policy: 'household'
+        claims_policy: 'standard'
         # RomM does not send a code_challenge. With require_pkce enabled the
         # authorize step fails outright: "Clients must include a 'code_challenge'
         # ... registered in a way that enforces PKCE". Authentik did not enforce
