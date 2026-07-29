@@ -14,7 +14,9 @@ machine:
       permissions: 0o644
       content: |
         [ NFSMount_Global_Options ]
-        nfsvers=4.0
+        # Unraid's nfsd no longer serves the 4.0 minor version (v3 + 4.1/4.2 only);
+        # pinning 4.0 makes every mount fail with "mount.nfs: Protocol not supported".
+        nfsvers=4.2
         soft=True
         timeo=50
         retrans=3
