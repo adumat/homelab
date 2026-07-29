@@ -171,6 +171,11 @@ identity_providers:
       # escape hatch; here there is genuinely no other delivery path.
       headlamp:
         id_token: ['groups', 'email', 'preferred_username']
+        # Also in the access token: an RFC9068 JWT access token otherwise carries
+        # only sub/aud/iss/scope/client_id, so anything reading identity from it
+        # sees no groups and kube-apiserver matches nothing against the
+        # oidc-headlamp-cluster-admin binding - authenticated but no permissions.
+        access_token: ['groups', 'email', 'preferred_username']
 
       # Authelia deliberately keeps ID tokens minimal, putting most claims only at
       # userinfo. Several apps read identity straight from the ID token and fail
@@ -183,6 +188,12 @@ identity_providers:
       # Authentik included these by default, which is why nothing surfaced before.
       standard:
         id_token: ['email', 'email_verified', 'alt_emails', 'groups', 'preferred_username', 'name']
+        # Grafana reads identity from the ACCESS token. Making it a JWT was only
+        # half the fix: an RFC9068 access token carries sub/aud/iss/scope but no
+        # email or username, so Grafana found neither and reported
+        # "Failed to create user: user not found" - it cannot create an account
+        # with no login and no email.
+        access_token: ['email', 'email_verified', 'alt_emails', 'groups', 'preferred_username', 'name']
 
     clients:
       # ---------- Envoy Gateway SecurityPolicy apps ----------
