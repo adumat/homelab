@@ -156,6 +156,32 @@ identity_providers:
           authorize_code: '1 minute'
           refresh_token: '3 months'
 
+    # OCIS web is a browser SPA: it is a public PKCE client, so the token exchange
+    # happens in JavaScript from https://files.${DOMAIN} against this issuer -
+    # cross-origin. Authelia adds CORS headers to NO OIDC endpoint by default, so
+    # the preflight for POST /api/oidc/token came back with
+    # access-control-allow-methods but no access-control-allow-origin and the
+    # browser refused to send the request. The SPA then sat on "Logging you in"
+    # forever, and Authelia logged nothing at all because the request never
+    # arrived. Discovery worked throughout - that endpoint sends
+    # access-control-allow-origin: * unconditionally - which is what made this
+    # look like an OCIS bug.
+    #
+    # Authentik sent permissive CORS headers, so this was invisible before.
+    #
+    # Origins are listed explicitly rather than using
+    # allowed_origins_from_client_redirect_uris, which would also admit the
+    # http://127.0.0.1/ and http://localhost/ URIs of the OCIS desktop client.
+    cors:
+      endpoints:
+        - 'authorization'
+        - 'token'
+        - 'revocation'
+        - 'introspection'
+        - 'userinfo'
+      allowed_origins:
+        - 'https://files.${DOMAIN}'
+
     # Three tiers, three policies, covering every app across both phases. New
     # apps pick a policy; no new groups are ever needed.
     authorization_policies:
