@@ -1,0 +1,6 @@
+[submodule "services/peekaboo"]
+	path = services/peekaboo
+	url = https://github.com/adumat/peekaboo.git
+[submodule "services/paradox-dgp-mqtt"]
+	path = services/paradox-dgp-mqtt
+	url = https://github.com/adumat/paradox-dgp-mqtt.git
