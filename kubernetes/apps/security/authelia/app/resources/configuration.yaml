@@ -286,6 +286,18 @@ identity_providers:
         public: false
         authorization_policy: 'admin'
         claims_policy: 'standard'
+        # Grafana reads claims from the ACCESS token, not the ID token, so the
+        # claims policy above was never enough:
+        #   "Error retrieving access token payload ... token is not in JWT format:
+        #    authelia_at_..."   then   "unable to create user: user not found"
+        # Authelia issues opaque access tokens by default; RS256 makes them JWTs
+        # per RFC9068 so Grafana can actually read them.
+        access_token_signed_response_alg: 'RS256'
+        # Without refresh_token in grant_types Authelia issues no refresh token,
+        # which Grafana warns about ("No refresh token available with
+        # use_refresh_token enabled") even though offline_access is requested.
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
@@ -312,6 +324,14 @@ identity_providers:
         # handshake. Confidential client with a 72-char secret sent via
         # client_secret_post, so the exchange remains authenticated.
         require_pkce: false
+        # Headlamp authenticates but shows no permissions, which is what happens
+        # when kube-apiserver accepts the token yet finds no groups to match
+        # against the oidc-headlamp-cluster-admin binding. A JWT access token
+        # carries the claims wherever Headlamp chooses to read them from, and
+        # refresh_token stops the post-login refresh failing.
+        access_token_signed_response_alg: 'RS256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://gitops.${DOMAIN}/oidc-callback'
         scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
