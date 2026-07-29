@@ -22,19 +22,22 @@ spec:
         externalSecret:
           enabled: true
           name: headlamp-oidc
+          # Required for the chart to render -oidc-scopes at all. Its
+          # externalSecret branch is gated on this flag:
+          #   {{- if $oidc.externalSecret.hasScopes }}
+          #   - "-oidc-scopes=$(OIDC_SCOPES)"
+          # Without it OIDC_SCOPES sits in the secret and is never passed, so
+          # Headlamp silently uses its default "openid profile email".
+          hasScopes: true
         callbackURL: "https://gitops.${DOMAIN}/oidc-callback"
-        # MUST be set here, not in the secret. With the externalSecret path the
-        # chart only renders -oidc-client-id, -oidc-client-secret,
-        # -oidc-idp-issuer-url and -oidc-callback-url; there is no -oidc-scopes
-        # argument, so OIDC_SCOPES in the secret is silently ignored and Headlamp
-        # falls back to its default "openid profile email".
-        #
-        # That means no groups claim, so kube-apiserver authenticates the user as
-        # https://<issuer>#matteo with no group memberships and RBAC matches
+        # Without the groups scope, kube-apiserver authenticates the user as
+        # https://<issuer>#matteo with no group memberships, so RBAC matches
         # nothing against oidc-headlamp-cluster-admin:
         #   nodes.metrics.k8s.io is forbidden: User "https://auth.../#matteo"
         #   cannot list resource "nodes" ... at the cluster scope
         # Authentik emitted groups regardless of scope, which hid this.
+        # The value itself comes from OIDC_SCOPES in headlamp-oidc; this is only
+        # the non-externalSecret path and is kept for clarity.
         scopes: "openid,profile,email,groups,offline_access"
     pluginsManager:
       enabled: true
