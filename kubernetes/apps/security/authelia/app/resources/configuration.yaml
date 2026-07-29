@@ -95,12 +95,7 @@ storage:
 # with "554 local policy". Password reset is the onboarding path, so a broken
 # notifier means nobody can onboard.
 notifier:
-  # DIAGNOSTIC: Authelia reports "Errors occurred performing startup checks"
-  # without logging which check failed (no error-level lines are emitted at all,
-  # even at trace). Storage and LDAP were both verified working directly, so this
-  # isolates the notifier. Restore to false once identified - password reset is
-  # the onboarding path and must be proven working before cutover.
-  disable_startup_check: true
+  disable_startup_check: false
   smtp:
     address: 'smtp://smtp-relay.services.svc.cluster.local:25'
     sender: 'Authelia <authelia@${DOMAIN}>'

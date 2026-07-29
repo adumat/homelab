@@ -51,6 +51,15 @@ spec:
               readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
     defaultPodOptions:
+      # MANDATORY, not an optimisation. Kubernetes injects legacy service-link
+      # env vars for every Service in the namespace; because this Service is
+      # named "authelia" they arrive prefixed AUTHELIA_, which is Authelia's own
+      # configuration env-var prefix. AUTHELIA_PORT=tcp://10.x.x.x:80 is then
+      # read as the deprecated 'port' setting and collides with server.address,
+      # so Authelia refuses to start with "the deprecated keys and the new key
+      # can't both be configured" - reported only as an opaque
+      # "Errors occurred performing startup checks".
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
