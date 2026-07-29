@@ -327,6 +327,11 @@ identity_providers:
         public: false
         authorization_policy: 'household'
         claims_policy: 'standard'
+        # django-allauth sends credentials in the POST body, same as headlamp:
+        #   invalid_client ... "'token_endpoint_auth_method' method
+        #   'client_secret_post', however the OAuth 2.0 client registration does
+        #   not allow this method"
+        token_endpoint_auth_method: 'client_secret_post'
         require_pkce: true
         pkce_challenge_method: 'S256'
         redirect_uris:
