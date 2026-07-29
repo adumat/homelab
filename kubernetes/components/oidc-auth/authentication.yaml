@@ -8,15 +8,17 @@ spec:
   oidc:
     provider:
       # Authelia has a SINGLE issuer for all clients, unlike Authentik's
-      # per-application /application/o/${APP}/ path. Resolved in-cluster via the
-      # coredns rewrite of auth.${DOMAIN} to the external gateway.
+      # per-application /application/o/${APP}/ path.
+      #
+      # backendRefs is deliberately NOT set. Pointing Envoy at the authelia
+      # Service on port 80 makes its token request arrive with
+      # X-Forwarded-Proto: http, and Authelia refuses to issue tokens over what
+      # it sees as plaintext:
+      #   "invalid X-Forwarded-Proto header value 'http'" on POST /api/oidc/token
+      # Authentik tolerated this; Authelia does not. Without backendRefs, Envoy
+      # resolves the issuer itself - coredns rewrites auth.${DOMAIN} to the
+      # external gateway, TLS terminates there, and the header is https.
       issuer: "https://auth.${DOMAIN}"
-      backendRefs:
-        - group: ""
-          kind: Service
-          name: authelia
-          namespace: security
-          port: 80
     clientID: ${APP}
     clientSecret:
       name: ${APP}-oidc-secret

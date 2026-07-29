@@ -329,8 +329,12 @@ identity_providers:
         client_secret: '{{ secret "/secrets/oidc/romm" }}'
         public: false
         authorization_policy: 'household'
-        require_pkce: true
-        pkce_challenge_method: 'S256'
+        # RomM does not send a code_challenge. With require_pkce enabled the
+        # authorize step fails outright: "Clients must include a 'code_challenge'
+        # ... registered in a way that enforces PKCE". Authentik did not enforce
+        # it either. Confidential client with a 72-char secret, so the exchange is
+        # still authenticated.
+        require_pkce: false
         redirect_uris:
           - 'https://romm.${DOMAIN}/api/oauth/openid'
         scopes: ['openid', 'email', 'profile']
