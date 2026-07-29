@@ -14,6 +14,13 @@ spec:
         kind: HelmRepository
         name: headlamp
   values:
+    # Headlamp reads its whole OIDC config from the headlamp-oidc secret as env
+    # vars, which are only read at process start. Without this, rotating the
+    # client secret or changing the scopes left the running pod on the old values
+    # and the fix appeared not to work - that is exactly what happened while
+    # debugging the Authelia cutover.
+    deploymentAnnotations:
+      reloader.stakater.com/auto: "true"
     config:
       watchPlugins: true
       oidc:

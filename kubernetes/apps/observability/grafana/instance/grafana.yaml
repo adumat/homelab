@@ -63,6 +63,13 @@ spec:
       enable_gzip: 'true'
       root_url: https://grafana.${DOMAIN}
   deployment:
+    # Grafana takes the OIDC client secret from the grafana secret as an env var,
+    # read only at process start. Without this, a rotated secret left the running
+    # pod authenticating with the old one - which is what made the cutover
+    # failures look like config problems when the config was already correct.
+    metadata:
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       strategy:
         type: Recreate
