@@ -17,7 +17,7 @@ spec:
   dependsOn:
     - name: external-secrets-store
       namespace: security
-    - name: authentik
+    - name: authelia
       namespace: security
     - name: cloudnative-pg-cluster
       namespace: database

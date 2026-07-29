@@ -71,9 +71,8 @@ session:
     # Bare ${DOMAIN}, not auth.${DOMAIN}, so the cookie is valid across all
     # subdomains.
     - domain: '${DOMAIN}'
-      # REHEARSAL: auth2 while Authentik still serves auth.${DOMAIN}. Changes to
-      # https://auth.${DOMAIN} at cutover, together with httproute.yaml.
-      authelia_url: 'https://auth2.${DOMAIN}'
+      # Paired with hostnames in httproute.yaml - change both together.
+      authelia_url: 'https://auth.${DOMAIN}'
       default_redirection_url: 'https://home.${DOMAIN}'
   redis:
     host: 'dragonfly.database.svc.cluster.local'
@@ -397,20 +396,7 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
-      # ---------- TEMPORARY ----------
-      # Rehearsal only, removed before cutover. Public + PKCE means no secret, so
-      # the token flow is scriptable with curl alone. Carries the headlamp claims
-      # policy so the same client exercises the ID-token gate.
-      # MUST NOT exist on a public issuer: it is a passwordless admin-policy client.
-      - client_id: 'rehearsal'
-        client_name: 'Rehearsal (temporary)'
-        public: true
-        authorization_policy: 'admin'
-        claims_policy: 'headlamp'
-        require_pkce: true
-        pkce_challenge_method: 'S256'
-        redirect_uris:
-          - 'http://127.0.0.1:8888/callback'
-        scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
-        userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+      # The temporary 'rehearsal' client was REMOVED here before cutover. It was a
+      # public, passwordless client bound to the admin policy - acceptable on the
+      # internal-only auth2 host during rehearsal, unacceptable on a public
+      # issuer. Do not reintroduce it on auth.${DOMAIN}.

@@ -1,8 +1,16 @@
 ---
+# Without this, the SecurityPolicy created by components/oidc-auth in each app's
+# namespace cannot reference the authelia Service here, and every Envoy-OIDC app
+# fails with an unaccepted SecurityPolicy. Cross-namespace backendRefs require an
+# explicit grant from the target namespace.
+#
+# Mirrors the grant Authentik had. The namespace list is deliberately broader than
+# today's consumers (downloads and home) so Phase 2 apps in media, services,
+# observability and flux-system need no change here.
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
-  name: authentik-ext-auth
+  name: authelia-ext-auth
 spec:
   from:
     - group: gateway.envoyproxy.io
@@ -29,4 +37,4 @@ spec:
   to:
     - group: ""
       kind: Service
-      name: authentik-server
+      name: authelia

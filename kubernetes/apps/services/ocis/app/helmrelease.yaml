@@ -49,12 +49,18 @@ spec:
               PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD: none # https://github.com/owncloud/ocis/issues/6479
               PROXY_OIDC_SKIP_USER_INFO: false # do NOT set this to true when having TOKEN_VERIFY_METHOD as none, or we have no security
               PROXY_OIDC_REWRITE_WELLKNOWN: true
-              PROXY_ROLE_ASSIGNMENT_DRIVER: oidc
-              PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM: groups
+              # Roles move off OIDC claims. Authelia cannot attach custom claims
+              # to standard scopes, and the ownCloud mobile/desktop clients never
+              # request the groups scope - so claim-driven roles cannot reach
+              # them. With the default driver, ownCloud assigns 'user' only to
+              # accounts that have NO role at first login and does not re-apply
+              # it, so matteo keeps his existing admin role. Roles are managed in
+              # OCIS from here on, not in the IdP.
+              PROXY_ROLE_ASSIGNMENT_DRIVER: default
               PROXY_USER_CS3_CLAIM: username
               PROXY_USER_OIDC_CLAIM: preferred_username
-              OCIS_OIDC_ISSUER: https://auth.${DOMAIN}/application/o/ocis/
-              WEB_OIDC_METADATA_URL: https://auth.${DOMAIN}/application/o/ocis/.well-known/openid-configuration
+              OCIS_OIDC_ISSUER: https://auth.${DOMAIN}
+              WEB_OIDC_METADATA_URL: https://auth.${DOMAIN}/.well-known/openid-configuration
               # see https://doc.owncloud.com/ocis/next/deployment/services/s-list/proxy.html#automatic-role-assignments for group name info
               WEB_OIDC_CLIENT_ID: ocis
               WEB_OIDC_SCOPE: openid profile email groups offline_access

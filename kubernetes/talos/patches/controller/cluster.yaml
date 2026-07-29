@@ -8,8 +8,14 @@ cluster:
       enable-aggregator-routing: true
       feature-gates: MutatingAdmissionPolicy=true,ResourceHealthStatus=true
       runtime-config: admissionregistration.k8s.io/v1beta1=true
-      # OIDC authentication via Authentik
-      oidc-issuer-url: https://auth.garuso.uk/application/o/headlamp/
+      # OIDC authentication via Authelia. Single issuer - no per-application path,
+      # unlike Authentik's /application/o/headlamp/. Must stay identical to
+      # OIDC_ISSUER_URL in headlamp's ExternalSecret or the ID token is rejected.
+      #
+      # The domain comes from AUTH_DOMAIN in the gitignored talenv.secrets.yaml:
+      # this repo is public, and this line was previously the only place the base
+      # domain was hardcoded in the tracked Talos tree.
+      oidc-issuer-url: https://${AUTH_DOMAIN}
       oidc-client-id: headlamp
       oidc-username-claim: preferred_username
       oidc-groups-claim: groups

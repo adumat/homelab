@@ -7,11 +7,14 @@ metadata:
 spec:
   oidc:
     provider:
-      issuer: "https://auth.${DOMAIN}/application/o/${APP}/"
+      # Authelia has a SINGLE issuer for all clients, unlike Authentik's
+      # per-application /application/o/${APP}/ path. Resolved in-cluster via the
+      # coredns rewrite of auth.${DOMAIN} to the external gateway.
+      issuer: "https://auth.${DOMAIN}"
       backendRefs:
         - group: ""
           kind: Service
-          name: authentik-server
+          name: authelia
           namespace: security
           port: 80
     clientID: ${APP}
