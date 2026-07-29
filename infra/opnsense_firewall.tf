@@ -84,9 +84,11 @@ locals {
   rules_map = { for rule in local.expanded_rules : rule.key => rule }
 }
 
-# ── Established/related — always first ──────────────────
+# ── Established/related ─────────────────────────────────
+# sequence 2 (was 1) so the servers→k8s-LB sloppy rule can sit at sequence 1 and
+# win for VIP-bound traffic; still ahead of allow_internet and the inter-zone rules.
 resource "opnsense_firewall_filter" "established" {
-  sequence    = 1
+  sequence    = 2
   description = "Allow established/related"
   enabled     = true
   interface = { interface = concat(
@@ -228,6 +230,45 @@ resource "opnsense_firewall_filter" "allow_internet" {
     destination = {
       net = "any"
     }
+  }
+}
+
+# ── servers → k8s LB VIPs: sloppy state (asymmetric routing) ──
+# Cilium advertises the LB VIPs (k8s_lb_subnet) via BGP with the k8s nodes as
+# next-hop. The nodes sit in the servers subnet, so a servers-zone host's request
+# to a VIP goes out through OPNsense (different subnet → default gw) but the reply
+# comes straight back node→host on the shared L2, bypassing OPNsense. The firewall
+# never sees the SYN-ACK, so the keep-state entry stays half-open (CLOSED:SYN_SENT)
+# and is reaped at tcp.opening (~30s), tearing long-lived TCP (e.g. MQTT) every
+# ~30-60s. Sloppy state drops seq/handshake tracking so it tolerates the asymmetry.
+# Must be evaluated BEFORE the blanket "established" rule (any→any keep state,
+# quick), which otherwise grabs the SYN first and creates a strict keep-state.
+# sequence 1 (established bumped to 2) places it first, so VIP-bound traffic gets
+# sloppy state while everything else still falls through to established / allow_internet.
+resource "opnsense_firewall_filter" "servers_to_lb_sloppy" {
+  sequence    = 1
+  description = "servers -> k8s LB VIPs: sloppy state (asymmetric BGP VIP routing)"
+  enabled     = true
+  interface   = { interface = [local.zone_interface["servers"]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "any"
+
+    source = {
+      net = local.zones["servers"].subnet
+    }
+    destination = {
+      net = local.k8s_lb_subnet
+    }
+  }
+
+  # sloppy = don't track TCP sequence numbers, so the half-seen (asymmetric)
+  # flow is not reaped as a stuck half-open state.
+  stateful_firewall = {
+    type = "sloppy"
   }
 }
 
