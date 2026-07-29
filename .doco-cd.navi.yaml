@@ -1,7 +1,8 @@
 name: navi-homelab
 working_dir: docker/navi/
-auto_discover: true
-auto_discover_opts:
+auto_discovery:
+  enabled: true
   depth: 1
+  delete: true
 external_secrets:
   TALOSCONFIG: cd1cc645-2d68-47f5-90b4-b3f701676ccb
