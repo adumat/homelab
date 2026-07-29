@@ -1,0 +1,381 @@
+---
+# Authelia configuration.
+#
+# Two substitution mechanisms operate on this file at different times and do not
+# collide: Flux replaces ${DOMAIN} when applying the ConfigMap, then Authelia's
+# template filter (X_AUTHELIA_CONFIG_FILTERS=template) resolves
+# {{ secret "..." }} from mounted files at startup.
+theme: auto
+
+server:
+  address: 'tcp://0.0.0.0:9091'
+
+log:
+  level: 'info'
+  format: 'json'
+
+telemetry:
+  metrics:
+    enabled: true
+    address: 'tcp://0.0.0.0:9959'
+
+identity_validation:
+  reset_password:
+    jwt_secret: '{{ secret "/secrets/authelia/IDENTITY_VALIDATION_JWT_SECRET" }}'
+
+# Users live in LLDAP, not here. The bind account belongs to
+# lldap_password_manager rather than lldap_strict_readonly, which is what makes
+# password_change and password_reset work - the self-service capability that
+# justified adding LLDAP. With only strict_readonly, logins succeed but reset
+# fails silently and nobody can onboard.
+authentication_backend:
+  refresh_interval: '1m'
+  password_reset:
+    disable: false
+  password_change:
+    disable: false
+  ldap:
+    # Built-in preset: users_filter, groups_filter and attribute mappings all
+    # come from it. Overriding them by hand is how you get "user not found"
+    # against a directory that is perfectly healthy.
+    implementation: 'lldap'
+    address: 'ldap://lldap.security.svc.cluster.local:3890'
+    base_dn: 'dc=homelab,dc=internal'
+    user: 'uid=authelia,ou=people,dc=homelab,dc=internal'
+    password: '{{ secret "/secrets/authelia/LDAP_BIND_PASSWORD" }}'
+
+webauthn:
+  disable: false
+  # Passkey as a first factor. Authelia counts it as a SINGLE factor, which is
+  # why every authorization policy below uses one_factor - two_factor would
+  # reject a passkey-only sign-in and force password+TOTP.
+  enable_passkey_login: true
+  display_name: 'Homelab'
+  timeout: '60 seconds'
+
+totp:
+  disable: false
+  issuer: '${DOMAIN}'
+
+session:
+  secret: '{{ secret "/secrets/authelia/SESSION_SECRET" }}'
+  expiration: '12 hours'
+  inactivity: '2 hours'
+  remember_me: '1 month'
+  cookies:
+    # Bare ${DOMAIN}, not auth.${DOMAIN}, so the cookie is valid across all
+    # subdomains.
+    - domain: '${DOMAIN}'
+      # REHEARSAL: auth2 while Authentik still serves auth.${DOMAIN}. Changes to
+      # https://auth.${DOMAIN} at cutover, together with httproute.yaml.
+      authelia_url: 'https://auth2.${DOMAIN}'
+      default_redirection_url: 'https://home.${DOMAIN}'
+  redis:
+    host: 'dragonfly.database.svc.cluster.local'
+    port: 6379
+    # Authentik holds db 3; 4 is unused. Distinct indexes are required for the
+    # parallel-run rehearsal.
+    database_index: 4
+
+storage:
+  encryption_key: '{{ secret "/secrets/authelia/STORAGE_ENCRYPTION_KEY" }}'
+  postgres:
+    address: 'tcp://cluster18-rw.database.svc.cluster.local:5432'
+    database: 'authelia'
+    schema: 'public'
+    username: '{{ secret "/secrets/authelia/POSTGRES_USER" }}'
+    password: '{{ secret "/secrets/authelia/POSTGRES_PASSWORD" }}'
+
+# sender MUST use @${DOMAIN}: the maddy relay rejects any other envelope-from
+# with "554 local policy". Password reset is the onboarding path, so a broken
+# notifier means nobody can onboard.
+notifier:
+  disable_startup_check: false
+  smtp:
+    address: 'smtp://smtp-relay.services.svc.cluster.local:25'
+    sender: 'Authelia <authelia@${DOMAIN}>'
+    disable_require_tls: true
+
+access_control:
+  default_policy: 'one_factor'
+
+identity_providers:
+  oidc:
+    hmac_secret: '{{ secret "/secrets/authelia/OIDC_HMAC_SECRET" }}'
+    jwks:
+      - key_id: 'main'
+        algorithm: 'RS256'
+        use: 'sig'
+        key: |
+          {{ secret "/secrets/authelia/OIDC_ISSUER_PRIVATE_KEY" | mindent 10 "|" | msquote }}
+
+    # Three tiers, three policies, covering every app across both phases. New
+    # apps pick a policy; no new groups are ever needed.
+    authorization_policies:
+      admin:
+        default_policy: 'deny'
+        rules:
+          - policy: 'one_factor'
+            subject: ['group:admins']
+      household:
+        default_policy: 'deny'
+        rules:
+          - policy: 'one_factor'
+            subject: ['group:users']
+      # Must admit BOTH tiers. Matching only external_users would deny matteo
+      # and elisa, since neither is a guest. Named for the resource set shared
+      # with guests, not for the audience.
+      shared:
+        default_policy: 'deny'
+        rules:
+          - policy: 'one_factor'
+            subject: ['group:users', 'group:external_users']
+
+    claims_policies:
+      # kube-apiserver validates the ID token and CANNOT call userinfo, so groups
+      # must be forced into the ID token for Headlamp. Authelia warns this is an
+      # escape hatch; here there is genuinely no other delivery path.
+      headlamp:
+        id_token: ['groups', 'email', 'preferred_username']
+
+    clients:
+      # ---------- Envoy Gateway SecurityPolicy apps ----------
+      - client_id: 'sonarr'
+        client_name: 'Sonarr'
+        client_secret: '{{ secret "/secrets/oidc/sonarr" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://sonarr.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'radarr'
+        client_name: 'Radarr'
+        client_secret: '{{ secret "/secrets/oidc/radarr" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://radarr.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'prowlarr'
+        client_name: 'Prowlarr'
+        client_secret: '{{ secret "/secrets/oidc/prowlarr" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://prowlarr.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'qbittorrent'
+        client_name: 'qBittorrent'
+        client_secret: '{{ secret "/secrets/oidc/qbittorrent" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://qb.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'pyload-ng'
+        client_name: 'pyLoad-NG'
+        client_secret: '{{ secret "/secrets/oidc/pyload-ng" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://pyload.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # metube is household: grabbing a video is useful to a household member,
+      # unlike the indexer/torrent stack.
+      - client_id: 'metube'
+        client_name: 'MeTube'
+        client_secret: '{{ secret "/secrets/oidc/metube" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://metube.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'peekaboo'
+        client_name: 'Peekaboo'
+        client_secret: '{{ secret "/secrets/oidc/peekaboo" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://peekaboo.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # ---------- Native OIDC apps ----------
+      - client_id: 'grafana'
+        client_name: 'Grafana'
+        client_secret: '{{ secret "/secrets/oidc/grafana" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://grafana.${DOMAIN}/login/generic_oauth'
+        scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'headlamp'
+        client_name: 'Headlamp'
+        client_secret: '{{ secret "/secrets/oidc/headlamp" }}'
+        public: false
+        authorization_policy: 'admin'
+        claims_policy: 'headlamp'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://gitops.${DOMAIN}/oidc-callback'
+        scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # The /accounts/oidc/authentik/ path segment is django-allauth's provider
+      # ID configured inside paperless. It is NOT a reference to Authentik the
+      # service - changing it here without changing paperless breaks login.
+      - client_id: 'paperless'
+        client_name: 'Paperless'
+        client_secret: '{{ secret "/secrets/oidc/paperless" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://paperless.${DOMAIN}/accounts/oidc/authentik/login/callback/'
+        scopes: ['openid', 'email', 'profile']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'karakeep'
+        client_name: 'Karakeep'
+        client_secret: '{{ secret "/secrets/oidc/karakeep" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://karakeep.${DOMAIN}/api/auth/callback/custom'
+        scopes: ['openid', 'email', 'profile']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'romm'
+        client_name: 'RomM'
+        client_secret: '{{ secret "/secrets/oidc/romm" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://romm.${DOMAIN}/api/oauth/openid'
+        scopes: ['openid', 'email', 'profile']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # ---------- OCIS ----------
+      # Web client is public with PKCE and carries no secret.
+      - client_id: 'ocis'
+        client_name: 'OCIS'
+        public: true
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'https://files.${DOMAIN}/'
+          - 'https://files.${DOMAIN}/oidc-callback.html'
+          - 'https://files.${DOMAIN}/oidc-silent-redirect.html'
+        scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # Native apps: client_id AND secret are hardcoded by ownCloud and cannot be
+      # rotated. The digests are hashes of ownCloud's published values. This is
+      # precisely what Kanidm could not do, and why it was ruled out.
+      - client_id: 'mxd5OQDk6es5LzOzRvidJNfXLUZS2oN3oUFeXPP8LpPrhx3UroJFduGEYIBOxkY1'
+        client_name: 'OCIS iOS'
+        client_secret: '{{ secret "/secrets/oidc/ocis-ios" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: false
+        redirect_uris:
+          - 'oc://ios.owncloud.com'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'e4rAsNUSIUs0lF4nbv9FmCeUkTlV9GdgTLDH1b5uie7syb90SzEVrbN7HIpmWJeD'
+        client_name: 'OCIS Android'
+        client_secret: '{{ secret "/secrets/oidc/ocis-android" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: false
+        redirect_uris:
+          - 'oc://android.owncloud.com'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # Authentik matched these loopback URIs by regex; Authelia matches exactly.
+      # If the desktop client uses an ephemeral port, more URIs are needed - this
+      # is a spike item before cutover.
+      - client_id: 'xdXOt13JKxym1B1QcEncf2XDkLAexMBFwiT9j6EfhhHFJhs2KM9jbjTmf8JBXE69'
+        client_name: 'OCIS Desktop'
+        client_secret: '{{ secret "/secrets/oidc/ocis-desktop" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: false
+        redirect_uris:
+          - 'http://127.0.0.1/'
+          - 'http://localhost/'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # ---------- TEMPORARY ----------
+      # Rehearsal only, removed before cutover. Public + PKCE means no secret, so
+      # the token flow is scriptable with curl alone. Carries the headlamp claims
+      # policy so the same client exercises the ID-token gate.
+      # MUST NOT exist on a public issuer: it is a passwordless admin-policy client.
+      - client_id: 'rehearsal'
+        client_name: 'Rehearsal (temporary)'
+        public: true
+        authorization_policy: 'admin'
+        claims_policy: 'headlamp'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        redirect_uris:
+          - 'http://127.0.0.1:8888/callback'
+        scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'

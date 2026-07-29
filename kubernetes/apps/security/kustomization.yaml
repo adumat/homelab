@@ -6,6 +6,7 @@ namespace: security
 components:
   - ../../components/common
 resources:
+  - ./authelia/ks.yaml
   - ./authentik/ks.yaml
   - ./cert-manager/ks.yaml
   - ./external-secrets/ks.yaml
