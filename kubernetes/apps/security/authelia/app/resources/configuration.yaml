@@ -101,6 +101,14 @@ notifier:
     sender: 'Authelia <authelia@${DOMAIN}>'
     disable_require_tls: true
 
+# Authelia checks time sync against an external NTP server at startup by
+# default, which needs outbound UDP/123 and makes startup depend on internet
+# egress. Talos already synchronises time at the node level, so the pod inherits
+# correct time and this check adds a failure mode for no benefit. Left enabled it
+# aborts startup with only an opaque "Errors occurred performing startup checks".
+ntp:
+  disable_startup_check: true
+
 access_control:
   default_policy: 'one_factor'
 
