@@ -1,8 +1,9 @@
 name: donkey-homelab
 working_dir: docker/donkey/
-auto_discover: true
-auto_discover_opts:
+auto_discovery:
+  enabled: true
   depth: 1
+  delete: true
 external_secrets:
   BACKUP_TARGET_SERVER_USER: db38140b-1efc-40bd-9bb5-b3f00158b9a2
   BACKUP_TARGET_SERVER_PASSWORD: 1616a944-95d4-4927-a7fe-b3f00158d790
