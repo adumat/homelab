@@ -32,6 +32,14 @@ spec:
       token_url: 'https://auth.${DOMAIN}/api/oidc/token'
       api_url: 'https://auth.${DOMAIN}/api/oidc/userinfo'
       role_attribute_path: "contains(groups, 'admins') && 'Admin' || 'Viewer'"
+      # Explicit JMESPath rather than relying on Grafana probing claim names.
+      # Grafana failed with "unable to create user: user not found", which is what
+      # it reports when it cannot resolve an email/login for the account. Authelia
+      # names the username claim preferred_username, which Grafana does not
+      # necessarily try by default.
+      login_attribute_path: 'preferred_username'
+      email_attribute_path: 'email'
+      name_attribute_path: 'name'
       allow_sign_up: 'true'
       use_pkce: 'true'
     log:
