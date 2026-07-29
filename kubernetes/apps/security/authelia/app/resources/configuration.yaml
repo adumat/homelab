@@ -111,6 +111,28 @@ ntp:
 
 access_control:
   default_policy: 'one_factor'
+  rules:
+    # WORKAROUND for authelia/authelia#9664: Authelia hides credential enrolment
+    # (passkeys, TOTP) entirely unless at least one access_control rule requires
+    # two_factor, showing "There are no protected applications that require a
+    # second factor method". Without a rule here, no passkey can ever be
+    # registered - a chicken-and-egg, since one_factor was chosen precisely so a
+    # passkey can satisfy login on its own.
+    #
+    # THIS RULE IS INERT IN PRACTICE. Nothing in this deployment uses Authelia's
+    # forward-auth: every app authenticates via OIDC, which consults
+    # identity_providers.oidc.authorization_policies instead of these rules. So
+    # this does NOT currently protect lldap - that host is reachable only on the
+    # internal gateway, which is its actual control. It is pointed at lldap
+    # because that is the most sensitive surface, so if it is ever placed behind
+    # forward-auth the policy is already the right one.
+    #
+    # Revisit when AMR lands (~4.41) and per-method policies make this
+    # unnecessary. Do NOT use experimental_enable_passkey_uv_two_factors as an
+    # alternative: upstream marks it unsupported and says it will cause a startup
+    # failure when replaced.
+    - domain: 'lldap.${DOMAIN}'
+      policy: 'two_factor'
 
 identity_providers:
   oidc:
