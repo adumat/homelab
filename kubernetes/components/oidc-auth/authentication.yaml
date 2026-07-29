@@ -27,6 +27,28 @@ spec:
       - email
       - profile
       - offline_access
+    # Without this, Envoy discards the refresh token and sends the user back to
+    # the Authelia login screen the moment the access token expires (1h), even
+    # though offline_access was requested all along. With it, Envoy exchanges the
+    # refresh token in the background and the user never sees a redirect.
+    #
+    # This needs a matching grant_types: ['authorization_code', 'refresh_token']
+    # on the Authelia client - Authelia issues NO refresh token without it, so
+    # enabling this alone would silently change nothing.
+    refreshToken: true
+    # How long Envoy keeps the refresh token cookie. 168h is one week, matching
+    # Envoy's own default; stated explicitly so a per-app override has a path to
+    # patch. Expressed in hours because the field's pattern allows at most 5
+    # digits per segment, so the equivalent 604800s is rejected.
+    #
+    # Overridden per app with a kustomize patch rather than a postBuild
+    # substitution: kubeconform runs pre-commit against this file before
+    # substitution, so a ${VAR} here fails the same pattern check. See
+    # peekaboo's app/kustomization.yaml.
+    #
+    # Keep any override BELOW the Authelia client's refresh_token lifespan, or
+    # Envoy will keep presenting a token the provider has already expired.
+    defaultRefreshTokenTTL: 168h
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute

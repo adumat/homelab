@@ -4,6 +4,23 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ./helmrelease.yaml
+# peekaboo is a baby monitor: the page is left open for hours and must not bounce
+# to a login screen mid-watch. Extend Envoy's refresh token cookie from the
+# oidc-auth component's 168h default to 720h (30 days), so Envoy silently
+# refreshes instead of redirecting. Paired with the 'long_session' lifespan on
+# the Authelia peekaboo client, whose refresh token lives 3 months - this value
+# must stay below that.
+#
+# The SecurityPolicy comes from the oidc-auth component and is still named
+# ${APP} here; Flux substitutes it after this patch is applied.
+patches:
+  - target:
+      kind: SecurityPolicy
+      name: \${APP}
+    patch: |
+      - op: replace
+        path: /spec/oidc/defaultRefreshTokenTTL
+        value: 720h
 configMapGenerator:
   - name: peekaboo-config
     files:

@@ -143,6 +143,19 @@ identity_providers:
         key: |
           {{ secret "/secrets/authelia/OIDC_ISSUER_PRIVATE_KEY" | mindent 10 "|" | msquote }}
 
+    # Authelia's default refresh_token lifespan is 1h30m, which is why a
+    # long-running page gets bounced back to the login screen. peekaboo is a baby
+    # monitor left open for hours, so it gets a profile with a long refresh token;
+    # the access and ID tokens stay short-lived, and Envoy silently exchanges the
+    # refresh token in the background.
+    lifespans:
+      custom:
+        long_session:
+          access_token: '1 hour'
+          id_token: '1 hour'
+          authorize_code: '1 minute'
+          refresh_token: '3 months'
+
     # Three tiers, three policies, covering every app across both phases. New
     # apps pick a policy; no new groups are ever needed.
     authorization_policies:
@@ -204,6 +217,8 @@ identity_providers:
         authorization_policy: 'admin'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://sonarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -217,6 +232,8 @@ identity_providers:
         authorization_policy: 'admin'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://radarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -230,6 +247,8 @@ identity_providers:
         authorization_policy: 'admin'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://prowlarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -243,6 +262,8 @@ identity_providers:
         authorization_policy: 'admin'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://qb.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -256,6 +277,8 @@ identity_providers:
         authorization_policy: 'admin'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://pyload.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -271,12 +294,19 @@ identity_providers:
         authorization_policy: 'household'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://metube.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
+      # peekaboo is a baby monitor: the page is left open for hours and must not
+      # bounce to a login screen mid-watch. It gets the long_session profile (3
+      # month refresh token) and Envoy refreshes in the background, so the access
+      # and ID tokens stay short-lived. Losing this session is not a security
+      # event worth a re-login, and household is the least sensitive tier.
       - client_id: 'peekaboo'
         client_name: 'Peekaboo'
         client_secret: '{{ secret "/secrets/oidc/peekaboo" }}'
@@ -284,6 +314,9 @@ identity_providers:
         authorization_policy: 'household'
         require_pkce: true
         pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        lifespan: 'long_session'
         redirect_uris:
           - 'https://peekaboo.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -419,6 +452,8 @@ identity_providers:
         # .html paths below are the older names, kept so a rollback or an older
         # client still works. Authentik matched these loosely, which is why the
         # stale list went unnoticed; Authelia matches exactly.
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'https://files.${DOMAIN}/'
           - 'https://files.${DOMAIN}/web-oidc-callback'
@@ -438,6 +473,8 @@ identity_providers:
         public: false
         authorization_policy: 'household'
         require_pkce: false
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'oc://ios.owncloud.com'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -450,6 +487,8 @@ identity_providers:
         public: false
         authorization_policy: 'household'
         require_pkce: false
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'oc://android.owncloud.com'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -465,6 +504,8 @@ identity_providers:
         public: false
         authorization_policy: 'household'
         require_pkce: false
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
         redirect_uris:
           - 'http://127.0.0.1/'
           - 'http://localhost/'
