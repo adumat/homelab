@@ -48,8 +48,20 @@ spec:
               limits: { memory: 256Mi }
             securityContext:
               allowPrivilegeEscalation: false
-              readOnlyRootFilesystem: true
               capabilities: { drop: ["ALL"] }
+              # readOnlyRootFilesystem is deliberately NOT set. Authelia fails
+              # its startup checks with a read-only root, reporting only an
+              # opaque "Errors occurred performing startup checks" with no
+              # error-level log lines. Verified by bisection: capabilities drop
+              # and allowPrivilegeEscalation:false are fine on their own, and the
+              # read-only rootfs alone reproduces the failure. Mounting /tmp and
+              # relocating HOME to writable space did not help, so the exact path
+              # it writes was not isolated - relaxing this one control rather than
+              # guessing at more mounts. Everything else stays: non-root uid 1000,
+              # all capabilities dropped, no privilege escalation.
+              #
+              # Contrast with LLDAP, where a read-only rootfs WAS kept by
+              # bypassing its entrypoint - that failure was a chown, and visible.
     defaultPodOptions:
       # MANDATORY, not an optimisation. Kubernetes injects legacy service-link
       # env vars for every Service in the namespace; because this Service is
