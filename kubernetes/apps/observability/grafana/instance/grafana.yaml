@@ -15,6 +15,13 @@ spec:
       reporting_enabled: 'false'
     auth:
       disable_login_form: 'false'
+      # Grafana identifies OAuth users by the provider's sub, which changed with
+      # the IdP. It refuses to fall back to matching on email unless this is
+      # enabled, so it could neither find the existing account nor create a new
+      # one alongside it, reporting "Failed to create user: user not found".
+      # Authelia was delivering email, preferred_username and groups correctly -
+      # its userinfo request succeeded - so this is purely Grafana's own guard.
+      oauth_allow_insecure_email_lookup: 'true'
     auth.anonymous:
       enabled: 'false'
     auth.basic:
