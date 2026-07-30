@@ -31,3 +31,71 @@ spec:
   targetNamespace: *namespace
   timeout: 5m
   wait: false
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: alertmanager-oidc
+  namespace: observability
+spec:
+  components:
+    - ../../../../components/oidc-auth
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+    - name: authelia
+      namespace: security
+  interval: 1h
+  path: ./kubernetes/apps/observability/kube-prometheus-stack/oidc
+  postBuild:
+    substitute:
+      APP: alertmanager
+      # Chart-generated route name; cannot be renamed.
+      OIDC_ROUTE: kube-prometheus-stack-alertmanager
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: observability
+  timeout: 5m
+  wait: false
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: prometheus-oidc
+  namespace: observability
+spec:
+  components:
+    - ../../../../components/oidc-auth
+  dependsOn:
+    - name: kube-prometheus-stack
+      namespace: observability
+    - name: authelia
+      namespace: security
+  interval: 1h
+  path: ./kubernetes/apps/observability/kube-prometheus-stack/oidc
+  postBuild:
+    substitute:
+      APP: prometheus
+      # Chart-generated route name; cannot be renamed.
+      OIDC_ROUTE: kube-prometheus-stack-prometheus
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: observability
+  timeout: 5m
+  wait: false

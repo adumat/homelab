@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Intentionally no resources. The oidc-auth component supplies every resource,
+# and each Flux Kustomization pointing here differentiates itself purely through
+# postBuild.substitute. Two Kustomizations share this directory: one for
+# alertmanager, one for prometheus.
+#
+# This exists because kube-prometheus-stack is a single Kustomization owning two
+# routes that need separate OIDC clients, and postBuild.substitute is
+# per-Kustomization - so one Kustomization cannot produce two clients.
