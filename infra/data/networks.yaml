@@ -21,6 +21,11 @@ k8s_gateway_ip: 10.1.11.1
 k8s_lb_range_start: 10.1.11.2
 k8s_lb_range_stop: 10.1.11.254
 
+# Supernet covering every internal zone (10.1.x.0/24) + the LB pool. Used to scope
+# the per-zone "allow internet" rule to NON-internal destinations, so inter-zone
+# traffic falls through to the access-matrix rules instead of being passed wholesale.
+internal_supernet: 10.1.0.0/16
+
 # Network zones
 # Each zone defines its VLAN, subnet, firewall policy, and DHCP config.
 #
@@ -226,7 +231,15 @@ zones:
       range_stop: 10.1.50.199
       lease: 3600
     access:
-      servers: none
+      # Deliberately allowed: guests reach internal web apps + go2rtc video via the
+      # Envoy gateway VIP (in the SERVERS alias), but nothing else on the servers.
+      servers:
+        - port: 443
+          proto: TCP/UDP
+          description: 'Internal web apps via gateway (HTTPS/HTTP3)'
+        - port: 8555
+          proto: UDP
+          description: 'go2rtc WebRTC'
       clients:
         - range: 10.1.20.16/28
           description: 'Shared devices (TVs, printer)'

@@ -227,8 +227,65 @@ resource "opnsense_firewall_filter" "allow_internet" {
     source = {
       net = each.value.subnet
     }
+    # NON-internal only: internal destinations fall through to the inter-zone
+    # rules (matrix). Without this, "-> any" would pass internal traffic wholesale
+    # and defeat segmentation the same way the blanket 'established' rule does.
     destination = {
-      net = "any"
+      net    = local.internal_supernet
+      invert = true
+    }
+  }
+}
+
+# ── Per-zone DNS/NTP to the firewall itself ─────────────
+# DHCP hands each zone its gateway (OPNsense) as DNS + NTP server, so every zone
+# needs to reach (self):53 and :123. This is the traffic that today rides ONLY the
+# blanket 'established' rule; making it explicit is what lets that rule be removed
+# without breaking name resolution / time sync network-wide.
+resource "opnsense_firewall_filter" "self_dns" {
+  for_each = local.dhcp_zones
+
+  sequence    = 4
+  description = "${each.key} -> firewall DNS"
+  enabled     = true
+  interface   = { interface = [local.zone_interface[each.key]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP/UDP"
+
+    source = {
+      net = each.value.subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "53"
+    }
+  }
+}
+
+resource "opnsense_firewall_filter" "self_ntp" {
+  for_each = local.dhcp_zones
+
+  sequence    = 5
+  description = "${each.key} -> firewall NTP"
+  enabled     = true
+  interface   = { interface = [local.zone_interface[each.key]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "UDP"
+
+    source = {
+      net = each.value.subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "123"
     }
   }
 }

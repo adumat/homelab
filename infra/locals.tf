@@ -10,6 +10,9 @@ locals {
   k8s_lb_subnet  = local.networks.k8s_lb_subnet
   k8s_gateway_ip = local.networks.k8s_gateway_ip
 
+  # Supernet covering all internal zones + LB pool (scopes allow_internet).
+  internal_supernet = local.networks.internal_supernet
+
   # Domains Unbound forwards to k8s-gateway. Services advertise themselves
   # under these domains via external-dns.alpha.kubernetes.io/hostname and
   # DNSEndpoint CRDs. base_domain is nonsensitive()'d because it becomes a
