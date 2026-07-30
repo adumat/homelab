@@ -1,0 +1,11 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Intentionally no resources. The oidc-auth component supplies them.
+#
+# This exists so ONLY the home-assistant-code route (hacs.${DOMAIN}) is
+# protected. The same HelmRelease also serves ha.${DOMAIN}, which must stay
+# unauthenticated because the mobile apps and webhooks cannot complete a browser
+# OIDC flow. Adding oidc-auth to home-assistant's own Kustomization would target
+# the wrong route (APP is home-assistant) and break the mobile apps.

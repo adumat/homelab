@@ -37,3 +37,38 @@ spec:
   targetNamespace: *namespace
   timeout: 5m
   wait: false
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: home-assistant-code-oidc
+  namespace: home
+spec:
+  components:
+    - ../../../../components/oidc-auth
+  dependsOn:
+    - name: home-assistant
+      namespace: home
+    - name: authelia
+      namespace: security
+  interval: 1h
+  path: ./kubernetes/apps/home/home-assistant/oidc
+  postBuild:
+    substitute:
+      APP: home-assistant-code
+      # ONLY the code editor. ha.${DOMAIN} is served by the same HelmRelease and
+      # must stay unauthenticated for the mobile apps and webhooks.
+      OIDC_ROUTE: home-assistant-code
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: home
+  timeout: 5m
+  wait: false
