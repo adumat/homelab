@@ -5,13 +5,22 @@ kind: Kustomization
 metadata:
   name: victoria-logs
 spec:
+  components:
+    - ../../../../components/oidc-auth
   dependsOn:
     - name: rook-ceph-cluster
       namespace: rook-ceph
+    - name: authelia
+      namespace: security
   interval: 1h
   path: ./kubernetes/apps/observability/victoria-logs/app
   prune: true
   postBuild:
+    substitute:
+      APP: victoria-logs
+      # The chart names the route victoria-logs-server and it cannot be renamed,
+      # so the identity and the route name differ here.
+      OIDC_ROUTE: victoria-logs-server
     substituteFrom:
       - name: cluster-secrets
         kind: Secret

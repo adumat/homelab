@@ -11,6 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/persistence
+    - ../../../../components/oidc-auth
   interval: 1h
   path: "./kubernetes/apps/home/esp-home/app"
   dependsOn:
@@ -18,9 +19,12 @@ spec:
       namespace: rook-ceph
     - name: volsync
       namespace: volsync-system
+    - name: authelia
+      namespace: security
   postBuild:
     substitute:
       APP: *app
+      OIDC_ROUTE: *app
       VOLSYNC_CAPACITY: 2Gi
       OVERRIDE_DEST: minio
     substituteFrom:

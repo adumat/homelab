@@ -9,11 +9,17 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/oidc-auth
+  dependsOn:
+    - name: authelia
+      namespace: security
   interval: 1h
   path: ./kubernetes/apps/services/it-tools/app
   postBuild:
     substitute:
       APP: *app
+      OIDC_ROUTE: *app
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
