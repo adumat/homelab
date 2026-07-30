@@ -16,7 +16,7 @@ services:
       - Serial__PollIntervalMs=1000
       - Serial__ReadTimeoutMs=1000
       - Serial__MaxRetries=5
-      - Mqtt__BrokerHost=mqtt.garuso.uk
+      - Mqtt__BrokerHost=mqtt.${HOMELAB_DOMAIN}
       - Mqtt__BrokerPort=8883
       - Mqtt__Username=${PARADOX_DGP_MQTT_USERNAME}
       - Mqtt__Password=${PARADOX_DGP_MQTT_PASSWORD}

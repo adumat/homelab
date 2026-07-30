@@ -14,4 +14,8 @@ external_secrets:
   NUT_SLAVE_PASSWORD: 07518fe9-65db-4960-95cc-b3f00157d8fa
   PARADOX_DGP_MQTT_USERNAME: ca7ef866-987f-4b66-b0cb-b3f40169ab0c
   PARADOX_DGP_MQTT_PASSWORD: 6a92fe76-470e-4711-a21e-b3f40169c629
+  # Base domain item, same one talenv.secrets.yaml.j2 builds AUTH_DOMAIN from.
+  # The repo is public, so the domain is composed at deploy time rather than
+  # written into a tracked compose file.
+  HOMELAB_DOMAIN: 88234b63-9f5f-4a52-88ba-b42b00fde831
   TALOSCONFIG: cd1cc645-2d68-47f5-90b4-b3f701676ccb
