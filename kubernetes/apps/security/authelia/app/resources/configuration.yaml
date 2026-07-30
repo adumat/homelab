@@ -51,10 +51,27 @@ authentication_backend:
 
 webauthn:
   disable: false
-  # Passkey as a first factor. Authelia counts it as a SINGLE factor, which is
-  # why every authorization policy below uses one_factor - two_factor would
-  # reject a passkey-only sign-in and force password+TOTP.
+  # Passkey as a first factor.
   enable_passkey_login: true
+  # Lets a passkey that reports successful user verification satisfy a
+  # two_factor policy. Without this, Authelia counts ANY passkey as a single
+  # factor, so the two_factor admin policy below would reject a passkey-only
+  # sign-in and force password+TOTP - refusing the strongest credential exactly
+  # where it matters most (headlamp maps admins to cluster-admin).
+  #
+  # Security is not weakened by trusting the passkey here: Authelia checks the
+  # actual UV result, so a passkey used WITHOUT user verification still counts
+  # as one factor and falls back to a TOTP prompt. user_verification is left at
+  # its 'preferred' default for that reason - the fallback is graceful, and
+  # requiring UV would break authenticators that cannot perform it.
+  #
+  # UPSTREAM WARNS THIS IS UNSUPPORTED AND WILL BE REPLACED by per-method
+  # policies in access control (~4.41, the AMR work), and that the option will
+  # then cause a STARTUP FAILURE. That is why the deployment uses RollingUpdate
+  # rather than app-template's default Recreate: a config Authelia refuses now
+  # leaves the old pod serving instead of taking every OIDC app down. When AMR
+  # lands, delete this option and express it as a per-method policy instead.
+  experimental_enable_passkey_uv_two_factors: true
   display_name: 'Homelab'
   timeout: '60 seconds'
 
@@ -126,10 +143,9 @@ access_control:
     # because that is the most sensitive surface, so if it is ever placed behind
     # forward-auth the policy is already the right one.
     #
-    # Revisit when AMR lands (~4.41) and per-method policies make this
-    # unnecessary. Do NOT use experimental_enable_passkey_uv_two_factors as an
-    # alternative: upstream marks it unsupported and says it will cause a startup
-    # failure when replaced.
+    # Still needed even though the OIDC admin policy is now two_factor: #9664 is
+    # specifically about access_control rules, so the enrolment UI keys off this
+    # rule, not off authorization_policies. Revisit when AMR lands (~4.41).
     - domain: 'lldap.${DOMAIN}'
       policy: 'two_factor'
 
@@ -185,10 +201,17 @@ identity_providers:
     # Three tiers, three policies, covering every app across both phases. New
     # apps pick a policy; no new groups are ever needed.
     authorization_policies:
+      # two_factor, unlike the other two tiers: this gate covers headlamp, which
+      # maps admins to cluster-admin, so a single factor reaching it was too
+      # weak. Paired with experimental_enable_passkey_uv_two_factors above, a
+      # user-verified passkey satisfies this on its own - the prompt only appears
+      # on the password path, which then also needs TOTP. Enrol both a passkey
+      # and TOTP before joining admins, or you will lock yourself out of this
+      # tier.
       admin:
         default_policy: 'deny'
         rules:
-          - policy: 'one_factor'
+          - policy: 'two_factor'
             subject: ['group:admins']
       household:
         default_policy: 'deny'
