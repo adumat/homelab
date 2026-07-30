@@ -28,11 +28,15 @@ spec:
         # will hard-fail startup once it is replaced. Authelia keeps no local
         # state (Postgres + Dragonfly), so two pods overlapping is safe.
         strategy: RollingUpdate
-        # app-template's keys are 'unavailable'/'surge', NOT the Kubernetes
-        # maxUnavailable/maxSurge - wrong names are silently dropped and you get
-        # the 25%/25% defaults instead.
+        # Two traps here, both silent:
+        #  1. app-template's keys are 'unavailable'/'surge', NOT the Kubernetes
+        #     maxUnavailable/maxSurge. Wrong names are dropped without error.
+        #  2. unavailable must be QUOTED. The chart guards it with a truthiness
+        #     test, and a bare 0 is falsy in Go templates, so maxUnavailable is
+        #     omitted and Kubernetes falls back to its 25% default. Verified with
+        #     helm template: 0 -> absent, "0" -> maxUnavailable: 0.
         rollingUpdate:
-          unavailable: 0
+          unavailable: "0"
           surge: 1
         initContainers:
           init-db:
