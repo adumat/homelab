@@ -271,6 +271,33 @@ resource "opnsense_firewall_filter" "self_ntp" {
   }
 }
 
+# ── BGP peering: k8s nodes → OPNsense (FRR) ─────────────
+# Cilium (AS 64513) peers eBGP with OPNsense (AS 64512) to advertise the k8s LB
+# VIPs (10.1.11.0/24). The nodes open the session to (self):179. This rode on the
+# blanket 'established' rule; without it the session can't re-establish (survives
+# on existing pf state until a reboot flushes it — which is exactly how this bit).
+resource "opnsense_firewall_filter" "self_bgp" {
+  sequence    = 3
+  description = "servers (k8s nodes) -> firewall BGP"
+  enabled     = true
+  interface   = { interface = [local.zone_interface["servers"]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP"
+
+    source = {
+      net = local.zones["servers"].subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "179"
+    }
+  }
+}
+
 # ── Management access to OPNsense itself (SSH + Web UI) ──
 # The built-in anti-lockout rule only covers the LAN (vtnet0/untrusted). Admin
 # zones connect from elsewhere, so SSH/Web-UI to the firewall relied on the blanket
