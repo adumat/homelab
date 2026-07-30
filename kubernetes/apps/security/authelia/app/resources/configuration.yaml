@@ -372,6 +372,134 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
+      # ---------- Phase 2 Plan A: internal admin apps ----------
+      - client_id: 'kopia'
+        client_name: 'Kopia'
+        client_secret: '{{ secret "/secrets/oidc/kopia" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://kopia.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # it-tools is household, not admin: it is a bag of offline utilities
+      # (hashing, base64, cron parsing) with access to nothing.
+      - client_id: 'it-tools'
+        client_name: 'IT Tools'
+        client_secret: '{{ secret "/secrets/oidc/it-tools" }}'
+        public: false
+        authorization_policy: 'household'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://it-tools.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # client_id is esp-home (the app and route name); the host is esphome.
+      - client_id: 'esp-home'
+        client_name: 'ESPHome'
+        client_secret: '{{ secret "/secrets/oidc/esp-home" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://esphome.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'victoria-logs'
+        client_name: 'VictoriaLogs'
+        client_secret: '{{ secret "/secrets/oidc/victoria-logs" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://victoria-logs.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'alertmanager'
+        client_name: 'Alertmanager'
+        client_secret: '{{ secret "/secrets/oidc/alertmanager" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://alertmanager.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'prometheus'
+        client_name: 'Prometheus'
+        client_secret: '{{ secret "/secrets/oidc/prometheus" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://prometheus.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'rook-ceph-dashboard'
+        client_name: 'Rook Ceph Dashboard'
+        client_secret: '{{ secret "/secrets/oidc/rook-ceph-dashboard" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://rook.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      # hacs.${DOMAIN} is the VS Code editor for Home Assistant's config. Note
+      # that ha.${DOMAIN} is served by the SAME HelmRelease and must stay
+      # unauthenticated (mobile apps, webhooks), which is why this client is
+      # attached by its own Flux Kustomization rather than by home-assistant's.
+      - client_id: 'home-assistant-code'
+        client_name: 'Home Assistant Code'
+        client_secret: '{{ secret "/secrets/oidc/home-assistant-code" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://hacs.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
       # ---------- Native OIDC apps ----------
       - client_id: 'grafana'
         client_name: 'Grafana'
