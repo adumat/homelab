@@ -7,8 +7,11 @@ metadata:
 spec:
   components:
     - ../../../../components/nfs-scaler
+    - ../../../../components/oidc-auth
   dependsOn:
     - name: external-secrets-store
+      namespace: security
+    - name: authelia
       namespace: security
     - name: volsync
   interval: 1h
@@ -19,6 +22,7 @@ spec:
         kind: Secret
     substitute:
       APP: kopia
+      OIDC_ROUTE: kopia
   prune: true
   sourceRef:
     kind: GitRepository
