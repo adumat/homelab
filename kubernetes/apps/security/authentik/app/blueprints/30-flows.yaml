@@ -1,7 +1,0 @@
----
-# yaml-language-server: $schema=https://goauthentik.io/blueprints/schema.json
-# Authentication flows
-# Using Authentik defaults for now
-# Custom flows can be added here later
-version: 1
-entries: []

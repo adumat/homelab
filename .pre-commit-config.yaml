@@ -41,7 +41,7 @@ repos:
       - id: kubeconform
         name: Kubeconform
         files: ^kubernetes/.*\.yaml$
-        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml|talos/patches/|/dashboards/|/resources/|/blueprints/|bootstrap/helmfile\.d/)
+        exclude: (kustomization\.yaml|secret\.sops\.yaml|talconfig\.yaml|talenv\.yaml|talos/patches/|/dashboards/|/resources/|bootstrap/helmfile\.d/)
         entry: mise exec -- kubeconform
         args:
           - -strict

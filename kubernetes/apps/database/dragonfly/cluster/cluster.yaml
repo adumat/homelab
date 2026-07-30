@@ -9,7 +9,7 @@ spec:
   replicas: 2
   # Operator defaults this to true (since v1.6.x), which generates a
   # same-namespace-only NetworkPolicy on :6379 and breaks cross-namespace
-  # consumers (home/immich, security/authentik, services/paperless).
+  # consumers (home/immich, security/authelia, services/paperless).
   networkPolicyEnabled: false
   env:
     - name: MAX_MEMORY
