@@ -24,7 +24,7 @@ services:
       - Mqtt__TopicPrefix=digiplex
       - Mqtt__EnableHomeAssistantDiscovery=true
       - Mqtt__HomeAssistantDiscoveryPrefix=homeassistant
-      - Mqtt__AlarmCode=1234 # Optional: require PIN in HA to arm/disarm
+      - Mqtt__AlarmCode=${PARADOX_DGP_MQTT_ALARM_CODE} # PIN required in HA to arm/disarm
       # Partition items (DeviceClass = HA binary_sensor class for zones in this partition)
       # P1: Contatti Piano Terra (contacts ground floor)
       - Partitions__Items__0__Id=1
