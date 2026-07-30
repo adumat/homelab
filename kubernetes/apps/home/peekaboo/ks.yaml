@@ -24,6 +24,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
+      OIDC_ROUTE: *app
   prune: true
   retryInterval: 2m
   sourceRef:

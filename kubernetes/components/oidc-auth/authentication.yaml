@@ -49,7 +49,15 @@ spec:
     # Keep any override BELOW the Authelia client's refresh_token lifespan, or
     # Envoy will keep presenting a token the provider has already expired.
     defaultRefreshTokenTTL: 168h
+  # APP is the IDENTITY (client_id, Bitwarden item, policy name); OIDC_ROUTE is
+  # the HTTPRoute to attach to. They are usually the same, but three routes are
+  # chart-generated and cannot be renamed (kube-prometheus-stack-alertmanager,
+  # kube-prometheus-stack-prometheus, victoria-logs-server), and using those as
+  # APP would make the client_id and Bitwarden item wrong.
+  #
+  # Every consumer MUST set OIDC_ROUTE. Flux substitutes an unset variable to an
+  # empty string, which yields an invalid SecurityPolicy rather than an error.
   targetRefs:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
-      name: ${APP}
+      name: ${OIDC_ROUTE}

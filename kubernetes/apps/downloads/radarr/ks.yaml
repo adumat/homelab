@@ -32,6 +32,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
+      OIDC_ROUTE: *app
       VOLSYNC_CAPACITY: 2Gi
       CACHE_CAPACITY: 2Gi
   prune: true
