@@ -1,0 +1,7 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Intentionally no resources. The oidc-auth component supplies them; this exists
+# so the dashboard can have its own client identity, because the route belongs to
+# the rook-ceph-cluster Kustomization whose APP is rook-ceph-cluster.
