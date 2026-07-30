@@ -84,33 +84,14 @@ locals {
   rules_map = { for rule in local.expanded_rules : rule.key => rule }
 }
 
-# ── Established/related ─────────────────────────────────
-# sequence 2 (was 1) so the servers→k8s-LB sloppy rule can sit at sequence 1 and
-# win for VIP-bound traffic; still ahead of allow_internet and the inter-zone rules.
-resource "opnsense_firewall_filter" "established" {
-  sequence    = 2
-  description = "Allow established/related"
-  enabled     = true
-  interface = { interface = concat(
-    ["lan", "wan"],
-    [for name, zone in local.zones : local.zone_interface[name] if zone.vlan_id != null && zone.vlan_id != 1]
-  ) }
-
-  filter = {
-    action      = "pass"
-    direction   = "in"
-    ip_protocol = "inet"
-    protocol    = "any"
-    state_type  = "keep state"
-
-    source = {
-      net = "any"
-    }
-    destination = {
-      net = "any"
-    }
-  }
-}
+# NOTE: there is deliberately NO "allow established/related" rule. pf is stateful
+# by default, so reply traffic for connections permitted by the rules below is
+# already allowed by the state table. The old blanket `pass in quick any->any keep
+# state` on every interface (incl. WAN) was a misapplied iptables idiom that
+# defeated segmentation and opened the WAN; it was removed once DNS/NTP-to-self and
+# the observed cross-zone flows were made explicit (see the segmentation-hardening
+# design doc). Essential services are covered by self_dns/self_ntp + the inter-zone
+# matrix + servers_to_lb_sloppy; everything else falls through to the default deny.
 
 # ── Inter-zone rules (from access matrix) ───────────────
 resource "opnsense_firewall_filter" "interzone" {
@@ -286,6 +267,59 @@ resource "opnsense_firewall_filter" "self_ntp" {
     destination = {
       net  = "(self)"
       port = "123"
+    }
+  }
+}
+
+# ── Management access to OPNsense itself (SSH + Web UI) ──
+# The built-in anti-lockout rule only covers the LAN (vtnet0/untrusted). Admin
+# zones connect from elsewhere, so SSH/Web-UI to the firewall relied on the blanket
+# 'established' rule; make it explicit before removing that rule (else removing it
+# locks management out of every non-LAN zone).
+resource "opnsense_firewall_filter" "mgmt_ssh" {
+  for_each = toset(local.mgmt_zones)
+
+  sequence    = 6
+  description = "${each.key} -> firewall SSH"
+  enabled     = true
+  interface   = { interface = [local.zone_interface[each.key]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP"
+
+    source = {
+      net = local.zones[each.key].subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "22"
+    }
+  }
+}
+
+resource "opnsense_firewall_filter" "mgmt_https" {
+  for_each = toset(local.mgmt_zones)
+
+  sequence    = 7
+  description = "${each.key} -> firewall Web UI"
+  enabled     = true
+  interface   = { interface = [local.zone_interface[each.key]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "TCP"
+
+    source = {
+      net = local.zones[each.key].subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "443"
     }
   }
 }

@@ -13,6 +13,11 @@ locals {
   # Supernet covering all internal zones + LB pool (scopes allow_internet).
   internal_supernet = local.networks.internal_supernet
 
+  # Zones allowed to manage OPNsense itself (SSH + Web UI). untrusted keeps the
+  # built-in anti-lockout on vtnet0; vpn is also covered by vpn_to_self but listed
+  # here for an explicit, uniform rule.
+  mgmt_zones = ["clients", "servers", "vpn"]
+
   # Domains Unbound forwards to k8s-gateway. Services advertise themselves
   # under these domains via external-dns.alpha.kubernetes.io/hostname and
   # DNSEndpoint CRDs. base_domain is nonsensitive()'d because it becomes a
