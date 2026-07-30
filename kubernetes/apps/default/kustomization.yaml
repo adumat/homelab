@@ -5,5 +5,7 @@ kind: Kustomization
 namespace: default
 components:
   - ../../components/common
-resources:
-  - ./echo/ks.yaml
+# No resources: the echo test route was the only app here and was removed
+# 2026-07-30. The common component still applies the namespace, alerts, shared
+# repos and sops secret. This directory can go entirely if nothing is ever
+# deployed to the default namespace.
