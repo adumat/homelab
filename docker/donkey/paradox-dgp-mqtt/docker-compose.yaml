@@ -1,6 +1,6 @@
 services:
   paradox-dgp-mqtt:
-    image: ghcr.io/adumat/paradox-dgp-mqtt:0.2.1
+    image: ghcr.io/adumat/paradox-dgp-mqtt:0.2.2
     container_name: paradox-dgp-mqtt
     restart: unless-stopped
     devices:
