@@ -37,4 +37,5 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 5Gi
+      CRON_EXPRESSION: '20 1 * * *'
   targetNamespace: *namespace

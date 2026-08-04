@@ -4,7 +4,11 @@ kind: ScheduledBackup
 metadata:
   name: &cluster cluster18
 spec:
-  schedule: "@daily"
+  # NOTE: CNPG schedules take SIX fields — the leading one is seconds.
+  # 23:30, ahead of the VolSync wave that starts at 00:00, because a
+  # ScheduledBackup does not retry: a backup that loses a race with the
+  # other nightly jobs stays failed until the next day.
+  schedule: "0 30 23 * * *"
   backupOwnerReference: self
   method: plugin
   cluster:

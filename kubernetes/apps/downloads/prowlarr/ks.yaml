@@ -34,6 +34,7 @@ spec:
       OIDC_ROUTE: *app
       VOLSYNC_CAPACITY: 1Gi
       CACHE_CAPACITY: 1Gi
+      CRON_EXPRESSION: '15 0 * * *'
   prune: true
   retryInterval: 2m
   sourceRef:

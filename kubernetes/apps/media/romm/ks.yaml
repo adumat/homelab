@@ -30,6 +30,7 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 2Gi
+      CRON_EXPRESSION: '40 0 * * *'
   prune: true
   retryInterval: 2m
   sourceRef:
