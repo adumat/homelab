@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: konflate
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: konflate
+  interval: 1h
+  values:
+    config:
+      repo: github://adumat/homelab
+      statusChecks: true
+      prComments: true
+      # Only used to build the link inside the status check it publishes. It does
+      # not make konflate reachable, and leaving it unset just drops the link.
+      publicUrl: https://konflate.${DOMAIN}
+      mcp: true
+      verifyImages: true
+    secret:
+      existingSecret: konflate-secret
+    # envoy-external because GitHub has to reach /hooks. konflate also polls open
+    # PRs on its own, so the webhook is what makes feedback immediate rather than
+    # what makes it work at all.
+    httpRoute:
+      enabled: true
+      annotations:
+        gatus.home-operations.com/endpoint: |-
+          conditions: ["[STATUS] == 200"]
+      parentRefs:
+        - name: envoy-external
+          namespace: network
+          sectionName: https
+      hostnames:
+        - konflate.${DOMAIN}
+    persistence:
+      enabled: true
+      storageClass: ceph-block
+      size: 5Gi
+    monitoring:
+      serviceMonitor:
+        enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi

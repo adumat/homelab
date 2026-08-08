@@ -378,6 +378,19 @@ mise exec -- kubectl exec -n security deploy/authelia -- \
   sh -c 'X_AUTHELIA_CONFIG_FILTERS=template authelia config validate --config /config/configuration.yaml'
 ```
 
+### konflate: two ways to think it works when it does not
+
+`publicUrl` does **not** expose konflate or enable anything. It is used only to build the
+link inside the status check it publishes; unset, the status is posted without a link.
+Reachability comes from the HTTPRoute, which is on `envoy-external` precisely so GitHub can
+deliver webhooks.
+
+And the webhook is only half-configured until it also exists **on the GitHub side**
+(Settings → Webhooks, payload URL `/hooks`, matching secret). With just the in-cluster
+secret, konflate falls back to polling open PRs every 30 minutes and everything looks
+fine — comments appear, status checks appear, only late. Confirm under Settings → Webhooks
+→ Recent Deliveries that the response is **200**.
+
 ### Restarting `envoy-gateway` is not enough
 
 After a change touching `SecurityPolicy` resources or the IdP, restarting only the control
