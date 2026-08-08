@@ -2,9 +2,13 @@
 
 ## Roadmap
 
-Five phases, in order. Each gets an execution plan under `docs/superpowers/plans/`
-**when you reach it**, not before: that way every plan is written against the real state
-of the repo rather than the state predicted weeks earlier.
+Phases in order. Each gets an execution plan under `docs/superpowers/plans/` **when you
+reach it**, not before: that way every plan is written against the real state of the repo
+rather than the state predicted weeks earlier.
+
+The half-numbered phases were inserted as work revealed them — 1.5 by a recurring failure,
+2.5 because a 19-app migration should not be planned before a single volume has been
+restored.
 
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
@@ -72,35 +76,63 @@ home-assistant, kopia, qbittorrent, radarr, sonarr, filebrowser, jellyfin, romm.
 Until this is solved, the recognition and recovery procedure lives in
 [AGENTS.md](AGENTS.md), traps section.
 
-### Phase 2 — miroir, then kopiur
+### Phase 2 — storage validation: prove kopiur and miroir, migrate nothing
 
-The riskiest phase. **Mandatory order: storage first, backup second.**
+Design: [2026-08-08-phase2-storage-validation-design.md](docs/superpowers/specs/2026-08-08-phase2-storage-validation-design.md)
 
-Current state: 12 volumes on `ceph-block`, 7 on `openebs-hostpath` (immich, jellyfin, the
-CNPG clusters), 18 apps protected by VolSync.
+Two candidates, one small workload each, nothing existing touched. Needs no rollback plan
+precisely because nothing changes. Ending with "we are staying on VolSync and Ceph, here is
+why" is a successful outcome.
 
-- [ ] Install miroir (`miroir-system`) and create the `miroir-local` and
-      `miroir-replicated` storage classes
-- [ ] Migrate **one non-critical volume** from `openebs-hostpath` to `miroir-local` to
-      validate the mechanism end to end before depending on it
-- [ ] Migrate the remaining `openebs-hostpath` volumes to `miroir-local` and remove OpenEBS
-- [ ] Install kopiur with the mover cache on `miroir-local` and migrate backups
-      **app by app**, not in bulk
-- [ ] Retire VolSync only once all 18 apps are stable on kopiur
-- [ ] **Separate phase, to be measured:** move a subset of apps from `ceph-block` to
-      `miroir-replicated` and compare memory usage and latency, to decide with data whether
-      Ceph is oversized for three M720Q. This is not a decided migration, it is an
-      experiment
+Measured state (the earlier numbers here were wrong — they counted YAML occurrences, not
+objects): **32** PVCs on `ceph-block`, **13** on `openebs-hostpath`, **19** VolSync sources
+all on `ceph-block`.
 
-**Two explicit risks, not to be treated as footnotes:**
+- [ ] kopiur operator plus a `ClusterRepository` on a **fresh** NFS path,
+      `elizabeth.lan:/mnt/user/backups/kopiur`. VolSync keeps running against its own
+      17 GiB repository throughout; elizabeth has 5.7 TiB free
+- [ ] `components/kopiur` mirroring `components/persistence`, so an app switches by
+      changing one line
+- [ ] Migrate **prowlarr** only (1 GiB, config only, trivially rebuildable)
+- [ ] **Prove the restore, not the backup:** restore a snapshot into a fresh PVC through the
+      `Restore` populator and diff it against the source. A backup never restored is a hope
+- [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
+      spare disk, nothing taken from Ceph
+- [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and
+      that a replicated volume survives rebooting the node holding its primary leg
+- [ ] Measure miroir's RAM against Ceph's, then **write the decision down**
 
-1. **kopiur is `v1alpha1` and moves fast.** Six releases in three weeks (0.8.0 → 0.9.3).
-   The project's documentation lists CRDs — `BackupConfig`, `Backup`, `BackupSchedule`,
-   `Maintenance` — **different** from the ones in use in 0.9.3 (`SnapshotPolicy`,
-   `SnapshotSchedule`). Moving 18 apps onto it means budgeting for a rename migration soon
-2. **Restoring into a storage class different from the source is undocumented.** It would
-   be the elegant mechanism for moving openebs→miroir, but it must be verified on a single
-   volume before the migration is built on top of it
+**OpenEBS stays.** The roadmap's reason for replacing it was snapshots, and nothing on
+local storage needs them: none of the 13 PVCs has a ReplicationSource, and none should —
+CNPG backs itself up, Ceph mons keep their own quorum, and the rest are caches.
+
+**Why miroir matters here.** The goal is removing Ceph, which looks oversized: **45 GiB
+stored** on 2.7 TiB with 3× replication, costing **~5.2 GiB of RAM** on 13 GiB nodes that
+have already failed to schedule immich. CephFS holds 451 KiB and zero PVCs; there is no
+object store; RWX comes from NFS. The capability that normally blocks leaving Ceph does not
+apply.
+
+**Three caveats on the miroir result:** a loopfile cannot prove production performance —
+that needs the NVMe disks Ceph owns; durability drops from three replicas to two; and the
+real risk is maturity, not capability, since miroir is pre-1.0 and would become primary
+storage.
+
+**Risk:** backups run over NFS to elizabeth, the host whose stale handles are parked as
+phase 1.5. Dual-running roughly doubles backup I/O to it, which is why the existing
+00:00–01:30 UTC schedule stagger must be preserved.
+
+### Phase 2.5 — the actual migration
+
+Planned **after** phase 2, using its real numbers rather than guesses.
+
+- [ ] Migrate the remaining 18 apps to kopiur, in batches, not in bulk
+- [ ] Retire VolSync and its `perfectra1n` fork once all 19 are stable
+- [ ] Keep the old repository as a cold fallback; do not delete it with VolSync
+- [ ] If miroir won phase 2, replacing Ceph is a **separate** phase again — a storage
+      migration does not belong inside a backup migration
+
+Write this phase only once phase 2 has produced: snapshot and restore durations for a real
+volume, repository growth rate, observed NFS load during a kopiur run, and whatever broke.
 
 ### Phase 3 — `just merge` and the gpu component
 
