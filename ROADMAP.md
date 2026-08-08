@@ -6,34 +6,23 @@ Five phases, in order. Each gets an execution plan under `docs/superpowers/plans
 **when you reach it**, not before: that way every plan is written against the real state
 of the repo rather than the state predicted weeks earlier.
 
-### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull
+### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
-Write the agent instructions, then replace Flux validation and move CI into the cluster.
+- [x] Write `AGENTS.md` at the repo root
+- [x] Traps section, every claim verified against the repo
+- [x] Remove `flux-local` from `.github/workflows/` and `.mise.toml` (archived upstream)
+- [x] Add `flate` as a CLI — gate passed, 224 resources render
+- [x] Deploy `konflate` on `envoy-external`, webhook delivering 202, status checks posting
+- [x] Deploy `actions-runner-controller` with a dedicated GitHub App
+- [x] Add the `image-pull` workflow — verified end to end with the network fence active
 
-`AGENTS.md` comes first deliberately: later phases use it, and each one enriches it with
-what it learned instead of starting from scratch.
+**What differed from the design.** `os:reader` cannot `talosctl image pull`, so the runner
+uses `os:operator`; and Talos gates API access from pods behind two allow-lists in
+`talos-api-access.yaml`, which had to be extended for the new namespace and role.
 
-- [ ] Write `AGENTS.md` at the repo root: stack, layout, app pattern, components,
-      networking, secret handling with `bws`, conventions
-- [ ] The traps section is where the value is: none of it can be deduced from the code
-- [ ] **Verify every claim against the repo before writing it.** A wrong trap misleads
-      every future agent for months
-- [ ] Remove `flux-local` from `.github/workflows/` and `.mise.toml` — the project is
-      **archived**, and its own description points to `flate` and `konflate` as
-      replacements. It is the only thing in the repo depending on unmaintained software
-- [ ] Add `flate` (`github:home-operations/flate`) as a CLI, checking locally first with
-      `flate test all`: it is stricter than `flux-local` about unresolved variables, so it
-      may surface latent problems. Better to find them calmly than on a red PR
-- [ ] Deploy `konflate` (`oci://ghcr.io/home-operations/charts/konflate`) — validates PRs
-      in cluster, publishes status checks and comments the rendered diff
-- [ ] Deploy `actions-runner-controller` with a dedicated GitHub App
-- [ ] Add the `image-pull` workflow: extracts new images with `flate diff images -o json`
-      and pre-pulls them onto the nodes with `talosctl image pull`. Removes HelmRelease
-      timeouts on large images — already hit with romm
-
-**Risk to weigh before starting:** the runner mounts a talosconfig and runs code coming
-from PRs, and the GitHub App needs administration permissions on the repo. If that does
-not convince, the first two items close the urgent gap on their own.
+**Two silent failures found and fixed**, both now written up in [AGENTS.md](AGENTS.md):
+an ARC race binding the listener to an `EphemeralRunnerSet` it then deleted, and a
+`CiliumNetworkPolicy` whose selector matched no pods while reporting healthy.
 
 ### Phase 1.5 — NFS stale handles: fix them, stop living with them
 
@@ -118,6 +107,11 @@ Hardware already in the house, metrics absent.
       the exporter runs in the cluster
 - [ ] Pick up the MinIO metrics scrape from elizabeth (see Follow-ups): it is the same gap,
       and it is what forced the CNPG failures to be diagnosed by hand-querying VictoriaLogs
+- [ ] Alert on node disk headroom. On 2026-08-08 kube-nuc crossed the eviction threshold,
+      took a `disk-pressure` taint, and the descheduler evicted 31 pods — the first sign
+      was an unrelated CI job failing. Kubelet image GC recovered it unaided (the tuning in
+      `machine-kubelet.yaml` did its job), but steady state is 66–72% used with images the
+      dominant consumer, so a Talos image storm plus a Renovate burst can repeat it
 
 ### Phase 5 — \*arr stack
 
