@@ -1,0 +1,60 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &name homelab-runner
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: gha-runner-scale-set
+  interval: 1h
+  values:
+    githubConfigUrl: https://github.com/adumat/homelab
+    githubConfigSecret: homelab-runner-secret
+    # 0 means no pod idling when there are no jobs: the first job waits for the
+    # runner to start, which on this cluster is a matter of seconds.
+    minRunners: 0
+    maxRunners: 2
+    containerMode:
+      type: kubernetes
+      kubernetesModeWorkVolumeClaim:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ceph-block
+        resources:
+          requests:
+            storage: 10Gi
+    controllerServiceAccount:
+      name: actions-runner-controller
+      namespace: actions-runner-system
+    template:
+      spec:
+        containers:
+          - name: runner
+            image: ghcr.io/home-operations/actions-runner:2.336.0
+            command: ["/home/runner/run.sh"]
+            env:
+              # Without this, ARC requires every job to declare a container.
+              - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+                value: "false"
+              # IP of the node the runner lands on: that is the node image-pull
+              # pulls onto. Spegel then propagates to the others.
+              - name: NODE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: status.hostIP
+              - name: TALOSCONFIG
+                value: /var/run/secrets/talos.dev/config
+            volumeMounts:
+              - mountPath: /var/run/secrets/talos.dev
+                name: talos
+                readOnly: true
+        securityContext:
+          fsGroup: 1001
+          fsGroupChangePolicy: OnRootMismatch
+        volumes:
+          - name: talos
+            secret:
+              # Created by Talos from the talos.dev ServiceAccount, not by an
+              # ExternalSecret: the name matches the CRD's.
+              secretName: homelab-runner-talos
