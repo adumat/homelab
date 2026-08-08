@@ -8,17 +8,24 @@
 # these are deny rules layered over otherwise-open egress, because internet
 # egress is needed (mise fetches talosctl, images come from ghcr.io).
 #
-# The five node IPs are listed one by one on purpose: if one is left out,
-# image-pull HANGS rather than failing, because the packet is dropped and
-# talosctl waits for the timeout.
+# The node IPs are listed one by one on purpose: if one is left out, image-pull
+# HANGS rather than failing, because the packet is dropped and talosctl waits for
+# the timeout.
+#
+# endpointSelector is deliberately empty, i.e. every pod in the namespace.
+# Selecting the runner by label was tried first and silently matched NOTHING: ARC
+# labels its pods app.kubernetes.io/component=runner, not runner=<name>, so the
+# policy existed while fencing nobody. An empty selector is also immune to ARC
+# renaming labels, and covers the workload pods the container hook creates for
+# jobs that declare `container:` or `services:`, which carry yet another label
+# set. It costs nothing: the controller and listener only need the kube-apiserver
+# and GitHub, both still reachable.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: &name homelab-runner
+  name: homelab-runner
 spec:
-  endpointSelector:
-    matchLabels:
-      runner: *name
+  endpointSelector: {}
   enableDefaultDeny:
     egress: false
   egressDeny:
@@ -32,6 +39,7 @@ spec:
             - 10.1.10.21/32 # kube-ceph-01
             - 10.1.10.22/32 # kube-ceph-02
             - 10.1.10.23/32 # kube-ceph-03
+            - 10.1.10.40/32 # control-plane VIP (talconfig "Cluster LB")
     - toCIDR:
         - 172.16.0.0/12
         - 192.168.0.0/16
