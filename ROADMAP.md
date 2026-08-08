@@ -24,7 +24,26 @@ uses `os:operator`; and Talos gates API access from pods behind two allow-lists 
 an ARC race binding the listener to an `EphemeralRunnerSet` it then deleted, and a
 `CiliumNetworkPolicy` whose selector matched no pods while reporting healthy.
 
-### Phase 1.5 — NFS stale handles: fix them, stop living with them
+### Phase 1.5 — NFS stale handles — ⏸ deferred, waiting for the next occurrence
+
+**Deliberately parked.** The failure is intermittent and triggered by elizabeth's mover or
+parity check, so it cannot be investigated on demand — and provoking it means breaking
+pods on a live cluster on purpose. Picked up the next time it happens.
+
+**Capture this before touching anything**, or the incident yields annoyance instead of
+evidence:
+
+```bash
+mise exec -- kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+mise exec -- talosctl -n <node-running-the-stuck-pod> dmesg | grep -i 'nfs\|stale'
+mise exec -- talosctl -n <node> mounts | grep nfs
+mise exec -- kubectl describe pod <pod> -n <ns> | grep -iA3 'mount\|stale'
+```
+
+Plus the value of `nfs_canary_health_overall` at that moment, and whether elizabeth's
+mover or parity check was running.
+
+The recognition and manual recovery procedure is in [AGENTS.md](AGENTS.md), traps section.
 
 The most annoying recurring failure in the cluster. Unraid drops NFS connections when the
 mover or the parity check runs; the file handle goes invalid and **does not heal on its
