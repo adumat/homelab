@@ -392,7 +392,27 @@ the data plane too.
 `talenv.secrets.yaml.j2` and then runs `talhelper genconfig`. Editing the generated file is
 silently undone.
 
-Talos patches are **not** applied by Flux: they need `talosctl apply-config`.
+Talos patches are **not** applied by Flux: they need `talosctl apply-config`. The workflow
+is `just talos gen-config`, then `just talos apply-node <ip>` per node. Feature-flag changes
+apply without a reboot; `machine.files` changes do not.
+
+**Control planes one at a time.** etcd has two members, so applying to both at once risks
+quorum. Check `talosctl -n <ip> service etcd` between nodes.
+
+### Talos API access from pods is allow-listed twice
+
+A `talos.dev/v1alpha1 ServiceAccount` mints a talosconfig into a Secret, but only if
+**both** the requesting namespace and the requested role appear in
+`kubernetes/talos/patches/controller/talos-api-access.yaml`. Otherwise the CRD sits there
+with `status.failureReason: Namespace is not allowed` and no Secret is ever created — no
+event, no error anywhere else.
+
+Verified 2026-08-08: **`os:reader` cannot `talosctl image pull`** (`PermissionDenied`);
+`os:operator` is the weakest role that can.
+
+The minted config uses `talos.default` as its endpoint, a cluster-internal service name.
+Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails with
+`name resolver error: produced zero addresses`.
 
 ### etcd has two members
 

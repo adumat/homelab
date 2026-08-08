@@ -1,10 +1,20 @@
 # Enable K8s Talos API Access
+#
+# Both lists are allow-lists: a ServiceAccount requesting a role or living in a
+# namespace absent here is rejected with "Namespace is not allowed" and no Secret
+# is ever minted.
 machine:
   features:
     kubernetesTalosAPIAccess:
       enabled: true
       allowedRoles:
+        # tuppr, for Talos and Kubernetes upgrades.
         - os:admin
+        # The GitHub Actions runner, which only pulls images. Verified
+        # empirically: os:reader is NOT enough for `talosctl image pull`, it
+        # returns PermissionDenied. os:operator is the weakest role that works.
+        - os:operator
       allowedKubernetesNamespaces:
         - kube-system
         - system-upgrade
+        - actions-runner-system
