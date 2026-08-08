@@ -79,7 +79,7 @@ spec:
             cpu: 100m # 500m
             memory: 1Gi
           limits:
-            memory: 2Gi
+            memory: 3Gi
         mon:
           requests:
             cpu: 35m # 1000m

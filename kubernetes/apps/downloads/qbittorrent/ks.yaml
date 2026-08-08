@@ -29,6 +29,7 @@ spec:
     substitute:
       APP: *app
       OIDC_ROUTE: *app
+      CRON_EXPRESSION: '0 0 * * *'
   prune: true
   retryInterval: 2m
   sourceRef:

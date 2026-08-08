@@ -27,6 +27,7 @@ spec:
       OIDC_ROUTE: *app
       VOLSYNC_CAPACITY: 2Gi
       OVERRIDE_DEST: minio
+      CRON_EXPRESSION: '15 1 * * *'
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
