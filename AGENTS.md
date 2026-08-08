@@ -386,6 +386,24 @@ mise exec -- kubectl exec -n security deploy/authelia -- \
   sh -c 'X_AUTHELIA_CONFIG_FILTERS=template authelia config validate --config /config/configuration.yaml'
 ```
 
+### A CiliumNetworkPolicy that selects nothing looks identical to one that works
+
+`kubectl get cnp` shows the policy as present either way. There is no error, no event,
+and no status saying "this selector matched zero endpoints".
+
+Hit on 2026-08-08: the runner fence used `endpointSelector: {runner: homelab-runner}`,
+copied from another repo. ARC actually labels its pods `app.kubernetes.io/component=runner`
+and `actions-ephemeral-runner=True` — no `runner` label exists. The fence was decorative
+for its whole first day.
+
+Always verify a policy against a live pod, never against the manifest:
+
+```bash
+mise exec -- kubectl get pods -n <ns> --show-labels
+# then, from inside a selected pod, prove a denied destination is actually denied
+mise exec -- kubectl exec -n <ns> <pod> -- timeout 5 nc -z <denied-ip> 22; echo "exit=$?"
+```
+
 ### ARC can bind its listener to an EphemeralRunnerSet it then deletes
 
 Seen on first install, 2026-08-08. Two concurrent reconciles of the same
