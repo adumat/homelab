@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/cilium.io/ciliumnetworkpolicy_v2.json
+# Fences the runner off the LAN: it executes code coming from pull requests on a
+# public repo and mounts a talosconfig, so it must not reach elizabeth, glados,
+# matryoshka or navi, which share the /24 with the nodes.
+#
+# This is the cluster's only NetworkPolicy. enableDefaultDeny.egress stays false:
+# these are deny rules layered over otherwise-open egress, because internet
+# egress is needed (mise fetches talosctl, images come from ghcr.io).
+#
+# The five node IPs are listed one by one on purpose: if one is left out,
+# image-pull HANGS rather than failing, because the packet is dropped and
+# talosctl waits for the timeout.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: &name homelab-runner
+spec:
+  endpointSelector:
+    matchLabels:
+      runner: *name
+  enableDefaultDeny:
+    egress: false
+  egressDeny:
+    - toCIDRSet:
+        - cidr: 10.0.0.0/8
+          except:
+            - 10.42.0.0/16 # pods
+            - 10.43.0.0/16 # services
+            - 10.1.10.10/32 # kube-nuc
+            - 10.1.10.11/32 # kube-hp
+            - 10.1.10.21/32 # kube-ceph-01
+            - 10.1.10.22/32 # kube-ceph-02
+            - 10.1.10.23/32 # kube-ceph-03
+    - toCIDR:
+        - 172.16.0.0/12
+        - 192.168.0.0/16

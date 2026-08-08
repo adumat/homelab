@@ -302,8 +302,16 @@ mise exec -- flux reconcile ks <name> -n <namespace> --with-source
 ```bash
 mise exec -- pre-commit run --files <file...>   # the same hooks that run on commit
 mise exec -- flate test all --path ./kubernetes/flux/cluster
+mise exec -- flate diff all --path ./kubernetes/flux/cluster
 mise exec -- kubectl ...                        # always through mise exec
 ```
+
+`flate` replaced `flux-local`, which upstream archived. PR validation itself no longer
+runs in GitHub Actions at all: konflate does it from inside the cluster. `flate` stays as
+the CLI, used locally and by the `image-pull` workflow.
+
+It is stricter than `flux-local` about values a chart does not consume, so expect warnings
+on manifests that passed before. Warnings do not fail the run; a non-zero exit does.
 
 `kubeconform` runs in pre-commit over `kubernetes/**.yaml` and **excludes**
 `kustomization.yaml`, `secret.sops.yaml`, `talconfig.yaml`, `talenv.yaml`,
@@ -377,6 +385,27 @@ Always validate the config before pushing:
 mise exec -- kubectl exec -n security deploy/authelia -- \
   sh -c 'X_AUTHELIA_CONFIG_FILTERS=template authelia config validate --config /config/configuration.yaml'
 ```
+
+### `image-pull` pulls onto one node, and that is correct
+
+The workflow runs `talosctl --nodes "$NODE" image pull`, where `NODE` is the IP of the node
+the runner happened to land on. It looks broken — four other nodes get nothing — but
+**spegel** is a cluster-local OCI mirror: seeding one node is enough, the rest fetch over
+the LAN instead of from the internet. Without spegel the workflow would be close to
+pointless.
+
+### konflate: two ways to think it works when it does not
+
+`publicUrl` does **not** expose konflate or enable anything. It is used only to build the
+link inside the status check it publishes; unset, the status is posted without a link.
+Reachability comes from the HTTPRoute, which is on `envoy-external` precisely so GitHub can
+deliver webhooks.
+
+And the webhook is only half-configured until it also exists **on the GitHub side**
+(Settings → Webhooks, payload URL `/hooks`, matching secret). With just the in-cluster
+secret, konflate falls back to polling open PRs every 30 minutes and everything looks
+fine — comments appear, status checks appear, only late. Confirm under Settings → Webhooks
+→ Recent Deliveries that the response is **200**.
 
 ### Restarting `envoy-gateway` is not enough
 
