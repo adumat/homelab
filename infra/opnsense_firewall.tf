@@ -274,38 +274,18 @@ resource "opnsense_firewall_filter" "self_ntp" {
 # ── PS5 Remote Play: UPnP/IGD control to the firewall itself (clients only) ──
 # miniupnpd (Services → UPnP/IGD) lets the PS5 open its own inbound ports so
 # Remote Play gets NAT type 2 and a direct connection from outside the LAN. To
-# create a mapping the PS5 must reach miniupnpd on the clients gateway (self):
-# SSDP discovery on UDP 1900 and the IGD/SOAP control channel on TCP 2189
-# (confirmed via `sockstat -4 -l | grep miniupnpd`). This traffic rode ONLY on
-# the removed blanket 'established' rule — without it the PS5 can't create a
-# mapping, NAT type drops to 3 and remote Remote Play breaks (the WAN inbound for
-# the mapped port is separately handled by miniupnpd's own rdr/filter anchor, so
-# it needs no rule here). Scoped to the clients VLAN because UPnP is enabled only
+# create a mapping the PS5 must reach miniupnpd's IGD/SOAP control channel on the
+# clients gateway at TCP 2189 (confirmed via `sockstat -4 -l | grep miniupnpd`).
+# This rode ONLY on the removed blanket 'established' rule — without it the PS5
+# can't create a mapping, NAT type drops to 3 and remote Remote Play breaks.
+# SSDP discovery (UDP 1900) needs no rule: it is multicast to 239.255.255.250 and
+# already passes via allow_internet (dest !10.1.0.0/16) — verified 2026-08-02, a
+# PS5 network test created its maps with zero blocks toward gw:1900. The WAN
+# inbound for the mapped port is handled by miniupnpd's own rdr/filter anchor, so
+# it needs no rule here. Scoped to the clients VLAN because UPnP is enabled only
 # there (miniupnpd listening_ip=vlan0.20 + ACL allow 10.1.20.0/24; see
 # infra/docs/upnp.md). If OPNsense ever changes the miniupnpd HTTP port from 2189,
-# update self_upnp_igd below.
-resource "opnsense_firewall_filter" "self_upnp_ssdp" {
-  sequence    = 8
-  description = "clients -> firewall UPnP SSDP (PS5 Remote Play)"
-  enabled     = true
-  interface   = { interface = [local.zone_interface["clients"]] }
-
-  filter = {
-    action      = "pass"
-    direction   = "in"
-    ip_protocol = "inet"
-    protocol    = "UDP"
-
-    source = {
-      net = local.zones["clients"].subnet
-    }
-    destination = {
-      net  = "(self)"
-      port = "1900"
-    }
-  }
-}
-
+# update the port below.
 resource "opnsense_firewall_filter" "self_upnp_igd" {
   sequence    = 9
   description = "clients -> firewall UPnP IGD control (PS5 Remote Play)"
