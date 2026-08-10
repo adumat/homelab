@@ -1,0 +1,42 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: ClusterRepository
+metadata:
+  name: nas
+spec:
+  allowedNamespaces:
+    all: true
+  # A NEW path, deliberately separate from VolSync's /mnt/user/backups/volsync.
+  # The two systems must not share a repository while both are running: kopiur
+  # runs its own maintenance, which rewrites shared repository structures.
+  backend:
+    filesystem:
+      path: /repo
+      volume:
+        nfs:
+          server: elizabeth.lan
+          path: /mnt/user/backups/kopiur
+  create:
+    enabled: true
+  credentialProjection:
+    allowed: true
+  encryption:
+    passwordSecretRef:
+      name: kopiur-nas-secret
+      namespace: volsync-system
+      key: KOPIA_PASSWORD
+  identityDefaults:
+    hostnameExpr: namespace
+    usernameExpr: namespace + '-' + policyName
+  moverDefaults:
+    cache:
+      capacity: 1Gi
+      mode: Ephemeral
+      storageClassName: openebs-hostpath
+    podSecurityContext:
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    ttlSecondsAfterFinished: 300
