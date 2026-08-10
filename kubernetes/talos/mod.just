@@ -16,10 +16,21 @@ apply-node node *args:
 
 [doc('Download Talos machine image')]
 download-image version schematic:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Same secureboot derivation as upgrade-node: this cluster runs it off, and the
+    # secureboot ISO will not boot these nodes.
+    # No -e on yq: it exits 1 when the value is false, which under set -e would
+    # kill the recipe instead of selecting the non-secureboot path.
+    if [[ "$(yq '.nodes[0].machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
+        suffix="-secureboot"
+    else
+        suffix=""
+    fi
     gum spin --title "Downloading Talos {{ version }} ..." -- \
     curl -sfL --remove-on-error --retry 5 --retry-delay 5 --retry-all-errors \
-        -o "{{ talos_dir }}/images/talos-v{{ version }}-secureboot-{{ replace_regex(schematic, '^(.{8}).*', '$1') }}.iso" \
-        "https://factory.talos.dev/image/{{ schematic }}/{{ version }}/metal-amd64-secureboot.iso"
+        -o "{{ talos_dir }}/images/talos-v{{ version }}${suffix}-{{ replace_regex(schematic, '^(.{8}).*', '$1') }}.iso" \
+        "https://factory.talos.dev/image/{{ schematic }}/{{ version }}/metal-amd64${suffix}.iso"
     just log info "Downloaded Talos" version "{{ version }}" schematic "{{ schematic }}"
 
 [doc('Generate schematic ID from Talos schematic')]
@@ -74,4 +85,16 @@ check-tso:
 
 [doc('Upgrade Talos version on a node')]
 upgrade-node node version *args:
-    talosctl -n "{{ node }}" upgrade -i "factory.talos.dev/metal-installer-secureboot/$(just talos gen-schematic-id):v{{ version }}" -m powercycle --timeout=10m {{ args }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The installer image path depends on secureboot, and this cluster runs with it
+    # off. Derived from talconfig.yaml rather than hardcoded, so flipping
+    # machineSpec.secureboot is enough and cannot silently disagree with the image.
+    # No -e on yq: it exits 1 when the value is false, which under set -e would
+    # kill the recipe instead of selecting the non-secureboot path.
+    if [[ "$(yq '.nodes[0].machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
+        variant="metal-installer-secureboot"
+    else
+        variant="metal-installer"
+    fi
+    talosctl -n "{{ node }}" upgrade -i "factory.talos.dev/${variant}/$(just talos gen-schematic-id):v{{ version }}" -m powercycle --timeout=10m {{ args }}
