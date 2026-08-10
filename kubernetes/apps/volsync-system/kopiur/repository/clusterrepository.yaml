@@ -9,6 +9,11 @@ spec:
   # A NEW path, deliberately separate from VolSync's /mnt/user/backups/volsync.
   # The two systems must not share a repository while both are running: kopiur
   # runs its own maintenance, which rewrites shared repository structures.
+  #
+  # The directory on elizabeth must be owned by 99:100, not by the mover's UID.
+  # The NFS export sets all_squash with anonuid=99,anongid=100, so every client
+  # UID arrives as 99:100 no matter what runAsUser the mover uses. Owning it
+  # 1000:1000 yields "permission denied" creating /repo/.shards.tmp.*.
   backend:
     filesystem:
       path: /repo
