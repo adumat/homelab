@@ -94,8 +94,30 @@ all on `ceph-block`.
 - [ ] `components/kopiur` mirroring `components/persistence`, so an app switches by
       changing one line
 - [ ] Migrate **prowlarr** only (1 GiB, config only, trivially rebuildable)
-- [ ] **Prove the restore, not the backup:** restore a snapshot into a fresh PVC through the
-      `Restore` populator and diff it against the source. A backup never restored is a hope
+- [x] **Prove the restore, not the backup:** restore a snapshot into a fresh PVC through the
+      `Restore` populator and diff it against the source. A backup never restored is a hope.
+      **Done 2026-08-12: `diff -r` exit 0, 741 files, hash identical to the pre-migration
+      volume.** Snapshot 111 s, restore+bind 34 s, repository 3.3 MB
+- [ ] **Settle how phase 2.5 moves data, here rather than there** — phase 2 must exit with
+      this answered, because discovering it mid-migration is too late. Both repositories are
+      kopia, so kopiur may be able to restore straight from VolSync's existing backups,
+      removing data copying from the migration entirely. Measured on the pilot, the
+      identities differ in two places, both with fields that address them:
+
+      | | VolSync writes | kopiur wrote | candidate fix |
+      |---|---|---|---|
+      | hostname | `downloads` | `downloads` | already matches (`hostnameExpr: namespace`) |
+      | username | `prowlarr` | `downloads-prowlarr` | `usernameExpr: policyName` |
+      | path | `/data` | `/pvc/prowlarr` | `sources[].sourcePathOverride: /data` |
+
+      Test it against a second `ClusterRepository` with **`mode: ReadOnly`** — it "serves
+      restores only", so VolSync's live repository cannot be mutated. Verify against
+      `prowlarr-rescue`, which holds the frozen pre-migration state that VolSync backed up
+      at 00:15 on 2026-08-12.
+
+      Exit with one of: *adoption works* (2.5 is a one-line change per app),
+      *adoption fails* (2.5 uses [pv-migrate](https://github.com/utkuozdemir/pv-migrate),
+      never `kubectl cp` — see [AGENTS.md](AGENTS.md)), or *inconclusive with the reason*.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and
@@ -123,35 +145,23 @@ phase 1.5. Dual-running roughly doubles backup I/O to it, which is why the exist
 
 ### Phase 2.5 — the actual migration
 
-Planned **after** phase 2, using its real numbers rather than guesses.
+Planned **after** phase 2, using its real numbers rather than guesses. Phase 2 settles how
+data moves, so this phase starts with that already decided.
 
-- [ ] **First, investigate restoring straight from the VolSync repository** — it would
-      remove data copying from the migration entirely. Both repositories are kopia, so
-      kopiur can in principle discover and adopt VolSync's existing snapshots. Measured on
-      the prowlarr pilot, the identities differ in two places and both look addressable:
+**Known before starting**, from the prowlarr pilot:
 
-      | | VolSync writes | kopiur wrote | fix |
-      |---|---|---|---|
-      | hostname | `downloads` | `downloads` | already matches (`hostnameExpr: namespace`) |
-      | username | `prowlarr` | `downloads-prowlarr` | `usernameExpr: policyName` |
-      | path | `/data` | `/pvc/prowlarr` | `sources[].sourcePathOverride: /data` |
+- Switching an app is **not** a one-line change: both components set the PVC's immutable
+  `dataSourceRef`, so the PVC must be deleted and recreated
+- Each app leaves an orphaned `ReplicationDestination` that Flux will not prune
+- Rename `VOLSYNC_CAPACITY` → `KOPIUR_CAPACITY`, drop `CACHE_CAPACITY`, keep `CRON_EXPRESSION`
+- Per-app cost on a 1 GiB volume: snapshot 111 s, restore+bind 34 s
 
-      With those aligned, a second `ClusterRepository` pointing at
-      `/mnt/user/backups/volsync` plus `adoption: Adopt` should let the `Restore` populator
-      fill a new PVC from the app's own last VolSync backup. New snapshots keep going to
-      the fresh kopiur repository — `SnapshotPolicy.spec.repositories` supports fan-out, so
-      both can coexist.
-
-      **Unproven.** Inferred from CRD field descriptions, not demonstrated. Test it on one
-      app before planning the rest around it. If it works the migration is a one-line
-      change per app; if not, fall back to copying.
-- [ ] If copying is unavoidable, use [pv-migrate](https://github.com/utkuozdemir/pv-migrate)
-      rather than hand-rolled `cp -a` pods, and never `kubectl cp` — see [AGENTS.md](AGENTS.md)
-      for how three separate methods silently truncated prowlarr's volume
 - [ ] Migrate the remaining 18 apps to kopiur, in batches, not in bulk
 - [ ] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it
 - [ ] Retire VolSync and its `perfectra1n` fork once all 19 are stable
 - [ ] Keep the old repository as a cold fallback; do not delete it with VolSync
+- [ ] Delete the leftover pre-migration rescue PVCs, `prowlarr-rescue` included — they are
+      deliberately kept through this phase as known-good references
 - [ ] If miroir won phase 2, replacing Ceph is a **separate** phase again — a storage
       migration does not belong inside a backup migration
 
