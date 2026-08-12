@@ -66,6 +66,7 @@ nodes:
           - talos.auditd.disabled=1 # Less security, faster puter
         systemExtensions:
           officialExtensions:
+            - siderolabs/drbd # miroir replicated volumes
             - siderolabs/i915 # Intel iGPU
             - siderolabs/intel-ucode # Intel iGPU
             - siderolabs/iscsi-tools # longhorn iSCSI
