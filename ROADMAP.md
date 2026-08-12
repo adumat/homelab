@@ -226,10 +226,40 @@ all on `ceph-block`.
       did not — 36 alerts down to 7 once fixed, and the 5 remaining
       `KubeDaemonSetRolloutStuck` were lagging against DaemonSets already at `ready=5`.
 
-      This is the third time the 50 GiB `/var` cap has bitten (kube-nuc in phase 1, the
-      v1.13.5 upgrade before it) and the second time evicted pods were the mechanism. Worth
-      its own follow-up: raise the cap, stop paying twice per image, or garbage-collect
-      terminal pods automatically.
+      This was the third time the 50 GiB `/var` cap bit (kube-nuc in phase 1, the v1.13.5
+      upgrade before it) and the second time terminal pods were the mechanism — **fixed at the
+      source the same day**, see below.
+- [x] **`/var` pressure fixed at the source — 2026-08-12. Pod GC, not a bigger disk.**
+
+      All three incidents shared one mechanism, and it is not image bloat: a ReplicaSet never
+      deletes its own `Failed`/`Succeeded` pods, and each dead Pod forces kubelet to keep its
+      containers, which pin an overlayfs snapshot **and** the image they ran from — space
+      image GC cannot reclaim however it is tuned. `/var` was never genuinely full; it was
+      full of uncollected garbage.
+
+      `terminated-pod-gc-threshold: "30"` now set on both control planes (default **12500**
+      never fires on five nodes). The number has to sit *below* the garbage level, because
+      PodGC deletes oldest-first only once the count **exceeds** it — 30 reaps a 75-pod pile
+      to 30, whereas the 50 first considered would have deleted four. CronJob history (3
+      CronJobs) and recent failures survive.
+
+      Plus `NodeVarSpaceLow` at 20% free, 5 points ahead of kubelet's 15% eviction line. The
+      built-in `KubeNodePressure` only fires once `DiskPressure` is already set — by which
+      time mons are being evicted.
+
+      **Deliberately not done: raising the cap.** The disk is fully allocated — on ceph-02's
+      256 GB: 2.2 GB boot, 0.1 GB state, 53.6 GB `/var`, **200 GB `local-hostpath`**. Growing
+      `/var` means shrinking local-hostpath, which means wiping it per node — and that is not
+      a cheap cache reset: it holds the **three Ceph mon stores** and **both Postgres
+      clusters** (cluster18 + immich-db, data and WAL) alongside jellyfin-transcode and
+      immich-ml-cache. Recoverable one node at a time, but hours of care, not minutes. Since
+      phase 2's goal is removing Ceph, which deletes those mon PVCs
+      and changes what local-hostpath must hold, repartitioning now is work to redo.
+
+      ⚠️ **Revisit with the Ceph decision.** The allocation is backwards — 200 GB holding
+      under 1 GB while the 53.6 GB `/var` is the binding constraint — and it is still tight
+      when perfectly clean: kube-hp sits at **24% free**, above its own 75% image-GC trigger,
+      with kube-nuc at 27% and ceph-03 at 28%.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and

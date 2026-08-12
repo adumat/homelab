@@ -1,0 +1,40 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-var-space
+spec:
+  groups:
+    - name: node-var-space.rules
+      rules:
+        # Warns BEFORE kubelet starts evicting, which is the whole point: the
+        # built-in KubeNodePressure only fires once DiskPressure is already set,
+        # by which time pods are being evicted. Three rolling upgrades have
+        # tipped /var over, and the last one evicted a Ceph mon and OSD that
+        # then could not reschedule, because the disk-pressure taint is
+        # NoSchedule and Rook pins mons/OSDs to their node.
+        #
+        # 20%: kubelet evicts at nodefs.available 15%, and the tightest node
+        # sits at ~24% when completely clean, so this leaves 5 points of warning
+        # without firing in steady state. /var is capped at 50GiB and containerd
+        # stores every image twice (spegel needs discard_unpacked_layers=false),
+        # so the margin is genuinely thin.
+        #
+        # Usual cause is NOT images: a ReplicaSet never deletes its own
+        # Failed/Succeeded pods, and each dead pod pins its overlayfs snapshot
+        # plus the image it ran from, which image GC cannot reclaim. Check with
+        #   kubectl get pods -A -o json | jq '[.items[]
+        #     | select(.status.phase=="Succeeded" or .status.phase=="Failed")] | length'
+        # terminated-pod-gc-threshold=30 should keep this bounded automatically.
+        - alert: NodeVarSpaceLow
+          annotations:
+            summary: >-
+              /var on {{ $labels.instance }} is down to
+              {{ $value | humanizePercentage }} free; kubelet evicts at 15%
+          expr: |
+            node_filesystem_avail_bytes{job="node-exporter", mountpoint="/var"}
+              / node_filesystem_size_bytes{job="node-exporter", mountpoint="/var"}
+              < 0.20
+          for: 5m
+          labels:
+            severity: warning

@@ -22,6 +22,18 @@ cluster:
   controllerManager:
     extraArgs:
       bind-address: 0.0.0.0
+      # Reap finished pods. A ReplicaSet never deletes its own Failed/Succeeded
+      # pods, and while a Pod object exists kubelet must keep its containers,
+      # which pin their overlayfs snapshot AND the image they ran from - so
+      # image GC cannot reclaim any of it. Three rolling-upgrade incidents have
+      # tipped /var over this way; the last left 75 dead pods pinning 35.5 GB
+      # against only 5.5 GB of live images.
+      #
+      # PodGC deletes oldest-first only once the count EXCEEDS this number, so
+      # it has to sit below the garbage level to do anything: the default 12500
+      # never fires on five nodes. 30 reaps a 75-pod pile down to 30 while
+      # leaving CronJob history (3 CronJobs) and recent failures intact.
+      terminated-pod-gc-threshold: "30"
   coreDNS:
     disabled: true
   etcd:
