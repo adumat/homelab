@@ -38,7 +38,12 @@ spec:
     enabled: false
   backend:
     filesystem:
-      path: /repo
+      # Deliberately not /repo, which `nas` uses. A replication mover mounts
+      # source and destination in the same pod, and two volumes cannot share a
+      # mountPath — the admission webhook refuses it. This is only where the
+      # volume mounts inside kopiur's pods; the data lives at the NFS path
+      # below and does not move.
+      path: /repo-volsync
       volume:
         nfs:
           server: elizabeth.lan
