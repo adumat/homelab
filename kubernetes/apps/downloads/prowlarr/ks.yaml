@@ -10,7 +10,9 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
+    # Phase 2 pilot: kopiur instead of persistence/VolSync. See
+    # docs/superpowers/specs/2026-08-08-phase2-storage-validation-design.md
+    - ../../../../components/kopiur
     - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/prowlarr/app
@@ -23,7 +25,7 @@ spec:
       namespace: database
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
@@ -32,8 +34,7 @@ spec:
     substitute:
       APP: *app
       OIDC_ROUTE: *app
-      VOLSYNC_CAPACITY: 1Gi
-      CACHE_CAPACITY: 1Gi
+      KOPIUR_CAPACITY: 1Gi
       CRON_EXPRESSION: '15 0 * * *'
   prune: true
   retryInterval: 2m
