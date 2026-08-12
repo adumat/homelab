@@ -181,28 +181,55 @@ all on `ceph-block`.
       Two traps it surfaced, both now in [AGENTS.md](AGENTS.md): two filesystem repositories
       cannot share `backend.path`, and a restore into a namespace without the repository
       secret needs `credentialProjection.enabled`.
-- [ ] **DRBD system extension — staged, waiting on a merge.** `miroir-replicated` needs it,
-      and it only reaches a node through a reinstall, so it is folded into the Talos
-      **v1.13.5 → v1.13.8** bump: one rolling reboot delivers both instead of two.
-      Everything sits on **PR #427** (`renovate/talos`), which now carries the version bump
-      *and* the schematic change as one atomic commit — merge it whenever you want the
-      rollout. tuppr drives it with the health gates it already has: Ceph `HEALTH_OK` with a
-      6-minute allowance, no `ReplicationSource` mid-sync, drain and volume-detach wait.
+- [x] **DRBD system extension — done 2026-08-12, all five nodes.** Landed together with the
+      Talos **v1.13.5 → v1.13.8** bump via PR #427, one rolling reboot for both. Every node
+      reports `drbd 9.3.3-v1.13.8` on schematic `e4e5b0e3`, etcd both members `OK`, Ceph
+      `HEALTH_OK`.
 
-      One thing a merge cannot do, so it is already done: **tuppr reads the schematic from
-      the node's runtime state, not from `talconfig.yaml`.** Its default path version-swaps
-      `.machine.install.image`, and its safety net *refuses* the run when the runtime
-      schematic is absent from that path — precisely this case. So all five nodes carry the
-      documented override, `tuppr.home-operations.com/factory-url` plus
-      `.../schematic=e4e5b0e3…`. Annotating changed nothing on its own (no version drift
-      yet), and the factory has already built the image, so pre-pull will not stall.
+      The `factory-url` + `schematic` annotations were what made it work — tuppr's log
+      confirms `Built target image from FactoryURL override` per node. **Order matters on the
+      way out:** `apply-node` all five first, so `.machine.install.image` carries the new
+      schematic, and only then remove the annotations. Removing them first leaves the runtime
+      schematic absent from the install-image path, which is exactly the case tuppr's safety
+      net refuses — the next upgrade would park. Both done, annotations now gone.
 
-      ⚠️ **Remove those annotations once the rollout is verified.** They pin the schematic,
-      so while they are set a future extension change to `talconfig.yaml` would silently
-      never reach the nodes.
+      ⚠️ **The rollout stalled once, and the failure mode is worth knowing.** After each
+      reboot a node can come back with a **spurious `DiskPressure`** condition and its
+      `NoSchedule` taint. Rook pins mons and OSDs to a node with `nodeSelector`, so one
+      tainted node means that mon and OSD cannot schedule at all, Ceph never reaches
+      `HEALTH_OK` — and `HEALTH_OK` is the gate tuppr waits on. Left alone the run parks at
+      4/5 rather than breaking anything, but it does not self-heal.
 
-      Verify after: `drbd` present in `talosctl get extensions` on all five, all `Ready`,
-      Ceph `HEALTH_OK`, both etcd members `OK`.
+      Distinguish the two cases by asking kubelet, not `/var`, since
+      `talosctl usage` and `statfs` disagree by ~12 GB:
+      `kubectl get --raw /api/v1/nodes/<n>/proxy/stats/summary`. Thresholds are stock,
+      `nodefs.available` 10% and `imagefs.available` 15%.
+
+      - **Spurious** (3 of 5 nodes: ceph-01 63% imagefs free, ceph-03, nuc 29% free) — a
+        stale eviction-manager observation latched at boot. `talosctl -n <ip> service kubelet
+        restart` clears it instantly and leaves running containers alone
+      - **Real** (ceph-02, 9% imagefs free) — and it does not self-heal. kubelet's log shows
+        the deadlock: GC runs, then `must evict pod(s)` → every remaining pod is critical →
+        `unable to evict any pods`
+
+      **The cause was 54 leftover terminal pods, not images.** The drains left that many pods
+      in `Error`/`Evicted`/`ContainerStatusUnknown`, and they pinned containerd space that
+      image GC cannot touch: on ceph-02 containerd held **35.5 GB** (23.7 GB overlayfs
+      snapshots + 11.8 GB content blobs) against only **5.5 GB of live images**.
+      `kubectl delete pods -A --field-selector status.phase=Failed` took it from 4 GB free /
+      9% imagefs to **40 GB / 75%**, the taint cleared itself, and mon-a plus OSD-1 scheduled
+      immediately — Ceph back to `HEALTH_OK`, 3/3 mons, 3/3 OSDs.
+
+      Cost of not spotting it sooner: mon-a and OSD-1 were **evicted** off ceph-02 and could
+      not return, so Ceph sat at 2/3 mons with `CephMonDownQuorumAtRisk` firing, and
+      `cluster18-1` could not schedule. Prometheus made this obvious where the rollout status
+      did not — 36 alerts down to 7 once fixed, and the 5 remaining
+      `KubeDaemonSetRolloutStuck` were lagging against DaemonSets already at `ready=5`.
+
+      This is the third time the 50 GiB `/var` cap has bitten (kube-nuc in phase 1, the
+      v1.13.5 upgrade before it) and the second time evicted pods were the mechanism. Worth
+      its own follow-up: raise the cap, stop paying twice per image, or garbage-collect
+      terminal pods automatically.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and

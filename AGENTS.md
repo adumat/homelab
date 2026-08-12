@@ -574,8 +574,60 @@ Get the ID with `just talos gen-schematic-id` — it POSTs the schematic to the 
 both registers it and returns the ID. Confirm it actually changed; an unchanged ID means the
 edit missed `.nodes[0].schematic`, which is what that recipe reads.
 
-⚠️ **Remove the annotations once the rollout is verified.** While set, they pin the
-schematic, and a later extension change would silently never reach the nodes.
+⚠️ **Remove the annotations once the rollout is verified — but in this order.** First
+`just talos gen-config` and `just talos apply-node <ip>` on every node, so
+`.machine.install.image` carries the new schematic and matches what is running; only then
+`kubectl annotate node --all tuppr.home-operations.com/factory-url- .../schematic-`. Removing
+them first leaves the runtime schematic absent from the install-image path, which is the case
+path 3 refuses — the *next* upgrade parks. Leaving them set is the other failure: they pin the
+schematic, so a later extension change never reaches the nodes.
+
+### A rolling upgrade can leave nodes falsely tainted DiskPressure
+
+After a reboot a node may come back asserting `DiskPressure` with its `NoSchedule` taint, and
+it does not always self-heal. This is worse here than it sounds: **Rook pins each mon and OSD
+to its node with `nodeSelector`**, so one tainted node keeps that mon and OSD `Pending`
+forever, Ceph never returns to `HEALTH_OK`, and `HEALTH_OK` is exactly what tuppr's health
+check gates on — the rollout parks partway rather than finishing.
+
+Ask kubelet for the numbers, not the node. `talosctl usage /var` and kubelet's `statfs`
+disagreed by ~12 GB, so trust:
+
+```sh
+kubectl get --raw /api/v1/nodes/<node>/proxy/stats/summary | jq '.node.fs, .node.runtime.imageFs'
+```
+
+Thresholds are stock: `nodefs.available` 10%, `imagefs.available` 15%.
+
+- **Above the thresholds → the condition is stale.** `talosctl -n <ip> service kubelet restart`
+  clears it in seconds and does not disturb running containers. Do not read a stale condition
+  `lastHeartbeatTime` as a dead kubelet — node *conditions* refresh every ~5 min while
+  liveness rides on the `Lease` in `kube-node-lease`
+- **Below them → it is real, and the fix is deleting terminal pods.** kubelet's log states
+  the deadlock outright: GC runs, then `must evict pod(s) to reclaim` → every remaining pod
+  is critical → `unable to evict any pods from the node`. It never self-heals
+
+**A drain leaves behind terminal pods that pin containerd space, and they are the actual
+cause.** After this rolling upgrade there were **54** pods in `Error` / `Evicted` /
+`ContainerStatusUnknown`. On the worst node containerd held **35.5 GB** (23.7 GB overlayfs
+snapshots + 11.8 GB content blobs) while only **5.5 GB of live images** existed — the
+remainder was pinned by those dead pod objects, not reclaimable by image GC at all. One
+command fixed it, taking the node from 4 GB free / 9% imagefs to **40 GB free / 75%**, after
+which the taint cleared on its own:
+
+```sh
+kubectl delete pods -A --field-selector status.phase=Failed
+```
+
+Run that after any rolling reboot. Deleting a terminal pod is safe — its controller has
+already replaced it.
+
+Why the margin is thin at all: `/var` is capped at 50 GiB and containerd stores each image
+**twice**, unpacked snapshots *and* content blobs, because spegel needs
+`discard_unpacked_layers = false`.
+
+⚠️ **Do not trust `talosctl usage /var` here.** It reported 36.8 GB while `statfs` said
+49 GB used — it does not see space pinned by dead containers. Use kubelet's summary API.
 
 Pair the extension change with a Talos version bump when one is pending: tuppr triggers on
 version drift, so a schematic change alone gives it no reason to act.
