@@ -459,6 +459,27 @@ Moving an app between them is **not** a one-line change, for two reasons:
 Rename `VOLSYNC_CAPACITY` → `KOPIUR_CAPACITY` and drop `CACHE_CAPACITY` when migrating.
 `CRON_EXPRESSION` keeps its name deliberately, so the schedule stagger carries over.
 
+**The data does not need copying.** A second `ClusterRepository`, `nas-volsync`, is attached
+read-only to VolSync's repository, so the populator can refill a recreated PVC from that
+app's own last VolSync backup. Verified on prowlarr: 739 files restored in 35 s, matching
+`kopia ls -lr` for the snapshot exactly.
+
+Two things make it work, and both differ from the main repository:
+
+- `usernameExpr: policyName` — VolSync wrote `prowlarr@downloads`, the main kopiur
+  repository writes `downloads-prowlarr`
+- `Restore.spec.source.identity` with `sourcePath: /data` — the field is documented for
+  "foreign writers", which is what VolSync is. VolSync mounted at `/data`; kopiur uses
+  `/pvc/<name>`
+
+`nas-volsync` is `mode: ReadOnly` with maintenance and create both disabled, because that
+repository holds the only backups for every app still on VolSync. Do not relax any of the
+three.
+
+**`stats.fileCount` from `kopia snapshot list` is not a file count.** It counts what that
+incremental run uploaded — 594, 543, 544 across three daily snapshots of a near-static
+volume. For a tree total use `kopia ls -lr <snapshotID>`.
+
 ### Never trust `kubectl cp` or `kubectl exec … | cat` for real data
 
 Both silently truncate. Copying prowlarr's 741-file volume out: `kubectl cp` produced 243

@@ -98,26 +98,37 @@ all on `ceph-block`.
       `Restore` populator and diff it against the source. A backup never restored is a hope.
       **Done 2026-08-12: `diff -r` exit 0, 741 files, hash identical to the pre-migration
       volume.** Snapshot 111 s, restore+bind 34 s, repository 3.3 MB
-- [ ] **Settle how phase 2.5 moves data, here rather than there** — phase 2 must exit with
-      this answered, because discovering it mid-migration is too late. Both repositories are
-      kopia, so kopiur may be able to restore straight from VolSync's existing backups,
-      removing data copying from the migration entirely. Measured on the pilot, the
-      identities differ in two places, both with fields that address them:
+- [x] **How phase 2.5 moves data — settled 2026-08-12: kopiur restores directly from
+      VolSync's repository. No data copying needed.**
 
-      | | VolSync writes | kopiur wrote | candidate fix |
+      A second `ClusterRepository` (`nas-volsync`) attached to
+      `/mnt/user/backups/volsync` and restored prowlarr's 2026-08-12T00:15 VolSync backup
+      into a fresh PVC via the populator, in **35 s**. Result: **739 files**, matching
+      exactly what `kopia ls -lr` reports for that snapshot, 57,466,575 bytes against the
+      snapshot's 57,396,943, `config.xml` intact.
+
+      What made it work:
+
+      | | VolSync writes | main kopiur repo | `nas-volsync` uses |
       |---|---|---|---|
-      | hostname | `downloads` | `downloads` | already matches (`hostnameExpr: namespace`) |
+      | hostname | `downloads` | `downloads` | `hostnameExpr: namespace` |
       | username | `prowlarr` | `downloads-prowlarr` | `usernameExpr: policyName` |
-      | path | `/data` | `/pvc/prowlarr` | `sources[].sourcePathOverride: /data` |
+      | path | `/data` | `/pvc/prowlarr` | `source.identity.sourcePath: /data` |
 
-      Test it against a second `ClusterRepository` with **`mode: ReadOnly`** — it "serves
-      restores only", so VolSync's live repository cannot be mutated. Verify against
-      `prowlarr-rescue`, which holds the frozen pre-migration state that VolSync backed up
-      at 00:15 on 2026-08-12.
+      `Restore.spec.source.identity` is the mechanism — documented for "foreign writers",
+      which is exactly what VolSync is. No `adoption`, no `sourcePathOverride`, no writes.
 
-      Exit with one of: *adoption works* (2.5 is a one-line change per app),
-      *adoption fails* (2.5 uses [pv-migrate](https://github.com/utkuozdemir/pv-migrate),
-      never `kubectl cp` — see [AGENTS.md](AGENTS.md)), or *inconclusive with the reason*.
+      **VolSync's repository was never touched:** 17,534,923,192 bytes and 805 entries
+      before and after, verified twice. `mode: ReadOnly` plus `maintenance.enabled: false`
+      plus `create.enabled: false` held.
+
+      Consequence for 2.5: per app it is swap the component, rename the substitutions,
+      delete and recreate the PVC — the populator refills it from that app's own last
+      VolSync backup. `pv-migrate` is not needed.
+
+      ⚠️ **Do not use `stats.fileCount` from `kopia snapshot list` as an expected file
+      count.** It is an incremental upload count — 594, 543, 544 across three daily
+      snapshots of a near-static volume. `kopia ls -lr <id>` gives the tree total.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and
