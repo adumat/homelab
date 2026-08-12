@@ -154,8 +154,33 @@ all on `ceph-block`.
         `prowlarr-src@downloads` instead of `prowlarr@downloads` succeeds and hands back
         7-month-old data. Match on the identity, never on the app name
       - **node-red@home**, 19 snapshots ending 2026-07-30 — a decommissioned app. No PVC, no
-        directory in the repo. Nothing prunes it, because no `SnapshotPolicy` owns
-        `nas-volsync`; it goes away when the VolSync repository is retired at the end of 2.5
+        directory in the repo, and nothing prunes it because no `SnapshotPolicy` owns
+        `nas-volsync`. **Archived into the kopiur repository 2026-08-12** (below), so
+        retiring VolSync's repository no longer destroys it
+
+      The 16 `-src` sets need no deletion work: they exist only in VolSync's repository,
+      which 2.5 retires wholesale, so they die with it. Deleting them sooner would mean
+      granting write access to the one repository still holding all 18 apps' backups.
+- [x] **node-red archived out of VolSync's repository — 2026-08-12.** It was the only
+      identity that retiring that repository would have destroyed, since the app itself is
+      gone from git.
+
+      A one-shot `SnapshotReplication` (`kopia snapshot migrate` underneath) copied
+      **all 19 snapshots**, January through July, 582 KB. `sourceRef` is documented as
+      "opened read-only … a replication never writes to its source", which is what makes it
+      safe against the live repository — confirmed, `du -sb` still 17,534,923,192 bytes.
+
+      Verified the way task 3 taught: restored the newest snapshot from **both**
+      repositories into separate PVCs and diffed them. `diff -r` exit 0, 9 files,
+      75,714 bytes either side. A copy that lands is not a backup; a copy that restores is.
+
+      Applied imperatively and then deleted, deliberately. `pruning` absent means copies
+      "survive deletion of this CR" — verified, 19 still present afterwards — so committing
+      it would have re-run the copy every five minutes forever.
+
+      Two traps it surfaced, both now in [AGENTS.md](AGENTS.md): two filesystem repositories
+      cannot share `backend.path`, and a restore into a namespace without the repository
+      secret needs `credentialProjection.enabled`.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and

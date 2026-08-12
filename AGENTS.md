@@ -484,6 +484,23 @@ kopiur discovers that repository on its own, so every VolSync snapshot also exis
 is a `<app>-src@<ns>` from VolSync's older naming, frozen at 2026-01-20. Restoring it does
 not fail — it returns seven-month-old data. Check the snapshot's end time before restoring.
 
+Two more, both learned the hard way while archiving node-red between the two repositories:
+
+- **A `Restore` in a namespace that has no repository secret needs
+  `credentialProjection.enabled: true`.** The mover Job loads credentials with `envFrom`,
+  which cannot cross namespaces, so it sits in `Pending` on `MissingCredentialsSecret`. The
+  `ClusterRepository` must also allow it (`credentialProjection.allowed: true`)
+- **Two filesystem repositories must not share `backend.filesystem.path`.** A replication
+  mover mounts source and destination in one pod, and the webhook refuses the shared
+  mountPath. `nas` keeps `/repo`, `nas-volsync` uses `/repo-volsync`. That field is only the
+  in-pod mount point — changing it moves no data
+
+To copy snapshots between repositories, use a `SnapshotReplication`. Its `sourceRef` is
+opened read-only and never written to, so it is safe against the live VolSync repository.
+With `spec.pruning` absent the copies **survive deletion of the CR**, which makes it the
+right shape for a one-shot archival copy: apply it, let one run finish, delete it. Do not
+commit one — `schedule.cron` is required, so in git it would re-run forever.
+
 **`stats.fileCount` from `kopia snapshot list` is not a file count.** It counts what that
 incremental run uploaded — 594, 543, 544 across three daily snapshots of a near-static
 volume. For a tree total use `kopia ls -lr <snapshotID>`.
