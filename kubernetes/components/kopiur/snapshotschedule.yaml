@@ -1,0 +1,16 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotSchedule
+metadata:
+  name: ${APP}
+spec:
+  policyRef:
+    name: ${APP}
+  schedule:
+    # Reuses CRON_EXPRESSION, the same variable the VolSync component reads, so
+    # the existing 00:00-01:30 UTC stagger carries over unchanged when an app
+    # migrates. That stagger is deliberate: elizabeth saturates when several
+    # backup jobs overlap.
+    cron: "${CRON_EXPRESSION:=0 0 * * *}"
+    jitter: 2m
+    timezone: Etc/UTC

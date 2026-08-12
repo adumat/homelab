@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${APP}
+spec:
+  accessModes:
+    - "${KOPIUR_ACCESSMODES:=ReadWriteOnce}"
+  # Populated from the Restore below rather than starting empty. This field is
+  # IMMUTABLE: an app moving here from components/persistence cannot be switched
+  # in place, because its PVC already points at a VolSync ReplicationDestination.
+  # The PVC has to be deleted and recreated. See AGENTS.md.
+  dataSourceRef:
+    apiGroup: kopiur.home-operations.com
+    kind: Restore
+    name: ${APP}
+  resources:
+    requests:
+      storage: "${KOPIUR_CAPACITY:=5Gi}"
+  storageClassName: "${KOPIUR_STORAGECLASS:=ceph-block}"
