@@ -441,6 +441,38 @@ the runner happened to land on. It looks broken — four other nodes get nothing
 the LAN instead of from the internet. Without spegel the workflow would be close to
 pointless.
 
+### Backups: kopiur and VolSync both exist, and they are not interchangeable
+
+Two backup components live side by side while kopiur is being validated:
+`components/persistence` (VolSync, 18 apps) and `components/kopiur` (1 app, prowlarr).
+
+Moving an app between them is **not** a one-line change, for two reasons:
+
+1. **The PVC's `dataSourceRef` is immutable.** Both components set one — VolSync to a
+   `ReplicationDestination`, kopiur to a `Restore` — so the switch fails with
+   `spec is immutable after creation`. The PVC must be deleted and recreated, which means
+   copying the data out first.
+2. **The old `ReplicationDestination` is not pruned.** It carries
+   `kustomize.toolkit.fluxcd.io/ssa: IfNotPresent`, so Flux leaves it behind when the
+   component is removed. It is inert, but it must be deleted by hand.
+
+Rename `VOLSYNC_CAPACITY` → `KOPIUR_CAPACITY` and drop `CACHE_CAPACITY` when migrating.
+`CRON_EXPRESSION` keeps its name deliberately, so the schedule stagger carries over.
+
+### Never trust `kubectl cp` or `kubectl exec … | cat` for real data
+
+Both silently truncate. Copying prowlarr's 741-file volume out: `kubectl cp` produced 243
+files, an `exec … tar cf -` stream produced 620, and `exec … cat` of a verified 58,003,456
+byte archive produced 56,594,427 bytes with a different SHA. None of them reported an
+error.
+
+To move volume data, stay inside the cluster: create a second PVC and copy pod-to-pod with
+`cp -a`, then verify with a checksum manifest, not a file count:
+
+```sh
+cd /src && find . -type f | sort | xargs md5sum | md5sum
+```
+
 ### konflate: two ways to think it works when it does not
 
 `publicUrl` does **not** expose konflate or enable anything. It is used only to build the
