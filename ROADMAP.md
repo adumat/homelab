@@ -129,6 +129,33 @@ all on `ceph-block`.
       ⚠️ **Do not use `stats.fileCount` from `kopia snapshot list` as an expected file
       count.** It is an incremental upload count — 594, 543, 544 across three daily
       snapshots of a near-static volume. `kopia ls -lr <id>` gives the tree total.
+- [x] **Phase 2.5's work list, enumerated rather than estimated.** Leaving `nas-volsync`
+      deployed had an unplanned benefit: kopiur discovered the whole repository on its own,
+      **441 `Snapshot` objects**, each landing in the right namespace with its exact identity
+      readable off `.status.snapshot.identity`. So 2.5 never has to guess an identity — read
+      it from the object. All 441 are `deletionPolicy: Retain`, owned by the
+      `ClusterRepository`.
+
+      36 identities, of which only **18 are live** — one `ReplicationSource` each, all
+      backed up on 2026-08-12. Those 18 are exactly the phase 2.5 work list:
+
+      | namespace | apps |
+      |---|---|
+      | `downloads` | metube, pyload-ng, qbittorrent, radarr, sonarr |
+      | `home` | esp-home, frigate, home-assistant |
+      | `media` | jellyfin, jellyseerr, romm |
+      | `network` | unifi, unifi-mongo |
+      | `services` | filebrowser, karakeep, ocis, paperless, vaultwarden |
+
+      The other 18 are dead weight, and two kinds of it:
+
+      - 16 identities named **`<app>-src@<ns>`**, frozen at 2026-01-20 — VolSync's older
+        naming. ⚠️ **Every one of them shadows a live app.** Restoring
+        `prowlarr-src@downloads` instead of `prowlarr@downloads` succeeds and hands back
+        7-month-old data. Match on the identity, never on the app name
+      - **node-red@home**, 19 snapshots ending 2026-07-30 — a decommissioned app. No PVC, no
+        directory in the repo. Nothing prunes it, because no `SnapshotPolicy` owns
+        `nas-volsync`; it goes away when the VolSync repository is retired at the end of 2.5
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and

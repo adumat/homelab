@@ -476,6 +476,14 @@ Two things make it work, and both differ from the main repository:
 repository holds the only backups for every app still on VolSync. Do not relax any of the
 three.
 
+kopiur discovers that repository on its own, so every VolSync snapshot also exists as a
+`Snapshot` object in the app's namespace, with the identity to restore it in
+`.status.snapshot.identity`. Read it from there rather than reconstructing it.
+
+⚠️ **Two identities exist per app, and one of them is a trap.** Alongside `<app>@<ns>` there
+is a `<app>-src@<ns>` from VolSync's older naming, frozen at 2026-01-20. Restoring it does
+not fail — it returns seven-month-old data. Check the snapshot's end time before restoring.
+
 **`stats.fileCount` from `kopia snapshot list` is not a file count.** It counts what that
 incremental run uploaded — 594, 543, 544 across three daily snapshots of a near-static
 volume. For a tree total use `kopia ls -lr <snapshotID>`.
