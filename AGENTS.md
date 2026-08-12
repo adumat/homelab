@@ -553,6 +553,33 @@ apply without a reboot; `machine.files` changes do not.
 **Control planes one at a time.** etcd has two members, so applying to both at once risks
 quorum. Check `talosctl -n <ip> service etcd` between nodes.
 
+### Changing system extensions: tuppr does not read `talconfig.yaml`
+
+Extensions are baked into the boot image, so a new one only reaches a node through a
+reinstall. Upgrades are driven by tuppr's `TalosUpgrade`, and **tuppr resolves the installer
+image from the node's runtime state**, not from `talconfig.yaml`:
+
+1. `tuppr.home-operations.com/factory-url` annotation → builds `<factory-url>/<schematic>:<version>`,
+   taking the schematic from the `tuppr.home-operations.com/schematic` annotation if set,
+   otherwise from the node's runtime `ExtensionStatus`
+2. otherwise, version-swap the node's current `.machine.install.image`
+3. safety net → **refuse** when the runtime schematic is not in the install-image path
+
+So editing `officialExtensions` and running `apply-config` is *not* enough, and it is worse
+than a no-op: the new schematic in `.machine.install.image` no longer matches the running
+one, so path 3 parks the whole run. Annotate every node with `factory-url` **and**
+`schematic` before letting the version bump reach the cluster.
+
+Get the ID with `just talos gen-schematic-id` — it POSTs the schematic to the factory, which
+both registers it and returns the ID. Confirm it actually changed; an unchanged ID means the
+edit missed `.nodes[0].schematic`, which is what that recipe reads.
+
+⚠️ **Remove the annotations once the rollout is verified.** While set, they pin the
+schematic, and a later extension change would silently never reach the nodes.
+
+Pair the extension change with a Talos version bump when one is pending: tuppr triggers on
+version drift, so a schematic change alone gives it no reason to act.
+
 ### Talos API access from pods is allow-listed twice
 
 A `talos.dev/v1alpha1 ServiceAccount` mints a talosconfig into a Secret, but only if

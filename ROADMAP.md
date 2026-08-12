@@ -181,6 +181,28 @@ all on `ceph-block`.
       Two traps it surfaced, both now in [AGENTS.md](AGENTS.md): two filesystem repositories
       cannot share `backend.path`, and a restore into a namespace without the repository
       secret needs `credentialProjection.enabled`.
+- [ ] **DRBD system extension — staged, waiting on a merge.** `miroir-replicated` needs it,
+      and it only reaches a node through a reinstall, so it is folded into the Talos
+      **v1.13.5 → v1.13.8** bump: one rolling reboot delivers both instead of two.
+      Everything sits on **PR #427** (`renovate/talos`), which now carries the version bump
+      *and* the schematic change as one atomic commit — merge it whenever you want the
+      rollout. tuppr drives it with the health gates it already has: Ceph `HEALTH_OK` with a
+      6-minute allowance, no `ReplicationSource` mid-sync, drain and volume-detach wait.
+
+      One thing a merge cannot do, so it is already done: **tuppr reads the schematic from
+      the node's runtime state, not from `talconfig.yaml`.** Its default path version-swaps
+      `.machine.install.image`, and its safety net *refuses* the run when the runtime
+      schematic is absent from that path — precisely this case. So all five nodes carry the
+      documented override, `tuppr.home-operations.com/factory-url` plus
+      `.../schematic=e4e5b0e3…`. Annotating changed nothing on its own (no version drift
+      yet), and the factory has already built the image, so pre-pull will not stall.
+
+      ⚠️ **Remove those annotations once the rollout is verified.** They pin the schematic,
+      so while they are set a future extension change to `talconfig.yaml` would silently
+      never reach the nodes.
+
+      Verify after: `drbd` present in `talosctl get extensions` on all five, all `Ready`,
+      Ceph `HEALTH_OK`, both etcd members `OK`.
 - [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
       spare disk, nothing taken from Ceph
 - [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and
