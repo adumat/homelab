@@ -125,7 +125,31 @@ phase 1.5. Dual-running roughly doubles backup I/O to it, which is why the exist
 
 Planned **after** phase 2, using its real numbers rather than guesses.
 
+- [ ] **First, investigate restoring straight from the VolSync repository** — it would
+      remove data copying from the migration entirely. Both repositories are kopia, so
+      kopiur can in principle discover and adopt VolSync's existing snapshots. Measured on
+      the prowlarr pilot, the identities differ in two places and both look addressable:
+
+      | | VolSync writes | kopiur wrote | fix |
+      |---|---|---|---|
+      | hostname | `downloads` | `downloads` | already matches (`hostnameExpr: namespace`) |
+      | username | `prowlarr` | `downloads-prowlarr` | `usernameExpr: policyName` |
+      | path | `/data` | `/pvc/prowlarr` | `sources[].sourcePathOverride: /data` |
+
+      With those aligned, a second `ClusterRepository` pointing at
+      `/mnt/user/backups/volsync` plus `adoption: Adopt` should let the `Restore` populator
+      fill a new PVC from the app's own last VolSync backup. New snapshots keep going to
+      the fresh kopiur repository — `SnapshotPolicy.spec.repositories` supports fan-out, so
+      both can coexist.
+
+      **Unproven.** Inferred from CRD field descriptions, not demonstrated. Test it on one
+      app before planning the rest around it. If it works the migration is a one-line
+      change per app; if not, fall back to copying.
+- [ ] If copying is unavoidable, use [pv-migrate](https://github.com/utkuozdemir/pv-migrate)
+      rather than hand-rolled `cp -a` pods, and never `kubectl cp` — see [AGENTS.md](AGENTS.md)
+      for how three separate methods silently truncated prowlarr's volume
 - [ ] Migrate the remaining 18 apps to kopiur, in batches, not in bulk
+- [ ] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it
 - [ ] Retire VolSync and its `perfectra1n` fork once all 19 are stable
 - [ ] Keep the old repository as a cold fallback; do not delete it with VolSync
 - [ ] If miroir won phase 2, replacing Ceph is a **separate** phase again — a storage
