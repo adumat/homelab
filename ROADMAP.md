@@ -88,12 +88,20 @@ Measured state (the earlier numbers here were wrong — they counted YAML occurr
 objects): **32** PVCs on `ceph-block`, **13** on `openebs-hostpath`, **19** VolSync sources
 all on `ceph-block`.
 
-- [ ] kopiur operator plus a `ClusterRepository` on a **fresh** NFS path,
-      `elizabeth.lan:/mnt/user/backups/kopiur`. VolSync keeps running against its own
-      17 GiB repository throughout; elizabeth has 5.7 TiB free
-- [ ] `components/kopiur` mirroring `components/persistence`, so an app switches by
-      changing one line
-- [ ] Migrate **prowlarr** only (1 GiB, config only, trivially rebuildable)
+- [x] **kopiur 0.10.1 plus a `ClusterRepository` on a fresh NFS path** — 2026-08-12.
+      `elizabeth.lan:/mnt/user/backups/kopiur`, `nas`, `Ready`. VolSync kept running against
+      its own 17 GiB repository throughout. Bootstrap needed `chown 99:100` and `chmod 777`
+      on the export, not `1000:1000`: the Unraid share is `all_squash` with
+      `anonuid=99,anongid=100`, so every write arrives as 99:100
+- [x] **`components/kopiur`** — 2026-08-12. Mirrors `components/persistence`, so an app
+      switches by changing one line. Rename `VOLSYNC_CAPACITY` → `KOPIUR_CAPACITY`, drop
+      `CACHE_CAPACITY`, keep `CRON_EXPRESSION` so the schedule stagger carries over
+- [x] **prowlarr migrated and backing itself up unattended** — 2026-08-12. The PVC had to be
+      recreated rather than patched: its `dataSourceRef` pointed at
+      `ReplicationDestination/prowlarr-dst` and that field is immutable.
+      **Confirmed 2026-08-13: a snapshot ran on its own** at 00:18:59 with
+      `origin=scheduled` on the `15 0 * * *` cron — so the migration works in steady state,
+      not only when triggered by hand
 - [x] **Prove the restore, not the backup:** restore a snapshot into a fresh PVC through the
       `Restore` populator and diff it against the source. A backup never restored is a hope.
       **Done 2026-08-12: `diff -r` exit 0, 741 files, hash identical to the pre-migration
