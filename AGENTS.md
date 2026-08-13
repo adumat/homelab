@@ -553,7 +553,43 @@ apply without a reboot; `machine.files` changes do not.
 **Control planes one at a time.** etcd has two members, so applying to both at once risks
 quorum. Check `talosctl -n <ip> service etcd` between nodes.
 
-### Changing system extensions: tuppr does not read `talconfig.yaml`
+### A system extension does not load its kernel module
+
+`siderolabs/drbd` only *ships* `drbd.ko`. Nothing loads it, so
+`talosctl get extensions` reports the extension present while `/proc/drbd` does not exist —
+and miroir's agents then log `DRBD kernel module unavailable; running local-only`, which
+leaves `miroir-local` working normally while `miroir-replicated` cannot work at all. Loading
+lives in [machine-kernel.yaml](kubernetes/talos/patches/global/machine-kernel.yaml), and
+`usermode_helper=disabled` is mandatory rather than tuning: the kernel side otherwise calls
+`/sbin/drbdadm` on the host, which Talos does not have.
+
+Modules load on `apply-config` — no new schematic and no reboot. The agents only probe at
+startup, so `kubectl rollout restart ds/miroir-agent -n miroir-system` afterwards or they
+stay in local-only mode.
+
+### miroir shares host ports with host-network Ceph
+
+`drbd.portBase` defaults to **7000**, which is Ceph's mgr dashboard. Rook here runs
+`provider: host` and miroir's agents run hostNetwork, so they contend for the same node
+ports. Ceph's range on this cluster is `ms_bind_port_min` 6800 to `ms_bind_port_max`
+**7568** — check it rather than assuming the 7300 default — so miroir starts at **7700**,
+one ascending port per replicated volume.
+
+Two more miroir gotchas: `agent.loopfileBaseDirs` must repeat every `loopfile.baseDir`,
+because the topology lives in CRs the chart cannot read at render time while the hostPath
+mounts are pod spec; and a loopfile pool needs its `baseDir` to be reflink-capable (XFS
+`reflink=1` or btrfs) or the agent refuses the pool outright.
+
+### Testing that data survived a reboot: never use a Pod that can restart
+
+A bare Pod defaults to `restartPolicy: Always`. If its command writes the fixture, a node
+reboot restarts the container, which rewrites the data **and** any checksum file next to it.
+That is worse than losing the baseline: an intact volume and a wiped one then look identical,
+because a wiped volume gets refilled the same way.
+
+Use `restartPolicy: Never`, make the write idempotent (`[ -f /d/checksum ] && exit 0`),
+**delete the writer before the reboot** so nothing can touch the volume, and keep the
+expected checksum outside the cluster.
 
 Extensions are baked into the boot image, so a new one only reaches a node through a
 reinstall. Upgrades are driven by tuppr's `TalosUpgrade`, and **tuppr resolves the installer

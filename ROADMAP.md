@@ -260,11 +260,77 @@ all on `ceph-block`.
       under 1 GB while the 53.6 GB `/var` is the binding constraint — and it is still tight
       when perfectly clean: kube-hp sits at **24% free**, above its own 75% image-GC trigger,
       with kube-nuc at 27% and ceph-03 at 28%.
-- [ ] Then miroir on a **loopfile** on the `local-hostpath` volume — no repartitioning, no
-      spare disk, nothing taken from Ceph
-- [ ] Verify `miroir-local` and `miroir-replicated` provision, snapshot and restore, and
-      that a replicated volume survives rebooting the node holding its primary leg
-- [ ] Measure miroir's RAM against Ceph's, then **write the decision down**
+- [x] **miroir installed on a loopfile — 2026-08-13.** Chart 0.11.22, pool on
+      `/var/mnt/local-hostpath/miroir` on the three workers. Nothing taken from Ceph, no
+      repartitioning, no spare disk. `REFLINK_OK` verified on all three first, since the
+      backend refuses a non-reflink `baseDir`.
+
+      Three things the chart or the plan could not tell us, each of which would have failed
+      silently or confusingly:
+
+      - **The DRBD module was never loaded.** Phase 2's Task 4 installed the *extension*,
+        which only ships the module. `/proc/drbd` was absent and every agent logged
+        `DRBD kernel module unavailable; running local-only` — `miroir-local` would have kept
+        working while `miroir-replicated` quietly could not. Fixed with `machine.kernel.modules`
+        and the mandatory `usermode_helper=disabled` (the kernel otherwise calls
+        `/sbin/drbdadm`, absent on Talos). **No new schematic, no reboot** — Talos loaded it on
+        `apply-config`
+      - **Port 7000 collides with Ceph.** Agents run hostNetwork, Rook here is
+        `provider: host`, and the mgr dashboard holds 7000. Ceph's msgr range is
+        `ms_bind_port_min` 6800 to `ms_bind_port_max` **7568**, so `drbd.portBase` is 7700 —
+        above the whole range. The live volume confirmed port 7700
+      - **`agent.loopfileBaseDirs` must repeat every `loopfile.baseDir`.** The topology lives
+        in CRs the chart cannot read at render time while the hostPath mounts are pod spec.
+        Also: StorageClass parameter keys are namespaced (`miroir.home-operations.com/replicas`),
+        not bare
+- [x] **Every functional test passed — 2026-08-13.**
+
+      | test | result |
+      |---|---|
+      | `miroir-local` provision + write | Bound, `1/1` |
+      | `miroir-replicated` provision + write | Bound, **`2/2`** diskful + a **diskless tie-breaker** on the third node, so quorum has 3 voters |
+      | snapshot | `readyToUse` in ~12 s |
+      | restore into a fresh PVC | checksum **exact match** |
+      | read from the *other* diskful leg | exact match, so replication is real and not just claimed |
+      | **reboot the primary-leg node** | **exact match, 209,715,200 bytes**; volume `Degraded` → `Ready` in ~45 s |
+      | teardown | all `MiroirVolume`s reclaimed, all three `baseDir`s empty — no leaked loopfiles |
+
+      ⚠️ **The first durability run was invalid and the trap is easy to repeat.** The writer
+      was a bare Pod, so `restartPolicy` defaulted to `Always`; the node reboot restarted the
+      container, which re-ran `dd` and rewrote **both** the data and the recorded checksum.
+      That does not merely lose the baseline — it makes an intact volume and a wiped one look
+      identical, because a wiped volume gets refilled the same way. Redone with
+      `restartPolicy: Never`, an idempotent write, the writer deleted before the reboot, and
+      the expected checksum held outside the cluster.
+- [x] **Memory: miroir costs ~3% of Ceph.**
+
+      | | pods | memory |
+      |---|---|---|
+      | Ceph | 34 | **6.81–6.99 GiB** |
+      | miroir idle | 6 | **173 Mi** |
+      | miroir under load | 6 | **204 Mi** (agents 18–27 Mi, controller 65 Mi) |
+      | OpenEBS, for scale | 1 | 15 Mi |
+
+      Ceph measured **higher** than the 5.2 GiB recorded on 2026-08-08, on 13 GiB nodes that
+      have already failed to schedule immich. That is ~34× more memory for 45 GiB of data.
+
+      **Verdict: miroir is a credible Ceph replacement, and nothing found here argues against
+      it.** It provisions, snapshots, restores, replicates across nodes, survives losing the
+      node holding the primary leg, and tears down cleanly, at a thirty-fourth of the memory.
+
+      **What this evaluation still cannot tell you, and the decision is yours:**
+
+      - **Performance is unproven.** A loopfile on shared XFS says nothing about the NVMe that
+        Ceph currently owns. This is the one test that requires committing disks
+      - **Durability drops from three replicas to two**, and the third leg is diskless — a
+        tie-breaker for quorum, not a copy of the data
+      - **Maturity, not capability, is the risk.** miroir is pre-1.0 and would become primary
+        storage
+      - **Capacity is uneven and shared.** `kube-ceph-01` has only **64 GB** of
+        local-hostpath against 200 GB on the other two, so it binds replica placement — and
+        that filesystem also carries the openebs-hostpath PVCs (the Ceph mon stores and both
+        Postgres clusters), so miroir and they compete. This is the same partition split
+        queued for revisit; a real miroir rollout wants dedicated disks rather than a loopfile
 
 **OpenEBS stays.** The roadmap's reason for replacing it was snapshots, and nothing on
 local storage needs them: none of the 13 PVCs has a ReplicationSource, and none should —
@@ -276,10 +342,9 @@ have already failed to schedule immich. CephFS holds 451 KiB and zero PVCs; ther
 object store; RWX comes from NFS. The capability that normally blocks leaving Ceph does not
 apply.
 
-**Three caveats on the miroir result:** a loopfile cannot prove production performance —
-that needs the NVMe disks Ceph owns; durability drops from three replicas to two; and the
-real risk is maturity, not capability, since miroir is pre-1.0 and would become primary
-storage.
+**Measured 2026-08-13:** Ceph is **6.81–6.99 GiB across 34 pods**, higher than the 5.2 GiB
+above. miroir does the same job for **204 Mi across 6**. The caveats that remain are in the
+verdict item.
 
 **Risk:** backups run over NFS to elizabeth, the host whose stale handles are parked as
 phase 1.5. Dual-running roughly doubles backup I/O to it, which is why the existing
