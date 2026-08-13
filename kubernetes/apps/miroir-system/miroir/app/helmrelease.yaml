@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: miroir
+spec:
+  chartRef:
+    kind: OCIRepository
+    name: miroir
+  interval: 1h
+  values:
+    agent:
+      # Every loopfile.baseDir used by a MiroirNode must be listed here or the
+      # agent has no hostPath mount for it: the topology lives in CRs the chart
+      # cannot read at render time, while the mounts are pod spec. Mounted
+      # DirectoryOrCreate, so it is harmless on the control planes, which carry
+      # no pool.
+      loopfileBaseDirs:
+        - /var/mnt/local-hostpath/miroir
+    drbd:
+      # NOT the 7000 default. The agent runs hostNetwork, Rook here is
+      # `provider: host`, and Ceph's mgr dashboard already holds 7000 on
+      # kube-ceph-03. Ceph's msgr range on this cluster is ms_bind_port_min 6800
+      # to ms_bind_port_max 7568, and DRBD takes one ascending port per
+      # replicated volume, so this starts clear above the whole range.
+      portBase: 7700
+    monitoring:
+      podMonitor:
+        enabled: true
+      # The point of this install is measuring miroir against Ceph, so its own
+      # alerts come along.
+      prometheusRule:
+        enabled: true

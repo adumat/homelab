@@ -1,0 +1,29 @@
+---
+apiVersion: miroir.home-operations.com/v1alpha1
+kind: MiroirNodeGroup
+metadata:
+  name: default
+spec:
+  # Only the three workers. The control planes have no spare capacity, and this
+  # is an evaluation rather than a production layout. Agents still run there and
+  # serve client-only mounts; a node without a MiroirNode simply carries no pool.
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: In
+        values:
+          - kube-ceph-01
+          - kube-ceph-02
+          - kube-ceph-03
+  template:
+    pools:
+      # A loopfile on the existing XFS user volume: no repartitioning, no spare
+      # disk, and nothing taken from Ceph while both run side by side. The
+      # backend needs the directory to be reflink-capable or the agent refuses
+      # the pool - verified REFLINK_OK on all three workers.
+      #
+      # Space is uneven: kube-ceph-01 has 61GB free here against 195GB on the
+      # other two, so it is the binding constraint for replica placement.
+      - name: default
+        loopfile:
+          baseDir: /var/mnt/local-hostpath/miroir

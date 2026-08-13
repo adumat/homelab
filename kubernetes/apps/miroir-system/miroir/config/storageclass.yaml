@@ -1,0 +1,39 @@
+---
+# Parameter keys are namespaced (miroir.home-operations.com/...), not bare.
+# Neither class is default: Ceph keeps that role until the evaluation decides.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: miroir-local
+provisioner: miroir.home-operations.com
+parameters:
+  miroir.home-operations.com/replicas: "1"
+  miroir.home-operations.com/pool: default
+  csi.storage.k8s.io/fstype: ext4
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+# Required: the controller must know which node the pod landed on before it can
+# place the replica.
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: miroir-replicated
+provisioner: miroir.home-operations.com
+parameters:
+  # Two, not three: only the three workers carry a pool, and a 2-replica volume
+  # is what has to survive losing the node holding its primary leg.
+  miroir.home-operations.com/replicas: "2"
+  miroir.home-operations.com/pool: default
+  csi.storage.k8s.io/fstype: ext4
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: snapshot.storage.k8s.io/v1
+kind: VolumeSnapshotClass
+metadata:
+  name: miroir-snap
+driver: miroir.home-operations.com
+deletionPolicy: Delete
