@@ -194,6 +194,7 @@ nodes:
 # Global patches
 patches:
   - "@./patches/global/machine-files.yaml"    # spegel/NFS Mount
+  - "@./patches/global/machine-kernel.yaml"   # drbd module for miroir
   - "@./patches/global/machine-kubelet.yaml"  # kubelet tweaks
   - "@./patches/global/machine-network.yaml"  # search Domain
   - "@./patches/global/machine-sysctls.yaml"  # network tweaks

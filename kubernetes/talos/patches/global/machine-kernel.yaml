@@ -1,0 +1,16 @@
+machine:
+  kernel:
+    modules:
+      # miroir needs DRBD. The siderolabs/drbd extension only ships the module;
+      # nothing loads it, and without this /proc/drbd is absent and every agent
+      # logs "DRBD kernel module unavailable; running local-only" - so
+      # miroir-replicated cannot work while miroir-local still appears fine.
+      #
+      # usermode_helper=disabled is mandatory, not tuning: the kernel side
+      # otherwise calls out to /sbin/drbdadm on the host, which does not exist on
+      # Talos.
+      - name: drbd
+        parameters:
+          - usermode_helper=disabled
+      # The TCP transport for replication between nodes.
+      - name: drbd_transport_tcp

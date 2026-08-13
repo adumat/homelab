@@ -15,6 +15,11 @@ machine:
       # (Talos v1.13.5 upgrade tipped over by 10 evicted paperless pods).
       containerLogMaxSize: 10Mi
       containerLogMaxFiles: 3
+      # Give DRBD time to detach its legs cleanly on shutdown, per miroir's
+      # requirements. Without it a node reboot can leave a replicated volume
+      # needing a resync that a graceful stop would have avoided.
+      shutdownGracePeriod: 120s
+      shutdownGracePeriodCriticalPods: 60s
     nodeIP:
       validSubnets:
         - 10.1.10.0/24
