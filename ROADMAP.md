@@ -371,19 +371,171 @@ data moves, so this phase starts with that already decided.
 - Rename `VOLSYNC_CAPACITY` → `KOPIUR_CAPACITY`, drop `CACHE_CAPACITY`, keep `CRON_EXPRESSION`
 - Per-app cost on a 1 GiB volume: snapshot 111 s, restore+bind 34 s
 
-- [ ] Migrate the remaining 18 apps to kopiur, in batches, not in bulk
+**The exit condition is every PVC, not every VolSync app.** Phase 3 rebuilds the cluster from
+these backups, so an unprotected PVC is data that will not come back. Measured today: **33 on
+`ceph-block` + 13 on `openebs-hostpath`, of which only 19 are protected — 14 have no backup at
+all.** Stating it as "migrate all PVCs" is not checkable and quietly invites someone to point
+kopiur at a Postgres data directory, so:
+
+> **Exit condition: every PVC either has a kopiur `SnapshotPolicy`, or is explicitly declared
+> disposable in git.**
+
+- [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk
 - [ ] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it
+- [ ] **Protect the ones that were never backed up.** Genuinely wanted: **`services/paperless-ai`**
+      (holds the `.env` that needed a wizard run — losing it means running the wizard again),
+      `observability/grafana-pvc`, `database/mosquitto` (retained alarm messages),
+      `database/pgadmin`
+- [ ] **Declare the disposable ones disposable, in git** so the gap is visible rather than
+      accidental: `esp-home-cache`, `home-assistant-cache`, `jellyfin-cache`,
+      `jellyseerr-cache`, `konflate-cache`
+- [ ] **Decide, and write down, whether observability history is worth backing up:**
+      `prometheus-…-db`, `victoria-logs`, `alertmanager-…-db`. Metrics history versus
+      repository size and NFS load — a real trade-off, not an oversight
+- [ ] ⚠️ **Leave CNPG data and WAL out of kopiur.** `cluster18` and `immich-db` carry Authelia,
+      paperless, atuin and immich metadata. A filesystem snapshot of a live Postgres, with WAL
+      on a *separate* PVC snapshotted at a different instant, is inconsistent — barman is the
+      only correct mechanism. Nightly barman backups complete (verified 2026-08-12 and -13)
 - [ ] Retire VolSync and its `perfectra1n` fork once all 19 are stable
-- [ ] Keep the old repository as a cold fallback; do not delete it with VolSync
+- [ ] Keep the old repository as a cold fallback **through phase 3**, then delete it
 - [ ] Delete the leftover pre-migration rescue PVCs, `prowlarr-rescue` included — they are
       deliberately kept through this phase as known-good references
-- [ ] If miroir won phase 2, replacing Ceph is a **separate** phase again — a storage
-      migration does not belong inside a backup migration
+- [ ] Note the monitoring gap found on the way: both CNPG clusters report
+      `status.lastSuccessfulBackup: NONE` even though the `Backup` objects complete, because
+      the barman-cloud plugin does not populate that field. Anything alerting on it is blind
 
-Write this phase only once phase 2 has produced: snapshot and restore durations for a real
-volume, repository growth rate, observed NFS load during a kopiur run, and whatever broke.
+Phase 2 produced the numbers this phase needs: snapshot 111 s and restore+bind 34 s on a 1 GiB
+volume, a 3.3 MB repository for prowlarr's 57 MB, and a scheduled run that fired unattended.
+What it did **not** produce is behaviour at 45 apps at once — so batches, not bulk.
 
-### Phase 3 — `just merge` and the gpu component
+### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
+
+One planned outage that fixes four things at once, none of which can be fixed in place:
+Ceph goes away, the nodes get honest names, etcd gets a third member, and the disk layout
+stops being backwards.
+
+**Approach: big bang.** Reset all five nodes and rebuild from git. The alternative — moving
+data onto miroir loopfiles first, deleting Ceph, then rebuilding node by node — avoids the
+outage but costs a second data hop, and it cannot fix the partition layout without wiping
+every system disk anyway. Chosen deliberately: **once the disks are wiped there is no
+rollback except restore**, which is exactly why phase 2.5's exit condition is what it is.
+
+**The framing that makes this worth doing:** you do not currently know that this cluster can
+be rebuilt — you have the hope of it. Better to find the gaps at a chosen hour than during a
+real failure. And **phase 2.5 is the rehearsal**: migrating an app to kopiur *is* recreating
+its PVC and repopulating it from backup, so by the end every app's restore has been proven
+individually. Phase 3 is doing all of them at once.
+
+#### Why the disks force the design
+
+miroir needs the disks Ceph is sitting on, so the two cannot coexist on final hardware.
+Hardware, measured 2026-08-14:
+
+| node | new name | model | system disk | data disk |
+|---|---|---|---|---|
+| 10.1.10.10 | `kube-nuc` | Intel NUC10i5FNH, 8 cpu / 32 GB | 500GB Samsung 970 EVO+ | — single disk |
+| 10.1.10.11 | `kube-hp` | HP EliteDesk 800 G4 DM, 6 / 16 | 256GB WDC SN720 | — single disk |
+| 10.1.10.21 | `kube-m720-01` | ThinkCentre M720q, 6 / 16 | 120GB KINGSTON SA400S3 | 1TB Crucial P3 |
+| 10.1.10.22 | `kube-m720-02` **(new CP)** | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
+| 10.1.10.23 | `kube-m720-03` | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
+
+**Third control plane is `kube-m720-02`, not -01.** All three M720q are identical on CPU and
+RAM, so the disks decide: etcd is fsync-latency-bound and the **KINGSTON SA400S3 is DRAM-less
+consumer SATA**, the worst disk here for that. The Crucial P3 is also QLC with lower endurance
+than the SN850X. Names map by IP so the addresses stay put — DHCP, DNS and every
+`instance`-keyed Prometheus series stay continuous; only `node`-labelled series break.
+
+**Target layout — `/var` on the SATA disk, the whole NVMe to miroir:**
+
+- EPHEMERAL ≈200GB on the SanDisks, ≈90GB on the KINGSTON. **The 50 GiB `/var` cap that bit
+  three times simply disappears**, and on the CP etcd stops competing with storage I/O
+- The entire 1TB NVMe becomes a miroir `lvmthin` pool — its production backend, no loopfile
+  and no reflink requirement (the upstream example points `device` at a partition label, so
+  either whole-disk or partition works)
+- `kube-nuc` and `kube-hp` keep a small `local` pool. Its real job is **topology membership**:
+  proven 2026-08-13, a pod on a node outside the topology is refused with
+  `cannot be consumed remotely … the node is not in the storage topology`
+- `miroir-replicated` at **replicas 3**, one per M720q — this restores the 3× durability Ceph
+  had, which phase 2 flagged as a downgrade, and costs nothing at 45 GiB on 3 TB raw
+- ⚠️ The Crucial P3 is QLC; at replicas 3 every write lands on all three, so it gates write
+  latency. Worth benchmarking early — this is also the **performance test phase 2 could not
+  do**, since a loopfile on shared XFS proves nothing about real disks
+
+#### Gates — all must pass before anything is destroyed
+
+- [ ] **G1 — phase 2.5 complete**, at its stated exit condition
+- [ ] **G2 — a barman restore, rehearsed again.** The one path kopiur cannot cover. It has been
+      tested before; test it again close to the date, because Authelia, paperless, atuin and
+      immich metadata all live in CNPG
+- [ ] **G3 — keep VolSync's old repository** as a cold second copy on elizabeth. Delete it only
+      after phase 3 succeeds
+- [ ] **G4 — let it recover unassisted, and treat every intervention as a bug.** No suspending
+      Kustomizations and no hand-ordered restore. The cluster is already built to self-recover:
+      both CNPG clusters use `bootstrap: recovery` with `externalClusters: source`, so a fresh
+      cluster restores from barman rather than running `initdb`, and `components/kopiur` ships a
+      populator that refills each PVC from its own last snapshot. Orchestrating by hand would
+      hide exactly the defect this rehearsal exists to find. **Write down everything that
+      needed hand-holding and fix it in git**, so the next recovery is unattended
+
+Three things to watch rather than orchestrate:
+
+- ⚠️ `onMissingSnapshot: Continue` means a PVC with **no** snapshot comes up empty *and
+  healthy-looking*. There is no error to catch — which is the whole reason phase 2.5's exit
+  condition is "every PVC protected or explicitly disposable"
+- `bootstrap: recovery` makes Postgres **depend on elizabeth being reachable at bootstrap**. If
+  the NAS is down or mid-parity, CNPG cannot bootstrap at all
+- The first reconcile is a thundering herd: every HelmRelease and image pull at once. Harmless,
+  and a useful stress test of the new `/var` sizing
+
+Not gates, but known before the day:
+
+- The **sops age key and BWS token** are exercised by the bootstrap itself, so the phase tests
+  them rather than needing them pre-verified.
+
+  🔴 **But the age key is a live single point of failure, today, independent of this phase.**
+  `SOPS_AGE_KEY_FILE=./age.key`, gitignored, and that is the only copy — on a Mac with no
+  working backups. It decrypts four files: `cluster-secrets`, **`bitwarden-access-token`**,
+  cert-manager's secret and flux-instance's. Lose it and you cannot reach BWS, so every other
+  secret is unreachable too and the repo is undeployable.
+
+  **It cannot be stored in BWS** — that is circular: BWS access is itself gated behind a
+  sops-encrypted secret. It needs somewhere outside both git and BWS; the Bitwarden *password*
+  vault works, because you unlock that with a master password rather than a token.
+- `talosctl kubeconfig` mints a cert-based `admin@kubernetes` from the cluster CA, so admin
+  access never depends on Authelia. The narrow footnote: kube-apiserver carries
+  `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
+  It should only log warnings, but the escape hatch is to **comment the OIDC flags out of
+  `cluster.yaml` for the bootstrap and add them back once Authelia is up**
+- Every restore streams from elizabeth over NFS, and **phase 1.5 is still unexplained**. The
+  recovery path runs through the least trusted component — accepted knowingly, not overlooked
+
+#### Execution
+
+- [ ] Freeze: suspend Flux, scale apps to zero, take final kopiur snapshots and a CNPG backup
+- [ ] Record the node → IP → disk map and the schematic ID before wiping anything
+- [ ] Rename and re-lay-out in git: `talconfig.yaml` hostnames, the three
+      `patches/nodes/kube-ceph-0*-ethernet.yaml` files, three control planes, EPHEMERAL sizing,
+      miroir pools and classes. Also outside the cluster: `infra/data/networks.yaml` and
+      `services.yaml` carry the OPNsense DHCP/DNS entries, and
+      `docker/donkey/power-nap-over/config.yaml` references the nodes
+- [ ] Delete the `rook-ceph` app tree and the `openebs-hostpath` PVCs it no longer needs
+- [ ] `talosctl reset` all five, wiping disks
+- [ ] Bootstrap: apply config, `talosctl bootstrap` one CP, wait for **etcd at 3 members**
+- [ ] Point Flux at the repo and **let it reconcile unassisted** — miroir pools come up, the
+      kopiur populator refills each PVC, CNPG recovers from barman. Watch, do not orchestrate;
+      log every intervention as a bug to fix in git
+- [ ] Verify: Ceph gone, `/var` sized right, `drbd` on all five, replicas 3, no PVC silently
+      empty, alerts clean
+- [ ] Benchmark the NVMe pools and **record the numbers phase 2 could not measure**
+
+#### When
+
+Gated, not scheduled: after G1–G4. Budget **half a day**, not two hours — ~45 PVCs plus
+verification. Never on the **1st of the month**, when elizabeth's parity check runs
+(`0 5 1 * *`). Household services all go dark for the duration — Home Assistant automations,
+frigate, the baby monitor, jellyfin — so it needs buy-in, not just a quiet morning.
+
+### Phase 4 — `just merge` and the gpu component
 
 - [ ] Add the `just merge <digest|patch|minor|major>` recipe: bulk-merge Renovate PRs by
       label, skipping the ones labelled `hold`
@@ -393,7 +545,7 @@ volume, repository growth rate, observed NFS load during a kopiur run, and whate
 - [ ] While factoring, check whether `adminAccess: true` and `allocationMode: All` are
       needed — neither is set today
 
-### Phase 4 — the missing observability
+### Phase 5 — the missing observability
 
 Hardware already in the house, metrics absent.
 
@@ -413,7 +565,7 @@ Hardware already in the house, metrics absent.
       `machine-kubelet.yaml` did its job), but steady state is 66–72% used with images the
       dominant consumer, so a Talos image storm plus a Renovate burst can repeat it
 
-### Phase 5 — \*arr stack
+### Phase 6 — \*arr stack
 
 Torrent only, no usenet. `tqm` already runs as an hourly cronjob.
 
