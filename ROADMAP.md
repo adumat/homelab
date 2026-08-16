@@ -570,11 +570,12 @@ Hardware already in the house, metrics absent.
       the exporter runs in the cluster
 - [ ] Pick up the MinIO metrics scrape from elizabeth (see Follow-ups): it is the same gap,
       and it is what forced the CNPG failures to be diagnosed by hand-querying VictoriaLogs
-- [ ] Alert on node disk headroom. On 2026-08-08 kube-nuc crossed the eviction threshold,
-      took a `disk-pressure` taint, and the descheduler evicted 31 pods — the first sign
-      was an unrelated CI job failing. Kubelet image GC recovered it unaided (the tuning in
-      `machine-kubelet.yaml` did its job), but steady state is 66–72% used with images the
-      dominant consumer, so a Talos image storm plus a Renovate burst can repeat it
+- [x] **Alert on node disk headroom — done 2026-08-12**, and the root cause was fixed rather
+      than just alerted on. `NodeVarSpaceLow` warns at 20% free on `/var`, ahead of kubelet's
+      15% eviction line; the built-in `KubeNodePressure` only fires once `DiskPressure` is
+      already set, i.e. after pods start dying. Paired with
+      `terminated-pod-gc-threshold: "30"`, since the real consumer was never images: dead pods
+      pin containerd snapshots that image GC cannot reclaim. Full write-up under phase 2.
 
 ### Phase 6 — \*arr stack
 
