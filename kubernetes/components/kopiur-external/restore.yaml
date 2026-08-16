@@ -1,0 +1,23 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: Restore
+metadata:
+  name: ${APP}
+spec:
+  credentialProjection:
+    enabled: true
+  policy:
+    # Continue, not Fail: on a first deploy there is no snapshot yet, and the app
+    # should come up with an empty volume rather than hang. The cost is that a
+    # misconfigured repository also yields an empty volume silently, so a restore
+    # must be verified explicitly rather than assumed.
+    onMissingSnapshot: Continue
+  source:
+    fromPolicy:
+      name: ${APP}
+      offset: 0
+  target:
+    # Passive: the chart's own PVC template claims this through dataSourceRef.
+    # The app MUST set that, or this Restore is never claimed, the volume comes
+    # up empty on a rebuilt cluster, and the app starts on it reporting healthy.
+    populator: {}

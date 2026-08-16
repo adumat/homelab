@@ -1,0 +1,15 @@
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: SnapshotSchedule
+metadata:
+  name: ${APP}
+spec:
+  policyRef:
+    name: ${APP}
+  schedule:
+    # Same CRON_EXPRESSION the other components read, so the 00:00-01:30 UTC
+    # stagger stays in one place. That stagger is deliberate: elizabeth
+    # saturates when several backup jobs overlap.
+    cron: "${CRON_EXPRESSION:=0 0 * * *}"
+    jitter: 2m
+    timezone: Etc/UTC

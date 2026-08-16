@@ -1,0 +1,29 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Backup + restore for a PVC this component does NOT create, because a chart or
+# an operator insists on creating it: prometheus and alertmanager through their
+# CR's storage.volumeClaimTemplate, grafana through the Grafana CR's
+# persistentVolumeClaim, app-template apps through persistence.
+#
+# Everything except the PVC. The app is then responsible for one thing, and the
+# whole point collapses without it:
+#
+#     dataSourceRef:
+#       apiGroup: kopiur.home-operations.com
+#       kind: Restore
+#       name: <APP>
+#
+# set on the chart's own PVC template. Without it the Restore is never claimed,
+# the volume comes up empty on a rebuilt cluster, and the app starts on it
+# reporting healthy - which phase 3's G4 counts as a bug, not an inconvenience.
+#
+# Prefer components/kopiur wherever the chart accepts existingClaim: owning the
+# PVC is simpler than coordinating two halves. Set KOPIUR_CLAIM here, because a
+# volumeClaimTemplate generates names like
+# prometheus-kube-prometheus-stack-db-prometheus-kube-prometheus-stack-0.
+resources:
+  - ./restore.yaml
+  - ./snapshotpolicy.yaml
+  - ./snapshotschedule.yaml
