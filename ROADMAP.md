@@ -380,7 +380,22 @@ kopiur at a Postgres data directory, so:
 > **Exit condition: every PVC either has a kopiur `SnapshotPolicy`, or is explicitly declared
 > disposable in git.**
 
-- [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk
+- [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
+      **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
+      a per-file checksum manifest of the quiesced volume against the restored one:
+      identical, 9 / 2 / 2 files. First kopiur snapshots `Succeeded` at 21,007,083 / 13,966 /
+      65,666 bytes. 4 of 19 apps now on kopiur.
+
+      Two runbook corrections the pilot forced, both silent failures:
+
+      - `flux resume hr` does **not** restore replicas — app-template leaves `replicas` unset,
+        so Helm keeps the `0` and the HelmRelease reports success with no pods
+      - there is **no trigger annotation** on `SnapshotPolicy`; an on-demand run is a
+        `Snapshot` CR with `policyRef`, and it reports `Succeeded`, not `Completed`
+
+      Also: the discovered `Snapshot` CRs are a cache from when `nas-volsync` was deployed, so
+      their newest entry lags what VolSync has actually written. Judge freshness from
+      `replicationsource.status.lastSyncTime`; `offset: 0` reads the live repository regardless.
 - [ ] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it
 - [ ] **Protect the ones that were never backed up.** Genuinely wanted: **`services/paperless-ai`**
       (holds the `.env` that needed a wizard run — losing it means running the wizard again),
