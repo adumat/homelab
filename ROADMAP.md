@@ -492,15 +492,26 @@ Not gates, but known before the day:
 - The **sops age key and BWS token** are exercised by the bootstrap itself, so the phase tests
   them rather than needing them pre-verified.
 
-  🔴 **But the age key is a live single point of failure, today, independent of this phase.**
-  `SOPS_AGE_KEY_FILE=./age.key`, gitignored, and that is the only copy — on a Mac with no
-  working backups. It decrypts four files: `cluster-secrets`, **`bitwarden-access-token`**,
-  cert-manager's secret and flux-instance's. Lose it and you cannot reach BWS, so every other
-  secret is unreachable too and the repo is undeployable.
+  ✅ **Resolved 2026-08-16 — and the earlier "only copy on an unbacked laptop" claim here was
+  simply wrong.** A second copy was already in BWS as `age-key`
+  (`c26e9d84-2735-4317-9564-b3df011ffd26`). Verified: it derives the same public key as
+  `./age.key` and as the recipient in `.sops.yaml`
+  (`age175fpp0mqvuhmfddz9f5gcvxaxv9x70mgrd0nfcnl2ypq2whckcsqtjds5v`), and sops decrypts with it.
 
-  **It cannot be stored in BWS** — that is circular: BWS access is itself gated behind a
-  sops-encrypted secret. It needs somewhere outside both git and BWS; the Bitwarden *password*
-  vault works, because you unlock that with a master password rather than a token.
+  `just setup` fetches it into `./age.key` on a fresh clone, and refuses to overwrite an
+  existing one. BWS stores the bare `AGE-SECRET-KEY-…` line, so the file it writes is 75 bytes
+  against the local 189 — age-keygen's two comment lines are the only difference, and the
+  secret line is identical.
+
+  **The circularity argument in the old note applied to the wrong direction.** It is real for
+  the *cluster*, which reaches BWS only via the sops-encrypted `bitwarden-access-token`. It
+  does not apply to a *workstation*, which authenticates with its own `BWS_ACCESS_TOKEN` from
+  `.env`. The recovery path therefore does not depend on this laptop: log in to the Bitwarden
+  web vault, mint a fresh access token, run `just setup`.
+
+  The key still decrypts four files — `cluster-secrets`, **`bitwarden-access-token`**,
+  cert-manager's and flux-instance's — so it remains the thing to guard; it just is not
+  single-copy.
 - `talosctl kubeconfig` mints a cert-based `admin@kubernetes` from the cluster CA, so admin
   access never depends on Authelia. The narrow footnote: kube-apiserver carries
   `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
