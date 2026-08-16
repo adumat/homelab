@@ -10,18 +10,26 @@ spec:
   credentialProjection:
     enabled: true
   mover:
+    # components/persistence set fsGroup alongside the two IDs. Dropping it went
+    # unnoticed only because every app migrated so far runs as 1000; unifi-mongo
+    # runs as 999 and its mover cannot read the volume without it.
+    podSecurityContext:
+      fsGroup: ${KOPIUR_PGID:=1000}
+      fsGroupChangePolicy: OnRootMismatch
     securityContext:
       runAsUser: ${KOPIUR_PUID:=1000}
       runAsGroup: ${KOPIUR_PGID:=1000}
   repository:
     kind: ClusterRepository
     name: nas
-  # Mirrors the VolSync retention this replaces.
+  # Mirrors the VolSync retention this replaces. Overridable because a source
+  # that is already a rolling window - Prometheus, victoria-logs - gains nothing
+  # from 24 hourly copies of itself.
   retention:
-    keepHourly: 24
-    keepDaily: 7
-    keepWeekly: 5
+    keepHourly: ${KOPIUR_KEEP_HOURLY:=24}
+    keepDaily: ${KOPIUR_KEEP_DAILY:=7}
+    keepWeekly: ${KOPIUR_KEEP_WEEKLY:=5}
   sources:
     - pvc:
-        name: ${APP}
+        name: ${KOPIUR_CLAIM:=${APP}}
   volumeSnapshotClassName: "${KOPIUR_SNAPSHOTCLASS:=csi-ceph-blockpool}"
