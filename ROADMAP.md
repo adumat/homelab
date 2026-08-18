@@ -380,6 +380,28 @@ kopiur at a Postgres data directory, so:
 > **Exit condition: every PVC either has a kopiur `SnapshotPolicy`, or is explicitly declared
 > disposable in git.**
 
+- [ ] **Blocked until elizabeth's parity check finishes** (started 2026-08-18 after the
+      unclean shutdown, 1% of 9.77 TB, historically 20-28h). The migration restores over NFS
+      from the array that check is saturating, and two outages in two days is the wrong
+      moment to be deleting and repopulating live PVCs.
+- [x] **All 15 un-migrated apps protected in kopiur — 2026-08-18.** The 2026-08-17 blackout
+      corrupted VolSync's repository mid-write and every mover died on a truncated index
+      blob, leaving those apps with no backup for ~36h. Rather than wait for the repair, each
+      got a `SnapshotPolicy` + `SnapshotSchedule` against its live PVC through
+      `components/kopiur-external`. 19 policies now exist.
+
+      This also **removes the damaged repository from the migration path entirely**: the
+      snapshot each app takes here carries exactly the identity its component `Restore`
+      resolves via `fromPolicy`, so migrating is now swap the component and recreate the PVC —
+      no restore from `nas-volsync` at all. Verified against prowlarr's live objects.
+- [x] **VolSync repository repaired — 2026-08-18.** 12 zero-length blobs, every one stamped
+      01:30 on 2026-08-17: unifi-mongo's slot, the upload in flight when the power died. 3
+      index blobs (kopia rebuilds those), 5 content blobs, 4 log blobs. Took a byte-exact
+      safety copy first (`volsync-preblackout-20260818`, 17,374,345,979 bytes / 3,911 files,
+      still holding the 12), deleted only zero-length files under the live repo, restarted
+      `kopiur-controller` to reset the circuit breaker. `nas-volsync` back to
+      `Ready/Bootstrapped`, radarr's manual sync completed, zero movers erroring.
+      Full procedure in [AGENTS.md](AGENTS.md).
 - [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
       **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
       a per-file checksum manifest of the quiesced volume against the restored one:
