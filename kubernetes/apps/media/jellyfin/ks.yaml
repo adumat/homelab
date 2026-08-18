@@ -12,6 +12,7 @@ spec:
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/persistence
+    - ../../../../components/kopiur-external
   interval: 1h
   path: ./kubernetes/apps/media/jellyfin/app
   dependsOn:

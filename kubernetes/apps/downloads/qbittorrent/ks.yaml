@@ -10,6 +10,7 @@ spec:
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/persistence
+    - ../../../../components/kopiur-external
     - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/qbittorrent/app
