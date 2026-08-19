@@ -25,6 +25,12 @@ parameters:
   # Two, not three: only the three workers carry a pool, and a 2-replica volume
   # is what has to survive losing the node holding its primary leg.
   miroir.home-operations.com/replicas: "2"
+  # Not the default `freeze`. With two replicas, freeze blocks I/O the moment
+  # quorum is lost, so losing one node hangs the volume until it returns.
+  # last-man-standing keeps the survivor serving instead, accepting the risk of
+  # divergence if the peer later comes back with its own writes. Chosen
+  # deliberately after two power cuts in a week: availability over strictness.
+  miroir.home-operations.com/quorum: last-man-standing
   miroir.home-operations.com/pool: default
   csi.storage.k8s.io/fstype: ext4
 reclaimPolicy: Delete

@@ -8,7 +8,8 @@ rather than the state predicted weeks earlier.
 
 The half-numbered phases were inserted as work revealed them — 1.5 by a recurring failure,
 2.5 because a 19-app migration should not be planned before a single volume has been
-restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand.
+restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand, and 3.5 by
+noticing that the one backup kopiur cannot cover still lands on the least reliable host.
 
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
@@ -686,6 +687,43 @@ Gated, not scheduled: after G1–G4. Budget **half a day**, not two hours — ~4
 verification. Never on the **1st of the month**, when elizabeth's parity check runs
 (`0 5 1 * *`). Household services all go dark for the duration — Home Assistant automations,
 frigate, the baby monitor, jellyfin — so it needs buy-in, not just a quiet morning.
+
+### Phase 3.5 — in-cluster S3 with garage, and getting barman off elizabeth
+
+Placed after the rebuild deliberately: the target only makes sense once the storage layer is
+settled, and doing it earlier would mean migrating barman's backend twice.
+
+**What garage is.** A self-hosted S3-compatible object store (Rust, by Deuxfleurs) built for a
+handful of cheap, unreliable, geographically-scattered nodes rather than a datacentre —
+replication rather than erasure coding, no central metadata server, and a footprint measured in
+hundreds of MB. A lighter alternative to MinIO or Ceph RGW when all that is wanted is an S3
+endpoint. eleboucher/homelab runs it with `garage-operator`, so there is a working reference.
+
+**Why it is worth doing.** CNPG's barman backups are the one recovery path kopiur cannot cover
+— phase 3's G2 gate exists for exactly that — and today they target **MinIO on elizabeth**, the
+host whose stale NFS handles are parked as phase 1.5 and whose parity checks saturate it for a
+day at a time. The most critical backup in the cluster depends on the least reliable machine.
+
+⚠️ **The trap to settle before any of this: do not put the cluster's disaster-recovery backup
+inside the cluster it protects.** If garage runs on miroir and the cluster is gone, barman
+cannot be reached to restore it — the dependency is circular and only shows up on the day it
+matters. Two shapes avoid it, and the choice is the first task here:
+
+- garage on the **Docker hosts** (donkey / navi / elizabeth) via doco-cd, outside the cluster.
+  Keeps DR independent, uses the geo-distributed design garage is built for
+- garage **in-cluster** for ordinary object storage, with barman replicating to a second
+  off-cluster target. More moving parts, and the second target is doing the real work
+
+- [ ] Decide which shape, on the DR-independence argument rather than on convenience
+- [ ] Deploy garage and a bucket for barman; keep MinIO serving in parallel
+- [ ] **Rehearse a barman restore from garage before switching**, and re-earn phase 3's G2 gate
+      against the new backend — a backup target that has never been restored from is a hope
+- [ ] Cut CNPG over, verify a scheduled backup and a WAL archive both land
+- [ ] Only then retire the MinIO dependency, and note what still points at elizabeth
+- [ ] Fix the monitoring gap while here: both CNPG clusters report
+      `status.lastSuccessfulBackup: NONE` even though `Backup` objects complete, because the
+      barman-cloud plugin does not populate the field — so anything alerting on it is blind
+
 
 ### Phase 4 — `just merge` and the gpu component
 

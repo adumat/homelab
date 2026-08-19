@@ -11,6 +11,11 @@ spec:
   interval: 1h
   values:
     agent:
+      resources:
+        limits:
+          # Chart default is 128Mi. bjw-s-labs raised theirs after hitting it,
+          # and an OOMed agent is a storage outage rather than a restart.
+          memory: 192Mi
       # Every loopfile.baseDir used by a MiroirNode must be listed here or the
       # agent has no hostPath mount for it: the topology lives in CRs the chart
       # cannot read at render time, while the mounts are pod spec. Mounted

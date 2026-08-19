@@ -29,6 +29,21 @@ spec:
           memory: 128Mi # 128Mi
         limits:
           memory: 256Mi # 1Gi
+    cephImage:
+      # The chart's own knob for the daemon image; the chart warns explicitly not
+      # to set cephClusterSpec.cephVersion alongside it, which renders a DUPLICATE
+      # cephVersion key and makes the whole CephCluster document unparseable.
+      #
+      # Pinned above the chart default because v20.2.2's prometheus module calls
+      # orch_is_available() every 15s, the rook module lists every pod, and the
+      # k8s client logs the whole response body onto an unfiltered root handler.
+      # Ceph keeps the last log_max_recent entries in RAM - 10000 by daemon
+      # default, not the 500 the docs claim - at ~600KiB per PodList line, which
+      # walks the active mgr into an OOM. Fixed by ceph#69609 ("mgr: filter root
+      # logger fallback", merged 2026-07-02), shipped in v20.2.3. Drop this once
+      # the chart default reaches v20.2.3.
+      # renovate: datasource=docker depName=quay.io/ceph/ceph
+      tag: v20.2.3
     cephClusterSpec:
       cephConfig:
         global:

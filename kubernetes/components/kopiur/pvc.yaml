@@ -3,6 +3,12 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: ${APP}
+  labels:
+    # Flux creates this PVC and then leaves it alone. dataSourceRef is immutable,
+    # so without this a reconcile fights the live object every time.
+    # TRADE-OFF: a KOPIUR_CAPACITY change in git will NOT be applied - resize the
+    # PVC by hand (the class allows expansion), or drop this label for that edit.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 spec:
   accessModes:
     - "${KOPIUR_ACCESSMODES:=ReadWriteOnce}"
