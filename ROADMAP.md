@@ -8,7 +8,7 @@ rather than the state predicted weeks earlier.
 
 The half-numbered phases were inserted as work revealed them — 1.5 by a recurring failure,
 2.5 because a 19-app migration should not be planned before a single volume has been
-restored.
+restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand.
 
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
@@ -470,6 +470,77 @@ kopiur at a Postgres data directory, so:
 Phase 2 produced the numbers this phase needs: snapshot 111 s and restore+bind 34 s on a 1 GiB
 volume, a 3.3 MB repository for prowlarr's 57 MB, and a scheduled run that fired unattended.
 What it did **not** produce is behaviour at 45 apps at once — so batches, not bulk.
+
+### Phase 2.6 — node self-recovery: hardware watchdog and kernel logs — ⚠️ priority, inserted 2026-08-18
+
+**Independent of 2.5**: this touches only Talos machine config, so it does not wait for the
+kopiur migration to finish.
+
+**What revealed it.** On 2026-08-18 `kube-ceph-03` stopped answering at 19:31 CEST — every
+scrape target died in the same interval, no ICMP, no Talos API, no ARP entry. It was healthy
+60 s earlier (44-48 °C, 6.9 GB RAM free, load 1.3, zero OOM kills, 14.8 GB free on `/var`),
+and `Wake-on: g` is armed on these NICs, yet WOL from a peer on the same VLAN did nothing. A
+powered-off machine with WOL armed would have woken, so the board was almost certainly still
+running with a dead network path.
+
+Cost of that single hang: ~3 h down, Ceph pinned at 33 % degraded (it cannot re-replicate with
+three OSD hosts and `size 3` — phase 3 removes Ceph entirely), nine RBD volumes stranded on a
+node Kubernetes would not release, and a physical trip to press a button.
+
+**The cause is still unknown, and that is the actual problem.** Nothing ships kernel logs off
+these nodes, so `Detected Hardware Unit Hang`, a panic trace or an MCE all vanish on reboot.
+The `e1000e`/I219 hang is the obvious suspect and `tx-tcp-segmentation: false` is already
+applied and live on all five nodes — but `node_network_carrier_changes_total` and the tx/rx
+error counters were flat at **0** through the 30 min before death, which is not what a
+driver-reset loop looks like. Without logs it stays a guess. Same shape as the elizabeth
+syslog gap in Follow-ups: no evidence retained, so every recurrence is equally unexplainable.
+
+Verified on a live node, 2026-08-18:
+
+| check | state |
+|---|---|
+| `/dev/watchdog0` | present (Intel PCH) |
+| `WatchdogTimerConfig` / `WatchdogTimerStatus` | both empty — **the watchdog is unused** |
+| `panic=` / `pcie_aspm` / `intel_idle.max_cstate` in `/proc/cmdline` | none set |
+| `machine.logging.destinations` | not configured |
+| EDAC (RAM error) metrics | absent, so RAM errors are invisible |
+
+- [ ] Enable the Talos **hardware watchdog** (`WatchdogTimerConfig`, against `/dev/watchdog0`).
+      The device exists and nothing arms it. If the kernel stops petting it the board resets
+      itself, turning "hangs until someone drives over" into a ~1 min reboot — and it works
+      whether the cause is the NIC, the kernel or RAM
+- [ ] Add `panic=10` to [machine-kernel.yaml](kubernetes/talos/patches/global/machine-kernel.yaml)
+      so a panic reboots instead of sitting dead
+- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` into
+      VictoriaLogs. fluent-bit collects *container* logs only, which is exactly why this
+      incident left no kernel evidence. Verify the schema against Talos 1.13 first
+- [ ] Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
+      this way — stops being invisible
+- [ ] Alert on `node_network_carrier_changes_total` rising: it catches a flapping NIC *before*
+      a full hang, and its being flat at 0 is what weakened the e1000e theory here
+
+⚠️ **Do not set `hung_task_panic=1`.** It looks like the natural companion to `panic=10` and it
+is wrong for this cluster: phase 1.5 documents stale NFS handles from elizabeth, and that flag
+would turn an NFS stall into a node reboot. The hardware watchdog covers the genuinely-dead
+case without that false positive.
+
+**Only if it recurs, and one change at a time** — applied together, you never learn which one
+mattered: EEE off (a known I219 trigger that TSO-off does not cover), `pcie_aspm=off`,
+`intel_idle.max_cstate=1` (costs idle watts, which the UPS budget notices), NIC/BIOS firmware
+(currently `0.5-4`).
+
+**Operational lesson, worth more than the config.** To evict a dead node, taint it **before**
+deleting it:
+
+```bash
+kubectl taint node <node> node.kubernetes.io/out-of-service=nodeshutdown:NoExecute
+```
+
+Modern Kubernetes deliberately no longer force-detaches volumes when a Node object is deleted.
+Deleting the Node first orphans its `VolumeAttachment`s with `deletionTimestamp: null` and no
+controller left to clean them, and they must then be removed by hand before any RWO volume can
+attach elsewhere. Before forcing any RBD detach, prove no stale client holds the image:
+`rbd status <pool>/<image>` must show no `watcher=` from the dead node.
 
 ### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
 
