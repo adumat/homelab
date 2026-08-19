@@ -380,32 +380,26 @@ kopiur at a Postgres data directory, so:
 > **Exit condition: every PVC either has a kopiur `SnapshotPolicy`, or is explicitly declared
 > disposable in git.**
 
-- [ ] 🔴 **ALL BACKUPS ARE PAUSED — resume them.** Paused 2026-08-18 so elizabeth's parity
-      check could run uncontended instead of colliding with the 00:00–01:30 UTC window. It
-      worked: the check went from 1% to 23% as soon as the array was left alone.
+- [x] **Backups paused for the parity check, then resumed — 2026-08-18/19.** Pausing 19 kopiur
+      `SnapshotSchedule`s and 15 VolSync `ReplicationSource`s let the post-blackout check run
+      uncontended, and it moved 1% → 23% → 50% → 79% once the array was left alone. All 34
+      resumed 2026-08-19 19:07 UTC, ~5h before the 00:00 UTC window, with the check at 79%.
 
-      **19 kopiur `SnapshotSchedule`s and 15 VolSync `ReplicationSource`s are suspended.**
-      Nothing backs itself up until this is undone. The apps are not unprotected — every one
-      has a backup from 2026-08-17 or later, restorable now the repository is repaired — but
-      that ages by a day for every day this is forgotten.
+      Worth keeping for next time: the field is **`spec.schedule.suspend`** on kopiur, not
+      `spec.suspend` — only the printer column reveals it — and `spec.paused` on VolSync.
+      Flux manages neither, so patches persist across reconciles *and* never undo themselves.
+      That cuts both ways: pausing is reliable, and forgetting to resume is silent.
 
-      Resume once the parity check reaches 100%:
+      ⚠️ **`sbSyncErrs` is not a trustworthy running total.** It read 145 at 50% and 0 at 79%,
+      and error counts do not decrease. The authoritative record is the line Unraid appends to
+      `/boot/config/parity-checks.log` when a check completes (Aug 3 ended with 5, matching the
+      July unclean stop). Read the result there, not from `/proc/mdstat` mid-flight.
 
-      ```bash
-      kubectl get snapshotschedule -A --no-headers | awk '{print $1" "$2}' | while read -r ns n; do
-        kubectl patch snapshotschedule "$n" -n "$ns" --type=merge -p '{"spec":{"schedule":{"suspend":false}}}'
-      done
-      kubectl get replicationsource -A --no-headers | awk '{print $1" "$2}' | while read -r ns n; do
-        kubectl patch replicationsource "$n" -n "$ns" --type=merge -p '{"spec":{"paused":false}}'
-      done
-      # both must report 0
-      kubectl get snapshotschedule -A -o json | jq '[.items[]|select(.spec.schedule.suspend != true)]|length'
-      kubectl get replicationsource -A -o json | jq '[.items[]|select(.spec.paused != true)]|length'
-      ```
-
-      The field is `spec.schedule.suspend` on kopiur — **not** `spec.suspend`; only the
-      printer column reveals it. Flux does not manage either field, so these patches persist
-      across reconciles, which is exactly why they will not undo themselves.
+      Disks checked while it ran and all healthy: parity `sdf` is **6.6 years** old (57,397 h)
+      but has 0 reallocated and 0 pending sectors; both data disks 1.4 years, all counters
+      clean. `mdNumInvalid=1` is the empty `parity2` slot, not a fault, and the cache NVMe
+      showing `DISK_NP_DSBL` is present and mounted — the backups share is
+      `shareUseCache="no"`, so backups never touch cache and it cannot explain the corruption.
 - [ ] **Blocked until elizabeth's parity check finishes** (started 2026-08-18 after the
       unclean shutdown, 1% of 9.77 TB, historically 20-28h). The migration restores over NFS
       from the array that check is saturating, and two outages in two days is the wrong
