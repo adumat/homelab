@@ -700,6 +700,41 @@ Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails 
 
 Verified: `kube-hp` and `kube-nuc`. Never restart them together — quorum is lost.
 
+### rook-ceph: pin the daemon with `cephImage.tag`, never `cephClusterSpec.cephVersion`
+
+The chart builds `cephVersion` itself from `.Values.cephImage`, and its own `values.yaml` warns:
+*"If specifying these values, do not include the cephVersion section in the cephClusterSpec."*
+Set both and the rendered CephCluster gets **two** `cephVersion` keys, which makes the document
+unparseable — and the failure is silent. `flate` drops the CephCluster from its output with
+**nothing on stderr**, `pre-commit`/kubeconform passes, and `flate test all` still reports every
+resource green. The only signal is the document quietly missing:
+
+```sh
+mise exec -- flate build hr 2>/dev/null | grep -c 'kind: CephCluster'   # must be 1, not 0
+```
+
+Also note the daemon version does **not** follow the operator. `rook-ceph-cluster` v1.20.2 and
+v1.20.4 both default to `quay.io/ceph/ceph:v20.2.2`, so a Renovate bump of the rook chart
+leaves the Ceph daemon where it was.
+
+### StorageClass parameters are immutable, and it blocks the whole Kustomization
+
+Changing `parameters` on an existing StorageClass cannot be applied — Flux fails the dry-run
+and the **entire Kustomization stops reconciling**, pinned on its last good revision, so
+unrelated resources in it silently stop updating too:
+
+```
+StorageClass/miroir-replicated dry-run failed (Invalid): ... parameters: field is immutable
+```
+
+Delete and recreate it. That is safe when nothing references it — existing PVs keep the
+parameters resolved at creation time, so a class can be replaced without touching live volumes.
+Check first:
+
+```sh
+kubectl get pvc -A -o json | jq '[.items[]|select(.spec.storageClassName=="<class>")]|length'
+```
+
 ### A power cut can corrupt the kopia repository mid-write
 
 Seen 2026-08-17. An unclean shutdown while a backup was uploading left **zero-length blobs**
