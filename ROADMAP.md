@@ -518,6 +518,19 @@ Verified on a live node, 2026-08-18:
       this way — stops being invisible
 - [ ] Alert on `node_network_carrier_changes_total` rising: it catches a flapping NIC *before*
       a full hang, and its being flat at 0 is what weakened the e1000e theory here
+- [ ] **Fix the NUT alert rules.** The UPS is currently reporting `ups.status: ALARM OL CHRG` with
+      `ups.alarm: "Battery voltage too low!"` at `battery.charge: 100`, and **nothing alerts on it**:
+      the rules in [prometheusrule.yaml](kubernetes/apps/observability/nut-exporter/app/prometheusrule.yaml)
+      only cover `OB`, `RB`, `charge < 50` and runtime-while-`OB`. This is the actual reason Unraid
+      warned for months while the cluster stayed silent. The exporter already runs with
+      `--nut.vars_enable=` so every variable is exported and these alerts cost nothing but rules:
+  - [ ] `network_ups_tools_ups_status{flag="ALARM"}` — the condition that was missed
+  - [ ] `ups.test.result` — battery self-test outcome, watched by nothing today
+  - [ ] `ups.load` and `battery.runtime` **while on line power** — `UpsLowRuntime` only evaluates
+        once already on battery, so it can never warn *before* an outage
+  - [ ] `battery.charge` failing to return to 100 after a discharge, and `battery.voltage`
+  - [ ] Raise the scrape rate or drop `for:` on flag-based rules — a 60 s scrape with `for: 10s`
+        needs the flag present in two consecutive samples to fire
 
 ⚠️ **Do not set `hung_task_panic=1`.** It looks like the natural companion to `panic=10` and it
 is wrong for this cluster: phase 1.5 documents stale NFS handles from elizabeth, and that flag
