@@ -4,3 +4,16 @@ auto_discovery:
   enabled: true
   depth: 1
   delete: true
+# In the Clusterone project, not a per-host one like donkey's: the cluster's
+# ClusterSecretStore is project-scoped to Clusterone, and GARAGE_METRICS_TOKEN
+# plus the S3 key pair are read by Kubernetes (Prometheus and the barman
+# ObjectStores). doco-cd resolves by UUID so the project is irrelevant to it.
+#
+# The values below are Bitwarden secret *IDs*, not secrets. gitleaks flags them
+# because the keys contain SECRET/TOKEN and a UUID has enough entropy to look
+# like a key. Marked per-line rather than allowlisting the whole file, so a real
+# secret pasted here in future would still be caught.
+external_secrets:
+  GARAGE_RPC_SECRET: 7e666c97-687d-4685-b563-b4ac015ffbb4 # gitleaks:allow
+  GARAGE_ADMIN_TOKEN: 2f30b3d5-6b1a-451d-bdc2-b4ac015ffc23 # gitleaks:allow
+  GARAGE_METRICS_TOKEN: d4cfb38e-9cd4-4836-bc28-b4ac015ffc8e # gitleaks:allow
