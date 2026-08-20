@@ -523,6 +523,24 @@ kopiur at a Postgres data directory, so:
 
       Also expect **one benign difference per app**: its own log file. The CSI snapshot is
       crash-consistent so the tail differs; sonarr's diff was exactly that, 1 line of 798.
+- [x] **ALL 18 apps migrated — 2026-08-20.** Every PVC now carries
+      `dataSourceRef: Restore`, there is not one `ReplicationSource` left in the cluster, and no
+      `ks.yaml` references `components/persistence`. Each app was gated on a per-file checksum
+      manifest of the quiesced volume against the restored one before being allowed to start:
+
+      | batch | apps | verification |
+      | --- | --- | --- |
+      | 1 (08-16) | metube, jellyseerr, filebrowser | 9 / 2 / 2 files |
+      | 2 (08-20) | prowlarr, pyload-ng, radarr, sonarr, romm, esp-home, qbittorrent, ocis, unifi-mongo, home-assistant | incl. romm 9,701 and radarr 5,510 |
+      | 3 (08-20) | frigate, jellyfin, paperless, unifi | 4 / 18,521 / 108 / 22 files |
+      | 4 (08-20) | vaultwarden — last and alone | 487 files, 4,869,112 bytes |
+
+      vaultwarden needed `KOPIUR_CAPACITY: 1Gi` stated explicitly: it defaults to **5Gi**, so
+      leaving it unset silently grows a 1Gi volume on migration. Its snapshot came out
+      byte-identical to both scheduled ones, which is what made the content provably stable.
+
+      The four orphaned `ReplicationDestination` objects Flux will not prune (qbittorrent,
+      home-assistant, node-red, karakeep) are deleted. **VolSync now has zero workload objects.**
 - [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
       **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
       a per-file checksum manifest of the quiesced volume against the restored one:
@@ -539,7 +557,14 @@ kopiur at a Postgres data directory, so:
       Also: the discovered `Snapshot` CRs are a cache from when `nas-volsync` was deployed, so
       their newest entry lags what VolSync has actually written. Judge freshness from
       `replicationsource.status.lastSyncTime`; `offset: 0` reads the live repository regardless.
-- [ ] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it
+- [x] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it.
+      Done 2026-08-20: all four gone, no VolSync object of any kind left in the cluster.
+- [ ] Two leftover `premigrate` snapshot CRs (`downloads/qbittorrent`, `home/home-assistant`) from
+      runs that aborted before their cleanup step, plus `media/romm-fixcheck2` — left in place
+      deliberately: they are valid pre-migration copies, and `romm-fixcheck2` is romm's only
+      *post-fix* backup until the 00:40 UTC run. Delete once that run succeeds. Also still there:
+      the `downloads/prowlarr-rescue` PVC (2Gi, 8 days old) — flagged rather than deleted, since
+      the standing rule is to keep cold fallbacks through phase 3
 - [ ] **Protect the ones that were never backed up.** Genuinely wanted: **`services/paperless-ai`**
       (holds the `.env` that needed a wizard run — losing it means running the wizard again),
       `observability/grafana-pvc`, `database/mosquitto` (retained alarm messages),
