@@ -978,27 +978,48 @@ matters. Two shapes avoid it, and the choice is the first task here:
 - garage **in-cluster** for ordinary object storage, with barman replicating to a second
   off-cluster target. More moving parts, and the second target is doing the real work
 
-⚠️ **Garage on Unraid would hit the same trouble that forced MinIO onto a raw disk path — and
-it is the more fragile of the two there.** Established 2026-08-20 while diagnosing the MinIO
-outage. MinIO is pinned to `/mnt/disk2/atlantic_minio` rather than `/mnt/user/...` because the
-**mover** relocates files under a running store and shfs is a FUSE overlay. Verified on the box:
-the `atlantic_minio` and `backups` shares are both `shareUseCache="no"`, the mover runs
-`0 4 * * *`, and it only touches the `yes` shares (`media`, `immich`, `minio`, `Applications`…).
+**Garage vs MinIO on Unraid — checked against both projects' docs, 2026-08-20.** An earlier
+draft of this section claimed garage would hit "the same trouble" and blamed the mover plus
+LMDB's use of mmap. Both framings were wrong; corrected here.
 
-Garage needs the same pinning, plus one thing MinIO does not:
+**What actually blocks MinIO on `/mnt/user`** is not the mover — it is shfs itself. MinIO's docs
+state *"MinIO AIStor requires the XFS filesystem for best performance and behavior at scale"* and
+that *"using any other type of backing storage (SAN/NAS, ext4, RAID, LVM) typically results in a
+reduction in performance, reliability, predictability, and consistency"*. `/mnt/user` is a FUSE
+overlay, so it fails that requirement whatever the cache setting is. `/mnt/disk2` is real XFS
+(`/dev/md2p1 ... type xfs`), so pinning there satisfies the documented requirement. The mover is
+a *separate* hazard, and verified absent here: `atlantic_minio` and `backups` are both
+`shareUseCache="no"`, and the `0 4 * * *` mover only touches the `yes` shares.
 
-- it keeps a separate **`metadata_dir` on LMDB, which is mmap-based**. mmap over shfs/FUSE is
-  unreliable, and a mover relocating an mmap'd file is a corruption generator
-- LMDB is **less tolerant of truncation** than MinIO's per-object metadata — and truncation from
-  an unclean shutdown is precisely what broke MinIO here (`IncompleteBody` on
-  `.minio.sys/.usage-cache.bin`). Garage would likely have come back worse, not better
-- workable Unraid layout if it ever runs there: `data_dir` on a no-cache array disk,
-  `metadata_dir` on the **NVMe cache pool** via a `shareUseCache="only"` share (like `appdata`),
-  which the mover also never moves. 209 GB free there today
+**Garage is not a MinIO fork.** Independent implementation by Deuxfleurs, in production since
+2020, AGPLv3, **95.1% Rust** (MinIO is Go). Architecturally different on purpose: it uses
+**replication and explicitly rejects erasure coding** (*"erasure coding … increase the difficulty
+of placing data and synchronizing; we limit ourselves to duplication"*), keeps metadata in a
+separate DB engine rather than beside the objects, and lists **POSIX filesystem compatibility as
+an explicit non-goal**.
 
-**In-cluster, the mover question disappears entirely** — but LMDB still must sit on block
-storage (Ceph RBD / miroir), **never on an elizabeth NFS volume**. That constraint survives the
-rebuild and belongs in whichever shape is chosen.
+**So its requirements are softer than MinIO's, and about integrity rather than fs features.** No
+documented XFS requirement, no NAS prohibition, nothing about xattr or O_DIRECT. What the docs do
+say:
+
+- metadata: *"Garage does not do checksumming and integrity verification on its own, so it is
+  better to use a robust filesystem such as BTRFS or ZFS"*
+- data: *"Garage already does checksumming and integrity verification … We recommend using XFS
+  for the data partition"*; ext4 discouraged on inode limits
+- ⚠️ the real hazard, and it is exactly elizabeth's demonstrated failure mode: *"when using the
+  LMDB database engine (the default), database files have a tendency of becoming corrupted after
+  an unclean shutdown (e.g. a power outage), so you should take regular snapshots"* — or switch
+  to **SQLite**, which *"does not have the issues listed above for LMDB"*
+
+**Elizabeth happens to have an ideal layout for it**, which MinIO cannot exploit because it has
+no metadata/data split: `metadata_dir` on `/mnt/cache` — **btrfs on NVMe, 218 GB free**,
+checksumming and snapshot-capable, reached via a `shareUseCache="only"` share the mover never
+moves — and `data_dir` on `/mnt/disk2` (XFS). That satisfies every documented recommendation.
+
+**In-cluster the shfs question disappears**, and metadata on Ceph RBD / miroir block storage is
+fine — but the LMDB unclean-shutdown warning follows garage everywhere, so either take metadata
+snapshots or run the SQLite engine regardless of where it lands. Never put the metadata on an
+NFS volume.
 
 🔴 **And the shape decision needs a factor this section does not currently weigh: host
 reliability.** The MinIO failure was not the mover and not the disk (`sdg` SMART PASSED, 0
