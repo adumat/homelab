@@ -17,3 +17,7 @@ external_secrets:
   GARAGE_RPC_SECRET: 7e666c97-687d-4685-b563-b4ac015ffbb4 # gitleaks:allow
   GARAGE_ADMIN_TOKEN: 2f30b3d5-6b1a-451d-bdc2-b4ac015ffc23 # gitleaks:allow
   GARAGE_METRICS_TOKEN: d4cfb38e-9cd4-4836-bc28-b4ac015ffc8e # gitleaks:allow
+  # 'admin:<bcrypt>' for garage-webui. Without it the UI is an unauthenticated
+  # admin console for the backup store - it can delete buckets and mint keys.
+  # The plaintext password is in Bitwarden as GARAGE_WEBUI_PASSWORD.
+  GARAGE_WEBUI_AUTH: d02dd073-0138-49f3-bf29-b4ac0168f28d # gitleaks:allow

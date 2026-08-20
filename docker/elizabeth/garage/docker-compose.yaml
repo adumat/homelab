@@ -18,3 +18,30 @@ services:
       - /mnt/cache/appdata/garage:/var/lib/garage/meta
       # data on the no-cache backups share; garage checksums its own data blocks
       - /mnt/user/backups/garage:/var/lib/garage/data
+
+  # Garage ships no web UI; this is the community one. Note the Docker Hub tag is
+  # "1.1.0" while the GitHub release is "v1.1.0" - the v-prefixed tag does not
+  # exist on the registry.
+  garage-webui:
+    # renovate: datasource=docker depName=khairul169/garage-webui
+    image: khairul169/garage-webui:1.1.0
+    container_name: garage-webui
+    restart: unless-stopped
+    depends_on:
+      - garage
+    environment:
+      TZ: Europe/Rome
+      API_BASE_URL: http://garage:3903
+      API_ADMIN_KEY: ${GARAGE_ADMIN_TOKEN}
+      S3_ENDPOINT_URL: http://garage:3900
+      S3_REGION: garage
+      # The password gate. The admin token above is FULL control over garage -
+      # it can delete buckets and mint keys - so an unauthenticated UI would be
+      # an open admin console for the backup store. Envoy's OIDC is not reachable
+      # from outside the cluster, so this is the gate. 'admin:<bcrypt>', with the
+      # plaintext password in Bitwarden as GARAGE_WEBUI_PASSWORD.
+      AUTH_USER_PASS: ${GARAGE_WEBUI_AUTH}
+    ports:
+      - '3909:3909'
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
