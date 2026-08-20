@@ -28,6 +28,10 @@ kind: Kustomization
 metadata:
   name: grafana-instance
 spec:
+  # kopiur-external: the Grafana CR creates grafana-pvc through its own
+  # persistentVolumeClaim spec, so this component brings the backup half only.
+  components:
+    - ../../../../components/kopiur-external
   dependsOn:
     - name: external-secrets-store
       namespace: security
@@ -36,6 +40,8 @@ spec:
     - name: grafana
     - name: rook-ceph-cluster
       namespace: rook-ceph
+    - name: kopiur-repository
+      namespace: volsync-system
   healthChecks:
     - apiVersion: grafana.integreatly.org/v1beta1
       kind: Grafana
@@ -45,6 +51,13 @@ spec:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
+    substitute:
+      APP: grafana
+      # The Grafana CR names the volume grafana-pvc, not ${APP}.
+      KOPIUR_CLAIM: grafana-pvc
+      # Default 1000 mover verified: all 652 paths under /var/lib/grafana are
+      # 1000:1000, including the 2700 dirs and the one 0640 file.
+      CRON_EXPRESSION: '40 1 * * *'
   interval: 1h
   path: ./kubernetes/apps/observability/grafana/instance
   prune: true

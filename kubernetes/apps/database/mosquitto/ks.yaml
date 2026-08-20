@@ -5,10 +5,16 @@ kind: Kustomization
 metadata:
   name: mosquitto
 spec:
+  # kopiur-external, not kopiur: the PVC is declared in app/pvc.yaml and already
+  # exists, and dataSourceRef is immutable so it cannot be adopted in place.
+  components:
+    - ../../../../components/kopiur-external
   path: ./kubernetes/apps/database/mosquitto/app
   dependsOn:
     - name: rook-ceph-cluster
       namespace: rook-ceph
+    - name: kopiur-repository
+      namespace: volsync-system
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -22,4 +28,10 @@ spec:
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
+    substitute:
+      APP: mosquitto
+      # Default 1000 mover is correct and was verified, not assumed: all 284
+      # files are 1000:1000 mode 0600, and lost+found is 2770 with group 1000
+      # so gid 1000 can traverse it.
+      CRON_EXPRESSION: '50 0 * * *'
   targetNamespace: database

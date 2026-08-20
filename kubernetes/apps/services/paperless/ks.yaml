@@ -58,6 +58,11 @@ spec:
   commonMetadata:
     labels:
       app.kubernetes.io/name: *app
+  # kopiur-external: app-template's persistence creates the PVC. This holds the
+  # onboarding .env that only exists because the wizard was run by hand, so
+  # losing it means running the wizard again.
+  components:
+    - ../../../../components/kopiur-external
   interval: 1h
   path: ./kubernetes/apps/services/paperless/ai
   dependsOn:
@@ -67,9 +72,17 @@ spec:
       namespace: services
     - name: litellm
       namespace: services
+    - name: kopiur-repository
+      namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
+      # Default 1000 mover, deliberately NOT root. Everything in /app/data is
+      # root-owned but mode 644/755, so gid 1000 reads it; the only blocker was
+      # an empty ext4 lost+found at 0700 root:root, made 2770 group 1000 by hand
+      # (the same shape mosquitto's has). A root mover would have needed
+      # privileged-movers on THIS namespace - which also holds vaultwarden.
+      CRON_EXPRESSION: '45 1 * * *'
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
