@@ -15,13 +15,11 @@ spec:
     # runs as 999 and its mover cannot read the volume without it.
     podSecurityContext:
       fsGroup: ${KOPIUR_PGID:=1000}
-      # NOT OnRootMismatch. components/persistence omitted this, so it defaulted
-      # to Always - a recursive chown/chmod on every mount, which is what let the
-      # mover read files the app created as root. OnRootMismatch sees the volume
-      # root already at the right GID and skips the whole fix, so root-owned
-      # 0600 files stay unreadable and the backup dies with PermissionDenied.
-      # romm (runs as root, uploads game saves) failed exactly this way for two
-      # nights while the other 18 apps, which run as 1000, were unaffected.
+      # Always rather than OnRootMismatch, matching what components/persistence
+      # did implicitly. Be aware it does NOT rescue a mover from unreadable
+      # files: the staged clone is mounted read-only, so Kubernetes cannot chmod
+      # it whatever this is set to. An app that writes root-owned 0600 files
+      # needs KOPIUR_PUID/PGID "0" instead - see romm.
       fsGroupChangePolicy: Always
     securityContext:
       runAsUser: ${KOPIUR_PUID:=1000}

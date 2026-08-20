@@ -31,6 +31,11 @@ spec:
     substitute:
       APP: *app
       VOLSYNC_CAPACITY: 2Gi
+      # romm runs as root and writes its game-save uploads mode 0600, so a
+      # mover running as 1000 cannot read them - the staged clone is mounted
+      # read-only, so no fsGroup setting can fix it. Root reads everything.
+      KOPIUR_PUID: "0"
+      KOPIUR_PGID: "0"
       CRON_EXPRESSION: '40 0 * * *'
   prune: true
   retryInterval: 2m
