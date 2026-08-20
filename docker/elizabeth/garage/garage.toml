@@ -1,0 +1,25 @@
+# Managed by doco-cd from git. Do not edit on the host.
+#
+# db_engine = sqlite, NOT the default lmdb: garage's docs warn LMDB "files have a
+# tendency of becoming corrupted after an unclean shutdown", which is elizabeth's
+# demonstrated failure mode (2026-07-29 and 2026-08-19).
+#
+# metadata_dir is bind-mounted from /mnt/cache/appdata/garage (btrfs on NVMe).
+# Garage issue #1200: the maintainer attributes malformed databases to "unclean
+# shutdown + non-resilient filesystem", counting BTRFS/ZFS resilient and
+# ext4/XFS non-resilient. So sqlite alone is not enough - the filesystem matters
+# too, and /mnt/user/... would additionally put SQLite on FUSE.
+metadata_dir = "/var/lib/garage/meta"
+data_dir     = "/var/lib/garage/data"
+db_engine    = "sqlite"
+
+# Single node. Stated explicitly rather than left implicit: this is NOT
+# redundancy, and the backup-of-backups problem is tracked separately.
+replication_factor = 1
+
+[s3_api]
+s3_region     = "garage"
+api_bind_addr = "[::]:3900"
+
+[admin]
+api_bind_addr = "[::]:3903"

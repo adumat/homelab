@@ -1,0 +1,20 @@
+services:
+  garage:
+    # renovate: datasource=docker depName=dxflrs/garage
+    image: dxflrs/garage:v2.3.0
+    container_name: garage
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Rome
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+    ports:
+      - '3900:3900'   # S3 API
+      - '3903:3903'   # admin + /metrics
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      # metadata on btrfs NVMe - see garage.toml for why this is not /mnt/user
+      - /mnt/cache/appdata/garage:/var/lib/garage/meta
+      # data on the no-cache backups share; garage checksums its own data blocks
+      - /mnt/user/backups/garage:/var/lib/garage/data
