@@ -6,6 +6,14 @@ metadata:
 spec:
   credentialProjection:
     enabled: true
+  mover:
+    # The RESTORE mover writes the files, so it must run as the same user the app
+    # does - KOPIUR_PUID/PGID on the SnapshotPolicy only govern backups. Omitting
+    # this restored unifi-mongo's data as 1000:1000 with WiredTiger.turtle at
+    # 0600, and mongo (999) then died with "Permission denied" on every start.
+    securityContext:
+      runAsUser: ${KOPIUR_PUID:=1000}
+      runAsGroup: ${KOPIUR_PGID:=1000}
   policy:
     # Continue, not Fail: on a first deploy there is no snapshot yet, and the app
     # should come up with an empty volume rather than hang. The cost is that a
