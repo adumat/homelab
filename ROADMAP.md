@@ -565,10 +565,38 @@ kopiur at a Postgres data directory, so:
       *post-fix* backup until the 00:40 UTC run. Delete once that run succeeds. Also still there:
       the `downloads/prowlarr-rescue` PVC (2Gi, 8 days old) — flagged rather than deleted, since
       the standing rule is to keep cold fallbacks through phase 3
-- [ ] **Protect the ones that were never backed up.** Genuinely wanted: **`services/paperless-ai`**
-      (holds the `.env` that needed a wizard run — losing it means running the wizard again),
-      `observability/grafana-pvc`, `database/mosquitto` (retained alarm messages),
-      `database/pgadmin`
+- [x] **All four unprotected PVCs now backed up — 2026-08-20.** `services/paperless-ai`,
+      `observability/grafana-pvc`, `database/mosquitto`, `database/pgadmin`, each via
+      `components/kopiur-external` (backup half only — every one of these PVCs is created by a
+      chart, an operator or its own `pvc.yaml`, and `dataSourceRef` is immutable so none can be
+      adopted in place). Slots staggered into the free 5-minute gaps: 00:50, 01:35, 01:40, 01:45.
+
+      **The mover UID was measured per app, not inferred** — the mistake that broke romm. All four
+      differ, and three of the four would have failed on a guess:
+
+      | app | ownership | mover | first run |
+      | --- | --- | --- | --- |
+      | grafana | all `1000:1000` | default 1000 | 49,531,555 B |
+      | mosquitto | 284 files `1000:1000 0600` | default 1000 | 85,148 B |
+      | pgadmin | `5050:5050`, 10 files `0600` | **5050** | 401,408 B |
+      | paperless-ai | root-owned but `644`/`755` | default 1000 | 262,994 B |
+
+      Each was proven with an on-demand run rather than left for the schedule.
+
+      paperless-ai needed one manual fix: an empty ext4 `lost+found` at `0700 root:root` blocked
+      traversal. Set to `2770` group 1000 (the shape mosquitto's already had). The alternative was
+      a root mover, which needs `privileged-movers` on the **services** namespace — the one that
+      holds vaultwarden. Not worth it for one empty directory.
+
+      ⚠️ pgadmin also lost `wait: true`, which cannot coexist with the inert `Restore` this
+      component adds: nothing claims it, so kstatus holds it `InProgress` forever. Replaced with
+      an explicit HelmRelease health check.
+
+      **Still open for phase 3:** none of these four sets `dataSourceRef` on its PVC, so a
+      rebuilt cluster would bring them up **empty and reporting healthy** — which G4 counts as a
+      bug. Backups protect the data today and can be restored by hand; the automatic-restore half
+      needs each chart to expose `dataSourceRef` (mosquitto's own `pvc.yaml` and grafana's CR can,
+      app-template's `persistence` needs checking).
 - [ ] **Declare the disposable ones disposable, in git** so the gap is visible rather than
       accidental: `esp-home-cache`, `home-assistant-cache`, `jellyfin-cache`,
       `jellyseerr-cache`, `konflate-cache`
