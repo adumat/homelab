@@ -428,14 +428,26 @@ kopiur at a Postgres data directory, so:
       slots, ~6.5 GB total. `unifi-mongo` among them at 766 MB, which is exactly what the
       `fsGroup` / `KOPIUR_PGID 999` work in phase 2's Task 1 existed for.
 
-      **romm was the one failure, and took three attempts.** It fails `PermissionDenied`
-      because it runs as **root** and writes game-save uploads mode **0600** — the `1000` group
-      on them comes from the parent directory's setgid bit, not from `fsGroup`. Two theories
-      disproved by measurement first: source ownership (already `1000:1000`) and
-      `fsGroupChangePolicy` (`Always` still failed, because the mover snapshots a **read-only**
-      clone that Kubernetes cannot chmod). Fixed with `KOPIUR_PUID/PGID "0"` plus the namespace
-      opt-in kopiur demands for an elevated mover — **212,918,436 bytes** against VolSync's
-      213,927,534.
+      **romm was the one failure, and the fix applied for it was wrong — corrected 2026-08-20.**
+      It failed `PermissionDenied` on 29 files, and the conclusion drawn was that romm "runs as
+      root and writes game-save uploads mode 0600, so a mover as 1000 cannot read them". The
+      applied fix was `KOPIUR_PUID/PGID "0"` plus the namespace opt-in kopiur demands for an
+      elevated mover.
+
+      🔴 **That was backwards and it kept romm's backup broken for two days.** Every file and
+      directory on the volume is owned by `1000:1000` — the note above even recorded
+      "source ownership (already `1000:1000`)" and concluded the opposite. romm's *container* is
+      root, but the app drops privileges and the `1000` group on the setgid dirs is not
+      `fsGroup`. Since kopiur's mover drops **ALL capabilities**, uid 0 has no
+      `CAP_DAC_OVERRIDE` and so loses the owner match without gaining a bypass. Proven both ways
+      on the same volume minutes apart: `runAsUser: 0` → `PermissionDenied` on exactly those 29;
+      `runAsUser: 1000` → `Succeeded`, **212,918,436 bytes** (against VolSync's 213,927,534).
+
+      Caught only because the on-demand re-test was requested rather than trusting the two
+      overnight failures as "historical". The override is removed, and so is the namespace
+      privilege grant it required — nothing in `media` needs an elevated mover.
+      `fsGroupChangePolicy` remains a dead end regardless: the mover snapshots a **read-only**
+      clone Kubernetes cannot chmod.
 
       Procedure and both traps in [AGENTS.md](AGENTS.md), including the
       grep-across-document-boundaries mistake that made a namespace patch look as though it had

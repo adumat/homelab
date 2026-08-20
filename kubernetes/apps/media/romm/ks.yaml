@@ -30,11 +30,14 @@ spec:
     substitute:
       APP: *app
       KOPIUR_CAPACITY: 2Gi
-      # romm runs as root and writes its game-save uploads mode 0600, so a
-      # mover running as 1000 cannot read them - the staged clone is mounted
-      # read-only, so no fsGroup setting can fix it. Root reads everything.
-      KOPIUR_PUID: "0"
-      KOPIUR_PGID: "0"
+      # No KOPIUR_PUID/PGID override on purpose - the default 1000 is correct.
+      # romm's CONTAINER runs as root, but every file on the volume is owned by
+      # 1000:1000 (the app drops privileges; the 1000 group on the setgid dirs is
+      # not fsGroup). 29 of them are mode 0600, and a mover as 1000 owns them.
+      # An earlier "fix" set this to 0 and broke the backup for two days: kopiur's
+      # mover drops ALL capabilities, so uid 0 has no CAP_DAC_OVERRIDE and loses
+      # the owner match it needs. Measured: 0 -> PermissionDenied on those 29,
+      # 1000 -> Succeeded, 212,918,436 bytes. See AGENTS.md.
       CRON_EXPRESSION: '40 0 * * *'
   prune: true
   retryInterval: 2m

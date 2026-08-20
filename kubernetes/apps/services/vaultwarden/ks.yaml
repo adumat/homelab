@@ -10,8 +10,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/services/vaultwarden/app
   dependsOn:
@@ -21,12 +20,14 @@ spec:
       namespace: database
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 1Gi
+      # Must be stated: the live PVC is 1Gi and KOPIUR_CAPACITY defaults to 5Gi,
+      # so leaving it unset silently grows the volume on migration.
+      KOPIUR_CAPACITY: 1Gi
       CRON_EXPRESSION: '55 0 * * *'
     substituteFrom:
       - name: cluster-secrets
