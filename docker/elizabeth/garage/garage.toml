@@ -17,6 +17,13 @@ db_engine    = "sqlite"
 # redundancy, and the backup-of-backups problem is tracked separately.
 replication_factor = 1
 
+# Required by garage v2.3.0 even for a single node - it refuses to start with
+# "missing field `rpc_bind_addr`". Only cluster-internal RPC listens here; it is
+# deliberately NOT published in docker-compose.yaml, so nothing outside the host
+# can reach it. rpc_public_addr is omitted because there are no peers to
+# advertise to.
+rpc_bind_addr = "[::]:3901"
+
 [s3_api]
 s3_region     = "garage"
 api_bind_addr = "[::]:3900"
