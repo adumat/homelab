@@ -682,19 +682,49 @@ kopiur at a Postgres data directory, so:
       container). **90 `cnpg_` metrics are scraped.** Query Prometheus through the API proxy
       (`kubectl get --raw /api/v1/namespaces/observability/services/kube-prometheus-stack-prometheus:9090/proxy/api/v1/...`)
       rather than exec, and sanity-check with `up` before trusting a "no data" result.
-- [ ] 🔴 **OPEN: immich-db has no working base backup.** Found by the alert above the moment it
-      started working. WAL archiving is healthy (`archived_count` 75 rising, `failed_count` 7,
-      last success *after* the last failure), but **every base backup fails** — the scheduled one
-      on 2026-08-19 23:45 and two on-demand retries, all
-      `rpc error: code = Unknown desc = exit status 1` with `startedAt: null`, so it dies before
-      the backup begins. cluster18 is unaffected (10/10 completed) and both use the same MinIO
-      endpoint on elizabeth, differing only by bucket (`s3://immich/` vs `s3://postgresql/`).
+- [ ] 🔴 **OPEN: MinIO on elizabeth is flapping, and it is why immich-db has no base backup
+      since 2026-08-18.** Diagnosed 2026-08-20. Not a CNPG problem and not immich-specific — the
+      object store itself is degraded:
 
-      So WAL is accumulating in the object store with **no base to replay onto** — no
-      point-in-time recovery for immich's metadata. Not urgent by disk: WAL volumes are at 3–5%.
-      Next step is the barman CLI's own stderr, which neither the plugin Deployment logs nor the
-      Backup object surface; `exit status 4` on the archive path suggests an S3-level error worth
-      checking against the `immich` bucket specifically.
+      ```
+      ListObjectsV2 → InternalError ... cause(listPathRaw: 0 drives provided)
+      node(127.0.0.1:9000): Read/Write/Delete successful, bringing drive /data online
+      .minio.sys/buckets/.usage-cache.bin has incomplete body (cmd.IncompleteBody)
+      ```
+
+      MinIO repeatedly marks its single backing drive **offline**, then heals it, then loses it
+      again. Every base backup begins with a LIST, so it fails whenever the drive is down —
+      while WAL archiving is a PUT and mostly squeezes through (75 archived / 7 failed). That
+      asymmetry is the whole reason this looked immich-specific: `s3://postgresql/` fails the
+      **identical** way, and cluster18's 2026-08-19 backup only completed because it happened to
+      catch an online window.
+
+      **Cause: elizabeth was shut down uncleanly on 2026-08-19 16:29** — `/boot/config/forcesync`
+      is stamped at exactly that minute, the same marker as the 2026-07-29 unclean stop. That
+      triggered an automatic *correcting* parity check which found and fixed **145 sync errors**
+      (39.9 h wall-clock with the tuning plugin's pauses, 32,222 s of actual sync, done
+      2026-08-20 01:27 UTC), and left MinIO's internal metadata damaged — the `IncompleteBody`
+      on its usage cache is the same class of truncation as the kopia zero-length blobs from the
+      2026-08-17 blackout.
+
+      Hardware is **not** implicated: `sdg` (disk2) SMART PASSED, 0 reallocated, 0 pending, 0
+      offline-uncorrectable; only 7 historical UDMA_CRC errors.
+
+      Impact: WAL is archiving with **no base to replay onto**, so no PITR for immich's metadata
+      since Aug 18. Not urgent by disk — WAL volumes sit at 3–5%.
+
+      Next step is a MinIO restart to clear the stuck offline state and rebuild the usage cache
+      (deliberately NOT done unattended - it is a service on the shared NAS), then re-run both
+      clusters' backups and confirm `barman-cloud-backup-list` shows a fresh entry for
+      `immich-pg17-0`.
+
+      🔬 Method notes worth keeping. The plugin wraps everything as
+      `rpc error: exit status 1` and neither the plugin Deployment nor the `Backup` object
+      carries barman's stderr. Two things made it findable: CNPG runs backups on the **replica**
+      by default (the operator log names the pod - I was reading the primary's log and seeing
+      nothing), and `barman-cloud-backup-list` run from a throwaway pod using the same image
+      reproduces the real S3 error in one shot. Feed credentials with `secretKeyRef`, never on a
+      command line.
 
 Phase 2 produced the numbers this phase needs: snapshot 111 s and restore+bind 34 s on a 1 GiB
 volume, a 3.3 MB repository for prowlarr's 57 MB, and a scheduled run that fired unattended.
