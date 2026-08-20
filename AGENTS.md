@@ -700,6 +700,54 @@ Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails 
 
 Verified: `kube-hp` and `kube-nuc`. Never restart them together — quorum is lost.
 
+### An app that runs as root can break its own backup
+
+`kopia snapshot create` fails `PermissionDenied` when the app writes files the mover cannot
+read. romm does exactly this: it runs as root and saves game-save uploads mode **0600**, so
+only root can open them. The directories look innocent — `drwxr-sr-x 0 1000` — because the
+`1000` group comes from the parent's **setgid bit**, not from `fsGroup`.
+
+The failure names the file, so read `status.failure.message` rather than guessing:
+
+```sh
+kubectl get snapshot <name> -n <ns> -o json | jq -r '.status.failure.message'
+```
+
+**`fsGroup` cannot rescue this, whatever `fsGroupChangePolicy` says.** The mover snapshots a
+staged clone that is mounted **read-only**, so Kubernetes cannot chmod it. Verified by trying
+`Always` and still failing.
+
+The fix is a root mover, plus a namespace opt-in that kopiur requires for it:
+
+```yaml
+# <app>/ks.yaml
+      KOPIUR_PUID: "0"
+      KOPIUR_PGID: "0"
+```
+
+```yaml
+# apps/<namespace>/kustomization.yaml - kopiur refuses an elevated mover otherwise
+patches:
+  - target: {kind: Namespace}
+    patch: |-
+      - op: add
+        path: /metadata/annotations/kopiur.home-operations.com~1privileged-movers
+        value: "true"
+```
+
+The gate is deliberate: anyone with access to the namespace could reuse the minted
+`kopiur-mover` ServiceAccount at that privilege. Grant it per namespace, never cluster-wide,
+and prefer fixing the app's file modes where that is possible.
+
+⚠️ When checking which namespaces carry an annotation, **do not use `grep -B`** on rendered
+output — it straddles document boundaries and will name the wrong namespace. Parse the
+documents:
+
+```sh
+mise exec -- flate build ks 2>/dev/null > /tmp/ks.yaml
+python3 -c "import io,re;print([re.search(r'^  name: (\S+)',d,re.M).group(1) for d in io.open('/tmp/ks.yaml').read().split('\n---\n') if re.search(r'^kind: Namespace$',d,re.M) and 'privileged-movers' in d])"
+```
+
 ### rook-ceph: pin the daemon with `cephImage.tag`, never `cephClusterSpec.cephVersion`
 
 The chart builds `cephVersion` itself from `.Values.cephImage`, and its own `values.yaml` warns:
