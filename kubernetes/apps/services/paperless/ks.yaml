@@ -10,8 +10,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: "./kubernetes/apps/services/paperless/app"
   dependsOn:
@@ -25,12 +24,12 @@ spec:
       namespace: database
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 15Gi
+      KOPIUR_CAPACITY: 15Gi
       CRON_EXPRESSION: '5 1 * * *'
     substituteFrom:
       - name: cluster-secrets

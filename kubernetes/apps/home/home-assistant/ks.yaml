@@ -11,8 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/nfs-scaler
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/home/home-assistant/app
   dependsOn:
@@ -20,12 +19,12 @@ spec:
       namespace: security
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 10Gi
+      KOPIUR_CAPACITY: 10Gi
       CRON_EXPRESSION: '10 1 * * *'
     substituteFrom:
       - name: cluster-secrets

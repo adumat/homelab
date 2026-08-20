@@ -10,8 +10,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/network/unifi/mongo
   dependsOn:
@@ -19,7 +18,7 @@ spec:
       namespace: security
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
@@ -27,9 +26,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 10Gi
-      VOLSYNC_PUID: "999"
-      VOLSYNC_PGID: "999"
+      KOPIUR_CAPACITY: 10Gi
       KOPIUR_PUID: "999"
       KOPIUR_PGID: "999"
       CRON_EXPRESSION: '30 1 * * *'
@@ -54,8 +51,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/network/unifi/app
   dependsOn:
@@ -65,7 +61,7 @@ spec:
       namespace: security
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
@@ -73,7 +69,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi
+      KOPIUR_CAPACITY: 5Gi
       CRON_EXPRESSION: '25 1 * * *'
   prune: true
   retryInterval: 2m
