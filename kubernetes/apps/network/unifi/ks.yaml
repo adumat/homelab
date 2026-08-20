@@ -38,6 +38,17 @@ spec:
     namespace: flux-system
   targetNamespace: *namespace
   timeout: 10m
+  # unifi waits for a healthy mongo, so this stays true - but kstatus judges a
+  # kopiur Restore by observedGeneration, and a Restore stops reconciling once it
+  # reaches a terminal phase. Any later re-apply that bumps generation therefore
+  # leaves it permanently 'InProgress' to kstatus and deadlocks this health check
+  # (and every app gated behind it). Judge it by its phase instead. See AGENTS.md.
+  healthCheckExprs:
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Restore
+      current: status.phase == 'Completed'
+      failed: status.phase == 'Failed'
+      inProgress: status.phase in ['Pending', 'Resolving', 'Restoring']
   wait: true
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
