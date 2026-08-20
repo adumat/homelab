@@ -9,8 +9,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/nfs-scaler
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
     - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/qbittorrent/app
@@ -21,7 +20,7 @@ spec:
       namespace: security
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
