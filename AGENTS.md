@@ -700,6 +700,48 @@ Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails 
 
 Verified: `kube-hp` and `kube-nuc`. Never restart them together — quorum is lost.
 
+### Migrating a PVC: three things that will bite
+
+Learned the hard way while migrating apps off VolSync, one of which cost ~7 hours of radarr
+metadata.
+
+**1. A blocked `delete pvc` is armed, not cancelled.** `kubectl delete pvc` against a volume a
+running pod is using does not fail — it sets `deletionTimestamp` and waits behind the
+`kubernetes.io/pvc-protection` finalizer. It then fires **the moment the consumer stops**, which
+may be minutes later in a different operation. Always check before starting:
+
+```sh
+kubectl get pvc <app> -n <ns> -o jsonpath='{.metadata.deletionTimestamp}'   # must be empty
+```
+
+**2. KEDA restarts the app even with the HelmRelease suspended.** Eight apps carry
+`components/nfs-scaler`, whose `ScaledObject` (min 0 / max 1) will scale a Deployment back to 1
+regardless of `flux suspend hr`. That both bypasses any verification gate and holds the PVC open
+so it cannot be deleted. Pause it explicitly, and unpause on every exit path:
+
+```sh
+kubectl annotate scaledobject <app> -n <ns> autoscaling.keda.sh/paused-replicas="0" --overwrite
+kubectl annotate scaledobject <app> -n <ns> autoscaling.keda.sh/paused-replicas-
+```
+
+Affected: `frigate`, `home-assistant`, `kopia`, `qbittorrent`, `radarr`, `sonarr`, `jellyfin`,
+`romm`.
+
+**3. Verify with a per-file checksum manifest, and wait for the pod to finish.** A `du` total or
+a directory listing proves nothing — a populator PVC binds and mounts happily while empty. Run
+`find . -type f | sort` with `md5sum` per file in a `restartPolicy: Never` pod, wait for phase
+**`Succeeded`**, *then* read the logs. Breaking on the first non-empty `kubectl logs` captures
+partial output from a still-running pod: it silently truncated a 5510-file baseline to 493.
+
+Expect exactly one benign difference: the app's **own log file**. The CSI snapshot is
+crash-consistent, so its tail can differ between the snapshot instant and the live read. Ignore
+`*/log/*` paths and abort on anything else.
+
+⚠️ **`grep` in this repo's shell is `ugrep`**, and it does not match `^[<>]` on diff output the
+way GNU grep does — it reported a real one-file difference as zero. Use `/usr/bin/grep` and
+`/usr/bin/diff` when the answer matters. It has also silently returned nothing for
+`ls -a | grep -i just`, and `grep -B` straddles YAML document boundaries.
+
 ### An app that runs as root can break its own backup
 
 `kopia snapshot create` fails `PermissionDenied` when the app writes files the mover cannot
