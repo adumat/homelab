@@ -32,6 +32,10 @@ setup:
 check-nodes:
     "{{ justfile_dir() }}/scripts/check-nodes.sh"
 
+[doc('Audit backup coverage against backup-policy.yaml')]
+backup-audit:
+    "{{ justfile_dir() }}/scripts/backup-audit.sh"
+
 [doc('Mount an NFS share from elizabeth.lan to ./mnt/<name> (sudo)')]
 mount name:
     sudo "{{ justfile_dir() }}/scripts/mount-nfs.sh" mount "{{ name }}"

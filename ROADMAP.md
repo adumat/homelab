@@ -597,12 +597,43 @@ kopiur at a Postgres data directory, so:
       bug. Backups protect the data today and can be restored by hand; the automatic-restore half
       needs each chart to expose `dataSourceRef` (mosquitto's own `pvc.yaml` and grafana's CR can,
       app-template's `persistence` needs checking).
-- [ ] **Declare the disposable ones disposable, in git** so the gap is visible rather than
-      accidental: `esp-home-cache`, `home-assistant-cache`, `jellyfin-cache`,
-      `jellyseerr-cache`, `konflate-cache`
-- [ ] **Decide, and write down, whether observability history is worth backing up:**
-      `prometheus-…-db`, `victoria-logs`, `alertmanager-…-db`. Metrics history versus
-      repository size and NFS load — a real trade-off, not an oversight
+- [x] **Every PVC now has declared intent, and `just backup-audit` enforces it — 2026-08-20.**
+      [backup-policy.yaml](backup-policy.yaml) at the repo root, checked by
+      [scripts/backup-audit.sh](scripts/backup-audit.sh). 50 live PVCs = 22 protected by kopiur +
+      28 declared exceptions, and the audit exits clean.
+
+      The file lists **only the exceptions**. "Protected" is derived from the live
+      `SnapshotPolicy` objects, so there is one source of truth for what is backed up and the
+      file cannot drift out of agreement with the cluster. The rule enforced is simply: every
+      live PVC is either named by a policy or listed as an exception — which is the gap that let
+      `paperless-ai` run four months with no backup while looking healthy.
+
+      It checks the two failure modes that *look* like success:
+
+      - **unclassified** — a PVC nobody ever considered (the paperless-ai mode)
+      - **protected but not producing** — a policy that exists but whose newest snapshot is
+        `Failed`, missing, or older than 48h (the romm mode: two days of `PermissionDenied`
+        while the SnapshotPolicy sat there looking fine)
+
+      plus contradictions: an exception something is actually backing up, a stale entry whose PVC
+      is gone, and a policy naming a PVC that does not exist. It refuses to report clean without
+      cluster connectivity, since a failing `kubectl` would otherwise read as "no PVCs exist".
+
+      **Both detection paths were tested, not just the green run:** removing the four
+      observability entries produced exactly 4 findings and exit 1; `MAX_AGE_HOURS=0` flagged 18
+      of 22 — correctly excluding the 4 whose snapshots were 0 hours old.
+
+      🔴 Found while building it: `// empty` is jq syntax and yq rejects it outright. With
+      `2>/dev/null` on that call the exception list parsed as empty and the audit reported **28
+      confident false findings**. The suppression is gone and a policy file that parses to
+      nothing while containing entries is now a hard error.
+- [x] **Observability history: decided NOT to back up — 2026-08-20**, on the numbers rather than
+      by default. prometheus is **16 GB in use** against a **7.0 GB total repository**, and its
+      content self-expires at 14d retention, so a restore would recover metrics already partly
+      stale; victoria-logs is the same argument at 14d. alertmanager is only 40 KB, but its one
+      piece of real state is silences — and all 4 are declared in git under
+      `silence-operator/silences`, so it is reconstructible. `config-gatus-0` holds only probe
+      history; its config comes from git. All four are declared `disposable` with reasons.
 - [ ] ⚠️ **Leave CNPG data and WAL out of kopiur.** `cluster18` and `immich-db` carry Authelia,
       paperless, atuin and immich metadata. A filesystem snapshot of a live Postgres, with WAL
       on a *separate* PVC snapshotted at a different instant, is inconsistent — barman is the
