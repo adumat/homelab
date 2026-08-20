@@ -423,6 +423,23 @@ kopiur at a Postgres data directory, so:
       `kopiur-controller` to reset the circuit breaker. `nas-volsync` back to
       `Ready/Bootstrapped`, radarr's manual sync completed, zero movers erroring.
       Full procedure in [AGENTS.md](AGENTS.md).
+- [x] **All 19 apps have a working kopiur backup — 2026-08-20.** First full scheduled run
+      after the blackout: **18 of 19 succeeded unattended** in their staggered 00:00–01:32 UTC
+      slots, ~6.5 GB total. `unifi-mongo` among them at 766 MB, which is exactly what the
+      `fsGroup` / `KOPIUR_PGID 999` work in phase 2's Task 1 existed for.
+
+      **romm was the one failure, and took three attempts.** It fails `PermissionDenied`
+      because it runs as **root** and writes game-save uploads mode **0600** — the `1000` group
+      on them comes from the parent directory's setgid bit, not from `fsGroup`. Two theories
+      disproved by measurement first: source ownership (already `1000:1000`) and
+      `fsGroupChangePolicy` (`Always` still failed, because the mover snapshots a **read-only**
+      clone that Kubernetes cannot chmod). Fixed with `KOPIUR_PUID/PGID "0"` plus the namespace
+      opt-in kopiur demands for an elevated mover — **212,918,436 bytes** against VolSync's
+      213,927,534.
+
+      Procedure and both traps in [AGENTS.md](AGENTS.md), including the
+      grep-across-document-boundaries mistake that made a namespace patch look as though it had
+      landed on `kube-system`.
 - [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
       **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
       a per-file checksum manifest of the quiesced volume against the restored one:
@@ -742,6 +759,13 @@ Hardware already in the house, metrics absent.
 - [ ] `kromgo` — PromQL-driven badges on `envoy-external`, with the badges in the README.
       The domain is not treated as a secret: manifests still use `${DOMAIN}`, but for a
       single source in `cluster-secrets`, not for confidentiality
+- [ ] **Ceph mgr module crashes hold `HEALTH_WARN` permanently — consider v20.2.4.** The
+      v20.2.3 pin did its job: mgr memory is stable at **427Mi** with no restarts, where it
+      used to grow until OOM. But the `rook` mgr module raises `NotImplementedError` in
+      `node_proxy_fullreport` **4 times a minute** — ~5,700 crash reports a day — which keeps
+      the cluster in `HEALTH_WARN` and so masks real problems. **Not** a regression: the same
+      crash goes back to 2026-05-11. `ceph crash archive-all` clears it until it
+      re-accumulates. v20.2.4 exists and is a one-line change to the `cephImage.tag` pin.
 - [ ] `snmp-exporter` — HPE OfficeConnect 1820 switch and the UPS, invisible today
 - [ ] `drm-exporter` — Intel GPU utilisation, invisible today even though frigate and
       jellyfin transcode on it
