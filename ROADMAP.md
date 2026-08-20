@@ -1021,6 +1021,46 @@ fine — but the LMDB unclean-shutdown warning follows garage everywhere, so eit
 snapshots or run the SQLite engine regardless of where it lands. Never put the metadata on an
 NFS volume.
 
+#### Decided: garage on elizabeth (Unraid). The layout, and why
+
+Prior art exists but is thin: one documented Unraid write-up (geiser.cloud, "Deploying Garage S3
+v2.x and Hooking It Up to Duplicacy") using `/mnt/user/appdata/garage/garage.toml` for config and
+`/mnt/user/my_disks/garage` for **both** meta and data, plus `garage-webui` alongside. No
+Community Applications template found. Note that write-up puts **metadata on `/mnt/user`**, which
+is the one choice to avoid — see below.
+
+⚠️ **`db_engine = "sqlite"` is necessary but NOT sufficient.** From garage issue #1200, the
+maintainer's own diagnosis of a malformed-database report: corruption comes from *"a combination
+of factors, for example: unclean shutdown (power loss) + non-resilient filesystem"*, and he
+classifies **BTRFS/ZFS as resilient, ext4 and XFS as non-resilient**. So SQLite on an XFS array
+disk is still exposed to exactly what has happened here twice. Engine *and* filesystem both have
+to be right.
+
+The layout that satisfies every documented requirement, verified on the box:
+
+| dir | path | why |
+| --- | --- | --- |
+| `metadata_dir` | `/mnt/cache/appdata/garage` | btrfs on NVMe — "resilient" per the maintainer, snapshot-capable, 208 GB free. **Direct `/mnt/cache` path, not `/mnt/user/appdata`** |
+| `data_dir` | `/mnt/user/backups/garage` | shfs is fine here: garage *"already does checksumming and integrity verification"* on data, blocks are write-once, no locking, no mmap. `shareUseCache="no"` so the mover never touches it |
+
+**The `/mnt/user` distinction is the whole point and it is easy to get wrong**: `appdata` is
+`shareUseCache="only"` so its data never leaves the pool — but the *path* `/mnt/user/appdata`
+still traverses shfs. SQLite over FUSE is the classic source of "database disk image is
+malformed" (advisory locking plus fsync semantics), so the metadata path must be `/mnt/cache/…`
+directly. Cache-disabled is not the same as FUSE-free.
+
+Also take **btrfs snapshots of `metadata_dir`** — garage prescribes exactly that, and the cache
+pool makes it cheap.
+
+Two non-filesystem caveats found while checking:
+
+- `backups` has `shareInclude=""` with the `highwater` allocator, so data written through
+  `/mnt/user/backups` **can spread onto disk1, which is 86% full**. Pin it via `shareInclude`, or
+  give garage its own share
+- putting garage's data in the same share as the kopiur repository means **one disk loss takes out
+  both backup systems** — they are already both on disk2. A correlated failure worth choosing
+  deliberately rather than inheriting
+
 🔴 **And the shape decision needs a factor this section does not currently weigh: host
 reliability.** The MinIO failure was not the mover and not the disk (`sdg` SMART PASSED, 0
 reallocated/pending). It was elizabeth being shut down **uncleanly — twice in three weeks**
