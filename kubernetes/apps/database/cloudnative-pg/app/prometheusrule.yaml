@@ -66,13 +66,40 @@ spec:
           for: 1m
           labels:
             severity: warning
+        # This alert existed and could NEVER fire. It compared against
+        # cnpg_collector_last_successful_backup_timestamp, and that metric does
+        # not exist - the barman-cloud plugin never emits it. A PromQL comparison
+        # against an absent vector yields an EMPTY result, not an error and not
+        # false, so the rule looked correct, stayed silent, and was never
+        # suspected. immich-db's scheduled backup failed on 2026-08-19 23:57 UTC
+        # and nothing alerted.
+        #
+        # Verified before and after by evaluating both expressions against the
+        # live series: the old one returns 0 series, the new one returns
+        # database/immich-db-1. Never trust an alert whose expression has not
+        # been evaluated at least once against real data.
         - alert: DatabaseFailedBackup
           annotations:
-            description: Last database backup failed
-            summary: Checks for failed backups
+            description: >-
+              A backup of {{ $labels.pod }} failed at
+              {{ $value | humanizeTimestamp }}
+            summary: A CNPG backup failed within the last 24h
           expr: |-
-            cnpg_collector_last_failed_backup_timestamp > cnpg_collector_last_successful_backup_timestamp
-        # - alert: DatabaseNoBackup # seems broken with plugin-barman-cloud, only updates for manual backups, not scheduled ones
+            cnpg_collector_last_failed_backup_timestamp > 0
+              and (time() - cnpg_collector_last_failed_backup_timestamp) < 86400
+          for: 15m
+          labels:
+            severity: warning
+        # NO working "no recent backup" alert is possible today, and this is a
+        # real gap rather than an oversight. Both candidate metrics are pinned at
+        # 0 on every pod because the barman-cloud plugin does not populate them:
+        #   cnpg_collector_last_available_backup_timestamp  = 0
+        #   cnpg_collector_first_recoverability_point       = 0
+        # The `!= 0` guard below therefore makes the rule permanently inert - it
+        # is left commented rather than deleted so nobody re-derives it and
+        # believes it works. A working check has to read the Backup objects
+        # themselves, not metrics.
+        # - alert: DatabaseNoBackup
         #   annotations:
         #     description: No database backup within the last 48 hours
         #     summary: Checks for recent database backups

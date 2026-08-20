@@ -638,13 +638,63 @@ kopiur at a Postgres data directory, so:
       paperless, atuin and immich metadata. A filesystem snapshot of a live Postgres, with WAL
       on a *separate* PVC snapshotted at a different instant, is inconsistent — barman is the
       only correct mechanism. Nightly barman backups complete (verified 2026-08-12 and -13)
-- [ ] Retire VolSync and its `perfectra1n` fork once all 19 are stable
-- [ ] Keep the old repository as a cold fallback **through phase 3**, then delete it
+- [x] **VolSync and the `perfectra1n` fork retired — 2026-08-20.** Removed
+      `apps/volsync-system/volsync` (app + maintenance) and the now-dead `components/persistence`,
+      then deleted the three orphaned `volsync.backube` CRDs Helm leaves behind (0 instances
+      each). No VolSync API surface remains.
+
+      Three things depended on it and were fixed rather than left to break:
+
+      - **tuppr** — *both* upgrade CRs gated node reboots on "no `ReplicationSource` is
+        Synchronizing". Translated to the kopiur equivalent so a node is still never
+        powercycled mid-backup. Gated on `status.phase`, **not** conditions: discovered
+        snapshots carry no `conditions` field and there are 400+ of them, so a conditions
+        filter would have matched nothing on every one
+      - **`volsync-system/kopia`** — the read-only browser for the retired repository. It never
+        needed the operator (the `volsync` hostname in its config JSON is kopia source
+        metadata), and it is how the cold archive stays readable
+      - **`home/immich`** — a stale `dependsOn`; its PVCs are cache/NFS so it just loses it
+- [ ] Keep the old repository as a cold fallback **through phase 3**, then delete it.
+      Active: the `volsync-repo` ClusterRepository and the data on elizabeth are both kept, and
+      the `kopia` UI reads them. Its `KopiaMaintenance` went away with the operator, which is
+      fine for a read-only archive — maintenance compacts indexes, it is not needed to read
 - [ ] Delete the leftover pre-migration rescue PVCs, `prowlarr-rescue` included — they are
       deliberately kept through this phase as known-good references
-- [ ] Note the monitoring gap found on the way: both CNPG clusters report
-      `status.lastSuccessfulBackup: NONE` even though the `Backup` objects complete, because
-      the barman-cloud plugin does not populate that field. Anything alerting on it is blind
+- [x] **The CNPG monitoring gap was worse than noted, and is fixed — 2026-08-20.** The note said
+      "anything alerting on it is blind". There *was* such an alert, `DatabaseFailedBackup`, and
+      it could **never fire**: it compared against `cnpg_collector_last_successful_backup_timestamp`,
+      a metric the barman-cloud plugin never emits. A PromQL comparison against an absent vector
+      yields an **empty result** — not an error, not false — so the rule looked correct, stayed
+      silent, and was never suspected.
+
+      Rewritten onto `cnpg_collector_last_failed_backup_timestamp`, which *does* carry real data
+      (`immich-db-1` = Aug 19 23:57:30 UTC, `cluster18-2` = Aug 3 00:01:40 UTC — both matching
+      known failures). Verified by evaluating both expressions against the live series: the old
+      returns 0 series, the new returns `database/immich-db-1`.
+
+      Also confirmed genuinely blind and left commented with the reason, so nobody re-derives it:
+      `last_available_backup_timestamp` and `first_recoverability_point` are pinned at **0** on
+      all four pods. A working "no recent backup" check must read the `Backup` objects, not
+      metrics.
+
+      ⚠️ Method note: my first pass concluded "no CNPG metrics are scraped at all" — that was
+      wrong and came from `kubectl exec … wget` failing silently (no `wget` in the prometheus
+      container). **90 `cnpg_` metrics are scraped.** Query Prometheus through the API proxy
+      (`kubectl get --raw /api/v1/namespaces/observability/services/kube-prometheus-stack-prometheus:9090/proxy/api/v1/...`)
+      rather than exec, and sanity-check with `up` before trusting a "no data" result.
+- [ ] 🔴 **OPEN: immich-db has no working base backup.** Found by the alert above the moment it
+      started working. WAL archiving is healthy (`archived_count` 75 rising, `failed_count` 7,
+      last success *after* the last failure), but **every base backup fails** — the scheduled one
+      on 2026-08-19 23:45 and two on-demand retries, all
+      `rpc error: code = Unknown desc = exit status 1` with `startedAt: null`, so it dies before
+      the backup begins. cluster18 is unaffected (10/10 completed) and both use the same MinIO
+      endpoint on elizabeth, differing only by bucket (`s3://immich/` vs `s3://postgresql/`).
+
+      So WAL is accumulating in the object store with **no base to replay onto** — no
+      point-in-time recovery for immich's metadata. Not urgent by disk: WAL volumes are at 3–5%.
+      Next step is the barman CLI's own stderr, which neither the plugin Deployment logs nor the
+      Backup object surface; `exit status 4` on the archive path suggests an S3-level error worth
+      checking against the `immich` bucket specifically.
 
 Phase 2 produced the numbers this phase needs: snapshot 111 s and restore+bind 34 s on a 1 GiB
 volume, a 3.3 MB repository for prowlarr's 57 MB, and a scheduled run that fired unattended.
