@@ -10,8 +10,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
     - ../../../../components/oidc-auth
   interval: 1h
   path: ./kubernetes/apps/downloads/pyload-ng/app
@@ -22,7 +21,7 @@ spec:
       namespace: security
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
@@ -31,7 +30,7 @@ spec:
     substitute:
       APP: *app
       OIDC_ROUTE: *app
-      VOLSYNC_CAPACITY: 2Gi
+      KOPIUR_CAPACITY: 2Gi
       CRON_EXPRESSION: '25 0 * * *'
   prune: true
   retryInterval: 2m
