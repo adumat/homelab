@@ -243,7 +243,6 @@ identity_providers:
       # userinfo. Several apps read identity straight from the ID token and fail
       # outright without these:
       #   romm     -> {"detail":"Email is missing from token."}
-      #   karakeep -> "Provider didn't provide an email during signin"
       #   grafana  -> "Failed to create user: user not found", because Authelia
       #               issues OPAQUE access tokens (authelia_at_...) so Grafana
       #               cannot parse claims out of them either
@@ -577,20 +576,6 @@ identity_providers:
         pkce_challenge_method: 'S256'
         redirect_uris:
           - 'https://paperless.${DOMAIN}/accounts/oidc/authentik/login/callback/'
-        scopes: ['openid', 'email', 'profile']
-        userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
-
-      - client_id: 'karakeep'
-        client_name: 'Karakeep'
-        client_secret: '{{ secret "/secrets/oidc/karakeep" }}'
-        public: false
-        authorization_policy: 'household'
-        claims_policy: 'standard'
-        require_pkce: true
-        pkce_challenge_method: 'S256'
-        redirect_uris:
-          - 'https://karakeep.${DOMAIN}/api/auth/callback/custom'
         scopes: ['openid', 'email', 'profile']
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'

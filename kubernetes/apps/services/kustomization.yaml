@@ -10,7 +10,6 @@ resources:
   - ./filebrowser/ks.yaml
   - ./homepage/ks.yaml
   - ./it-tools/ks.yaml
-  - ./karakeep/ks.yaml
   - ./litellm/ks.yaml
   - ./paperless/ks.yaml
   - ./ocis/ks.yaml
