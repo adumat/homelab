@@ -440,6 +440,30 @@ kopiur at a Postgres data directory, so:
       Procedure and both traps in [AGENTS.md](AGENTS.md), including the
       grep-across-document-boundaries mistake that made a namespace patch look as though it had
       landed on `kube-system`.
+- [ ] **Batch 2 in progress 2026-08-20: pyload-ng, radarr, sonarr done; qbittorrent left
+      deliberately.** 4 of 19 → 7 of 19 on kopiur. Its Kustomization is Ready and the app runs
+      on its old PVC, because the `ssa: IfNotPresent` label stops Flux touching it — a stable
+      resting point, not a half-migration.
+
+      **The procedure got much simpler.** Every app now has its own kopiur snapshot, so the
+      damaged VolSync repository is out of the path entirely: stop → quiesced kopiur snapshot →
+      delete the PVC → Flux recreates it → the populator restores via `fromPolicy`. No manual
+      `Restore` object at all. pyload-ng came back byte-identical, 17 files.
+
+      🔴 **radarr lost ~7 hours of metadata, and it was a tooling error, not a kopiur one.** A
+      `delete pvc` from a call that timed out stayed **armed** behind the pvc-protection
+      finalizer, and fired when a later run stopped the pod. Recovered from the 00:08 scheduled
+      snapshot — **5510 files, 1.7 G, identical count and size** — losing only changes since
+      then. Three flaws found and fixed, all in [AGENTS.md](AGENTS.md):
+
+      - a blocked `delete pvc` is armed, not cancelled — check `deletionTimestamp` first
+      - **KEDA scales apps back up through a suspended HelmRelease**, defeating the verification
+        gate and holding the PVC open. 8 apps carry `nfs-scaler`; pause the `ScaledObject`
+      - a verification manifest must wait for its pod to reach `Succeeded` — reading logs early
+        truncated a 5510-file baseline to 493 and would have "verified" a partial volume
+
+      Also expect **one benign difference per app**: its own log file. The CSI snapshot is
+      crash-consistent so the tail differs; sonarr's diff was exactly that, 1 line of 798.
 - [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
       **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
       a per-file checksum manifest of the quiesced volume against the restored one:
