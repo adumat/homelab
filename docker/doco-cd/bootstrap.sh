@@ -57,7 +57,10 @@ function parse_args() {
 
 function detect_profile() {
     local hostname
-    hostname="$(hostname -s)"
+    # Lowercased on purpose: Unraid reports a capitalised hostname ('Elizabeth'),
+    # which does not match the lowercase keys in HOST_PROFILES. donkey and navi
+    # are already lowercase, so this never surfaced until elizabeth was added.
+    hostname="$(hostname -s | tr '[:upper:]' '[:lower:]')"
 
     if [[ -v HOST_PROFILES["${hostname}"] ]]; then
         echo "${HOST_PROFILES["${hostname}"]}"
