@@ -978,7 +978,46 @@ matters. Two shapes avoid it, and the choice is the first task here:
 - garage **in-cluster** for ordinary object storage, with barman replicating to a second
   off-cluster target. More moving parts, and the second target is doing the real work
 
-- [ ] Decide which shape, on the DR-independence argument rather than on convenience
+⚠️ **Garage on Unraid would hit the same trouble that forced MinIO onto a raw disk path — and
+it is the more fragile of the two there.** Established 2026-08-20 while diagnosing the MinIO
+outage. MinIO is pinned to `/mnt/disk2/atlantic_minio` rather than `/mnt/user/...` because the
+**mover** relocates files under a running store and shfs is a FUSE overlay. Verified on the box:
+the `atlantic_minio` and `backups` shares are both `shareUseCache="no"`, the mover runs
+`0 4 * * *`, and it only touches the `yes` shares (`media`, `immich`, `minio`, `Applications`…).
+
+Garage needs the same pinning, plus one thing MinIO does not:
+
+- it keeps a separate **`metadata_dir` on LMDB, which is mmap-based**. mmap over shfs/FUSE is
+  unreliable, and a mover relocating an mmap'd file is a corruption generator
+- LMDB is **less tolerant of truncation** than MinIO's per-object metadata — and truncation from
+  an unclean shutdown is precisely what broke MinIO here (`IncompleteBody` on
+  `.minio.sys/.usage-cache.bin`). Garage would likely have come back worse, not better
+- workable Unraid layout if it ever runs there: `data_dir` on a no-cache array disk,
+  `metadata_dir` on the **NVMe cache pool** via a `shareUseCache="only"` share (like `appdata`),
+  which the mover also never moves. 209 GB free there today
+
+**In-cluster, the mover question disappears entirely** — but LMDB still must sit on block
+storage (Ceph RBD / miroir), **never on an elizabeth NFS volume**. That constraint survives the
+rebuild and belongs in whichever shape is chosen.
+
+🔴 **And the shape decision needs a factor this section does not currently weigh: host
+reliability.** The MinIO failure was not the mover and not the disk (`sdg` SMART PASSED, 0
+reallocated/pending). It was elizabeth being shut down **uncleanly — twice in three weeks**
+(2026-07-29 and 2026-08-19), each time triggering a multi-hour correcting parity check, and the
+second time silently breaking every base backup for two days. Choosing elizabeth as the
+off-cluster DR host to escape circular dependency trades it for a machine with a demonstrated
+unclean-shutdown habit.
+
+Sizing, for the "Docker hosts" option: barman already holds **88 GB** (`postgresql` 23 GB +
+`immich` 65 GB) of 101 GB total MinIO data, and grows. That rules **donkey** out despite it being
+the natural DR host on battery + LTE — leaving navi or elizabeth. Also worth knowing: disk1 is
+**86% full**, and both MinIO's data and the kopiur repository (6.3 GB) sit on the same physical
+disk, disk2.
+
+- [ ] Decide which shape, on the DR-independence argument **and host reliability** rather than
+      convenience. Current lean: garage **in-cluster on block storage** (LMDB gets real block
+      semantics) with barman replicating to a second off-cluster target, and that target picked
+      with elizabeth's unclean-shutdown record on the table
 - [ ] Deploy garage and a bucket for barman; keep MinIO serving in parallel
 - [ ] **Rehearse a barman restore from garage before switching**, and re-earn phase 3's G2 gate
       against the new backend — a backup target that has never been restored from is a hope
