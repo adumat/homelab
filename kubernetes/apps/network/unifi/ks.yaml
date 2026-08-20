@@ -38,18 +38,25 @@ spec:
     namespace: flux-system
   targetNamespace: *namespace
   timeout: 10m
-  # unifi waits for a healthy mongo, so this stays true - but kstatus judges a
-  # kopiur Restore by observedGeneration, and a Restore stops reconciling once it
-  # reaches a terminal phase. Any later re-apply that bumps generation therefore
-  # leaves it permanently 'InProgress' to kstatus and deadlocks this health check
-  # (and every app gated behind it). Judge it by its phase instead. See AGENTS.md.
-  healthCheckExprs:
-    - apiVersion: kopiur.home-operations.com/v1alpha1
-      kind: Restore
-      current: status.phase == 'Completed'
-      failed: status.phase == 'Failed'
-      inProgress: status.phase in ['Pending', 'Resolving', 'Restoring']
-  wait: true
+  # unifi must not start before mongo is serving, but `wait: true` CANNOT be used
+  # to express that here. It health-checks the entire inventory, and kstatus
+  # judges the kopiur Restore by observedGeneration - which its controller never
+  # advances once the Restore is terminal. Every migrated app carries the same
+  # gen=2 / obsGen=1 lag; `wait: false` merely hides it. A completed Restore is
+  # therefore permanently 'InProgress' to kstatus and this gate deadlocked for
+  # hours, blocking unifi entirely.
+  #
+  # healthCheckExprs does NOT fix it: kstatus applies the generation precondition
+  # before evaluating the CEL, so the expression is never reached (measured -
+  # the verdict was identical with the exprs live). Check the HelmRelease
+  # explicitly instead: helm-controller waits for the workload, so HR Ready
+  # already means mongo is serving. See AGENTS.md.
+  healthChecks:
+    - apiVersion: helm.toolkit.fluxcd.io/v2
+      kind: HelmRelease
+      name: unifi-mongo
+      namespace: network
+  wait: false
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/fluxcd-community/flux2-schemas/main/kustomization-kustomize-v1.json
 apiVersion: kustomize.toolkit.fluxcd.io/v1

@@ -469,16 +469,28 @@ kopiur at a Postgres data directory, so:
       and **vaultwarden**, deliberately last and alone, the only app left with a live VolSync
       `ReplicationSource`.
 
-      🔴 **unifi exposed a Flux deadlock worth knowing about.** unifi-mongo's Kustomization has
-      `wait: true`, and it wedged at `Ready=Unknown` reporting
-      `[Restore/network/unifi-mongo status: 'InProgress']` while that Restore had been
+      🔴 **unifi exposed a Flux deadlock worth knowing about, and the obvious fix did not
+      work.** unifi-mongo's Kustomization has `wait: true`, and it wedged at `Ready=Unknown`
+      reporting `[Restore/network/unifi-mongo status: 'InProgress']` while that Restore had been
       `Completed` for 45 hours. `InProgress` is not one of its phases — it is kstatus's verdict
       when `observedGeneration` lags `generation`, and a `Restore` stops reconciling once
       terminal, so the re-apply that bumped it to generation 2 was never observed. The health
       check could never pass and **unifi was gated behind it indefinitely**, its pod `Pending`
-      with no PVC while its own status said only "dependency not ready". Fixed with
-      `healthCheckExprs` reading `status.phase`, keeping the gate that makes unifi wait for a
-      healthy database.
+      with no PVC while its own status said only "dependency not ready".
+
+      **It is systemic:** all 12 other migrated Restores carry the identical `gen=2 / obsGen=1`
+      lag. `wait: false` only hides it, so any app ever given `wait: true` breaks the same way.
+
+      `healthCheckExprs` reading `status.phase` was the obvious fix and it **does not work** —
+      with the exprs live the verdict was identical after a full 10-minute window, because
+      kstatus applies the generation precondition before evaluating the CEL. Isolated by patching
+      `status.observedGeneration` alone, after which the Kustomization went Ready on the next
+      reconcile. The durable fix is an explicit `healthChecks` entry on the HelmRelease with
+      `wait: false`, which keeps the real gate (helm-controller waits for the workload) without
+      health-checking the Restore. Worth reporting upstream as a kopiur bug.
+
+      unifi itself then migrated cleanly: **22 files, verified identical** against the
+      pre-migration manifest before the app was allowed to start. **14 of 18.**
 
       **The procedure got much simpler.** Every app now has its own kopiur snapshot, so the
       damaged VolSync repository is out of the path entirely: stop → quiesced kopiur snapshot →
