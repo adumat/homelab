@@ -440,10 +440,45 @@ kopiur at a Postgres data directory, so:
       Procedure and both traps in [AGENTS.md](AGENTS.md), including the
       grep-across-document-boundaries mistake that made a namespace patch look as though it had
       landed on `kube-system`.
+- [x] **karakeep deleted instead of migrated — 2026-08-20.** Unused, so it was removed rather
+      than carried through the migration: manifests, Kustomization entry, Authelia OIDC client,
+      both secret references, the leftover 5 Gi PVC and PV, and the two orphaned Bitwarden items.
+
+      **It proved the deletion semantics, which are the opposite of what I first warned.**
+      Deleting an app does **not** destroy its backups: `onScheduleDelete` and `onPolicyDelete`
+      both carry a *schema* default of `Retain`, so pruning the schedule garbage-collects the
+      `Snapshot` CRs while the kopia snapshots survive. Both of karakeep's came back as
+      `origin: discovered`, `deletionPolicy: Retain`, identity `/pvc/karakeep`, `75,429,492`
+      bytes — the exact figure the schedule recorded. Two traps on the way: discovered snapshots
+      are named `<repo>-disc-<hash>` and carry `origin` as a **label**, and the catalog needs an
+      explicit `catalog-scan-requested-at` annotation or they never materialise at all.
+
+      ⚠️ Also proved that **Flux does not remove an app's PVC** when the app is pruned — it
+      stayed `Bound` with an empty `deletionTimestamp`. Deleting an app is not finished until
+      `kubectl get pvc,pv -A | grep <app>` is empty. Both in [AGENTS.md](AGENTS.md).
 - [ ] **Batch 2 in progress 2026-08-20: pyload-ng, radarr, sonarr done; qbittorrent left
       deliberately.** 4 of 19 → 7 of 19 on kopiur. Its Kustomization is Ready and the app runs
       on its old PVC, because the `ssa: IfNotPresent` label stops Flux touching it — a stable
       resting point, not a half-migration.
+
+      **13 volumes migrated as of 2026-08-20**, confirmed by `dataSourceRef.kind == Restore`:
+      metube, prowlarr, pyload-ng, qbittorrent, radarr, sonarr, esp-home, home-assistant,
+      jellyseerr, romm, unifi-mongo, filebrowser, ocis. Remaining: **unifi** (in progress),
+      **frigate**, **jellyfin**, **paperless** — all three still on
+      `dataSourceRef: ReplicationDestination/<app>-dst`, backed up by kopiur but not yet moved —
+      and **vaultwarden**, deliberately last and alone, the only app left with a live VolSync
+      `ReplicationSource`.
+
+      🔴 **unifi exposed a Flux deadlock worth knowing about.** unifi-mongo's Kustomization has
+      `wait: true`, and it wedged at `Ready=Unknown` reporting
+      `[Restore/network/unifi-mongo status: 'InProgress']` while that Restore had been
+      `Completed` for 45 hours. `InProgress` is not one of its phases — it is kstatus's verdict
+      when `observedGeneration` lags `generation`, and a `Restore` stops reconciling once
+      terminal, so the re-apply that bumped it to generation 2 was never observed. The health
+      check could never pass and **unifi was gated behind it indefinitely**, its pod `Pending`
+      with no PVC while its own status said only "dependency not ready". Fixed with
+      `healthCheckExprs` reading `status.phase`, keeping the gate that makes unifi wait for a
+      healthy database.
 
       **The procedure got much simpler.** Every app now has its own kopiur snapshot, so the
       damaged VolSync repository is out of the path entirely: stop → quiesced kopiur snapshot →
