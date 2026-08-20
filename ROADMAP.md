@@ -968,10 +968,12 @@ disk2.
 Sequenced so the current backup path keeps working until the new one has been *restored from*,
 not merely written to. Nothing is cut over on the strength of a successful write.
 
-- [ ] **Give garage its own Unraid share**, cache disabled, rather than reusing `backups`. Two
-      reasons found while checking: `backups` has `shareInclude=""` with `highwater` allocation
-      so data written through `/mnt/user` can spread onto disk1 (**86% full**), and colocating
-      with the kopiur repository would put **both backup systems on one disk**
+- [ ] **`data_dir` goes in the existing `backups` share as-is** — `/mnt/user/backups/garage`. It
+      is already `shareUseCache="no"` so the mover never touches it, and letting `highwater`
+      allocate across disk1 (1.1 TB free) and disk2 (4.6 TB) is fine: garage sees one filesystem
+      either way. Pinning to one disk would only trade "one disk dies, lose everything" for "one
+      disk dies, lose part", and with `replication_factor = 1` neither is redundancy. Deliberately
+      **not** solved here — see the deferred item below
 - [ ] **Deploy garage via doco-cd** as a per-host compose service (donkey/elizabeth/navi pattern
       already exists), pinned to a digest, with the layout settled above:
 
@@ -1005,6 +1007,30 @@ not merely written to. Nothing is cut over on the strength of a successful write
 - [x] Fix the monitoring gap while here — **done early, 2026-08-20**, because it was what hid the
       immich-db failure. `DatabaseFailedBackup` could never fire; rewritten onto
       `cnpg_collector_last_failed_backup_timestamp`. Details in phase 2.5
+
+#### Deferred, and genuinely separate: there is no backup of the backups
+
+⏸ **Out of scope for 2.7, tracked here because this is where the evidence turned up.** Every
+copy of everything lives on elizabeth, on the same Unraid array:
+
+| what | where | size |
+| --- | --- | --- |
+| kopiur repository (all 18 app volumes) | `/mnt/disk2/backups/kopiur` | 6.3 GB |
+| retired VolSync repository (cold fallback) | `/mnt/user/backups/volsync` | 12 GB |
+| barman, after 2.7 | `/mnt/user/backups/garage` | ~88 GB and growing |
+| barman, before 2.7 | `/mnt/disk2/atlantic_minio` | 101 GB |
+
+`replication_factor = 1`, one parity disk, one machine, one building. A single array loss, a
+second unclean shutdown landing worse than the last one, or anything physical takes **every
+recovery path at once** — including the cold fallback that exists precisely to be the last
+resort. Parity is not a backup: it survives a disk, not a filesystem, not a mistake, not a fire.
+
+This needs its own design, not a task here. The shape of the question: a second copy somewhere
+that is not elizabeth — another host, off-site, or a cloud bucket for the small-but-critical
+subset (CNPG base backups are the only truly irreplaceable data; media is re-acquirable). Garage
+is actually built for exactly this — it is a *geo-distributed* store, so a second garage node
+elsewhere replicating the barman bucket is the native answer, and 2.7 deliberately sets
+`replication_factor = 1` now rather than pretending otherwise.
 
 
 ### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
