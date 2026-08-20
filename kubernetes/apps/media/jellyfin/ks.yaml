@@ -11,8 +11,7 @@ spec:
       app.kubernetes.io/name: *app
   components:
     - ../../../../components/nfs-scaler
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   interval: 1h
   path: ./kubernetes/apps/media/jellyfin/app
   dependsOn:
@@ -22,7 +21,7 @@ spec:
       namespace: rook-ceph
     - name: openebs
       namespace: openebs-system
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   postBuild:
     substituteFrom:
@@ -30,8 +29,7 @@ spec:
         kind: Secret
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 10Gi
-      CACHE_CAPACITY: 5Gi
+      KOPIUR_CAPACITY: 10Gi
       CRON_EXPRESSION: '30 0 * * *'
   prune: true
   retryInterval: 2m

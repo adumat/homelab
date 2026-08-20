@@ -10,15 +10,14 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
     - ../../../../components/oidc-auth
   interval: 1h
   path: "./kubernetes/apps/home/esp-home/app"
   dependsOn:
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
     - name: authelia
       namespace: security
@@ -26,8 +25,7 @@ spec:
     substitute:
       APP: *app
       OIDC_ROUTE: *app
-      VOLSYNC_CAPACITY: 2Gi
-      OVERRIDE_DEST: minio
+      KOPIUR_CAPACITY: 2Gi
       CRON_EXPRESSION: '15 1 * * *'
     substituteFrom:
       - name: cluster-secrets

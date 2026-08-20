@@ -8,8 +8,7 @@ metadata:
 spec:
   components:
     - ../../../../components/nfs-scaler
-    - ../../../../components/persistence
-    - ../../../../components/kopiur-external
+    - ../../../../components/kopiur
   path: ./kubernetes/apps/home/frigate/app
   sourceRef:
     kind: GitRepository
@@ -24,7 +23,7 @@ spec:
       namespace: kube-system
     - name: rook-ceph-cluster
       namespace: rook-ceph
-    - name: volsync
+    - name: kopiur-repository
       namespace: volsync-system
   prune: true
   wait: false
@@ -37,6 +36,6 @@ spec:
         kind: Secret
     substitute:
       APP: *app
-      VOLSYNC_CAPACITY: 5Gi
+      KOPIUR_CAPACITY: 5Gi
       CRON_EXPRESSION: '20 1 * * *'
   targetNamespace: *namespace
