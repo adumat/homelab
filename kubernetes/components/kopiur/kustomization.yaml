@@ -2,9 +2,12 @@
 # yaml-language-server: $schema=https://json.schemastore.org/kustomization
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-# Backup via kopiur, the replacement being evaluated for components/persistence.
+# Backup via kopiur. This is THE backup mechanism for the cluster: it replaced
+# components/persistence (VolSync), which was deleted on 2026-08-20 once all 18
+# apps had migrated and been verified.
 #
-# Migrating an app from persistence to here means:
+# The migration procedure is kept for reference - a rebuilt cluster creates PVCs
+# fresh, so it only applies if a volume ever has to be adopted in place again:
 #   1. swap the component path in its ks.yaml
 #   2. rename VOLSYNC_CAPACITY -> KOPIUR_CAPACITY (and the other VOLSYNC_* it sets)
 #   3. delete and recreate the PVC, because dataSourceRef is immutable

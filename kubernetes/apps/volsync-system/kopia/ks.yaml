@@ -8,12 +8,16 @@ spec:
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/oidc-auth
+  # No dependsOn volsync any more: this is a read-only browser for the retired
+  # repository at /mnt/user/backups/volsync, and it never needed the operator -
+  # the "volsync" hostname/username in its config JSON is kopia source metadata,
+  # not a runtime dependency. It is how the cold fallback stays readable through
+  # phase 3.
   dependsOn:
     - name: external-secrets-store
       namespace: security
     - name: authelia
       namespace: security
-    - name: volsync
   interval: 1h
   path: ./kubernetes/apps/volsync-system/kopia/app
   postBuild:

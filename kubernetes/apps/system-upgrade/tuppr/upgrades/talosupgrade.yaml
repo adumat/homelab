@@ -12,10 +12,19 @@ spec:
     force: true
     rebootMode: powercycle
   healthChecks:
-    - apiVersion: volsync.backube/v1alpha1
-      kind: ReplicationSource
+    # Was a VolSync ReplicationSource check ("nothing Synchronizing") until
+    # VolSync was retired on 2026-08-20. Same intent, kopiur equivalent: never
+    # powercycle a node while a backup is in flight, or the mover dies with it.
+    #
+    # Gated on status.phase, NOT on conditions: discovered snapshots carry no
+    # conditions field at all, and there are 400+ of them from the retired
+    # repository, so a conditions filter would evaluate against nothing on every
+    # single one. Every Snapshot has a phase, and Discovered/Succeeded/Failed all
+    # pass cleanly while Pending/Running block.
+    - apiVersion: kopiur.home-operations.com/v1alpha1
+      kind: Snapshot
       expr: |-
-        status.conditions.filter(c, c.type == "Synchronizing").all(c, c.status == "False")
+        !has(status.phase) || !(status.phase in ['Pending', 'Running'])
       timeout: 2m
     # 6m so ceph has time to peer after a node powercycle.
     - apiVersion: ceph.rook.io/v1
