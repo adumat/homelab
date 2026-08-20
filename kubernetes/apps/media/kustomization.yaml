@@ -5,6 +5,19 @@ kind: Kustomization
 namespace: media
 components:
   - ../../components/common
+patches:
+  # romm runs as root and writes its game-save uploads mode 0600, so its kopiur
+  # mover has to run as root to read them (KOPIUR_PUID/PGID "0" in romm/ks.yaml).
+  # kopiur refuses an elevated mover unless the namespace opts in, because anyone
+  # with access here could reuse the minted kopiur-mover ServiceAccount at that
+  # privilege. Single-tenant homelab, and the alternative is romm having no
+  # backup at all - but it is a real privilege grant, scoped to this namespace.
+  - target:
+      kind: Namespace
+    patch: |-
+      - op: add
+        path: /metadata/annotations/kopiur.home-operations.com~1privileged-movers
+        value: "true"
 resources:
   - ./jellyfin/ks.yaml
   - ./jellyseerr/ks.yaml
