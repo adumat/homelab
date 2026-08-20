@@ -8,8 +8,8 @@ rather than the state predicted weeks earlier.
 
 The half-numbered phases were inserted as work revealed them — 1.5 by a recurring failure,
 2.5 because a 19-app migration should not be planned before a single volume has been
-restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand, and 3.5 by
-noticing that the one backup kopiur cannot cover still lands on the least reliable host.
+restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand, and 2.7 by
+the one backup kopiur cannot cover silently failing for two days on the least reliable host.
 
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
@@ -814,148 +814,27 @@ controller left to clean them, and they must then be removed by hand before any 
 attach elsewhere. Before forcing any RBD detach, prove no stale client holds the image:
 `rbd status <pool>/<image>` must show no `watcher=` from the dead node.
 
-### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
+### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
 
-One planned outage that fixes four things at once, none of which can be fixed in place:
-Ceph goes away, the nodes get honest names, etcd gets a third member, and the disk layout
-stops being backwards.
+**Moved ahead of the rebuild on 2026-08-20**, after the MinIO incident. The original reasoning
+for putting this after phase 3 was that "the target only makes sense once the storage layer is
+settled, and doing it earlier would mean migrating barman's backend twice" — that no longer
+applies, for two reasons:
 
-**Approach: big bang.** Reset all five nodes and rebuild from git. The alternative — moving
-data onto miroir loopfiles first, deleting Ceph, then rebuilding node by node — avoids the
-outage but costs a second data hop, and it cannot fix the partition layout without wiping
-every system disk anyway. Chosen deliberately: **once the disks are wiped there is no
-rollback except restore**, which is exactly why phase 2.5's exit condition is what it is.
+- garage is going on **elizabeth**, not in the cluster, so the rebuild does not touch it. There
+  is no second migration to avoid
+- the incident showed the current target is not merely inelegant, it is **actively unreliable**.
+  An unclean shutdown on 2026-08-19 left MinIO with a stuck offline drive; every immich-db base
+  backup failed for **two days** and nothing alerted, because the only alert that could have
+  caught it was comparing against a metric that does not exist. Phase 3's G2 gate — a rehearsed
+  barman restore — cannot honestly be earned against a backend in that state
 
-**The framing that makes this worth doing:** you do not currently know that this cluster can
-be rebuilt — you have the hope of it. Better to find the gaps at a chosen hour than during a
-real failure. And **phase 2.5 is the rehearsal**: migrating an app to kopiur *is* recreating
-its PVC and repopulating it from backup, so by the end every app's restore has been proven
-individually. Phase 3 is doing all of them at once.
+So this now runs **before** the rebuild, and G2 gets rehearsed against garage rather than
+against MinIO.
 
-#### Why the disks force the design
-
-miroir needs the disks Ceph is sitting on, so the two cannot coexist on final hardware.
-Hardware, measured 2026-08-14:
-
-| node | new name | model | system disk | data disk |
-|---|---|---|---|---|
-| 10.1.10.10 | `kube-nuc` | Intel NUC10i5FNH, 8 cpu / 32 GB | 500GB Samsung 970 EVO+ | — single disk |
-| 10.1.10.11 | `kube-hp` | HP EliteDesk 800 G4 DM, 6 / 16 | 256GB WDC SN720 | — single disk |
-| 10.1.10.21 | `kube-m720-01` | ThinkCentre M720q, 6 / 16 | 120GB KINGSTON SA400S3 | 1TB Crucial P3 |
-| 10.1.10.22 | `kube-m720-02` **(new CP)** | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
-| 10.1.10.23 | `kube-m720-03` | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
-
-**Third control plane is `kube-m720-02`, not -01.** All three M720q are identical on CPU and
-RAM, so the disks decide: etcd is fsync-latency-bound and the **KINGSTON SA400S3 is DRAM-less
-consumer SATA**, the worst disk here for that. The Crucial P3 is also QLC with lower endurance
-than the SN850X. Names map by IP so the addresses stay put — DHCP, DNS and every
-`instance`-keyed Prometheus series stay continuous; only `node`-labelled series break.
-
-**Target layout — `/var` on the SATA disk, the whole NVMe to miroir:**
-
-- EPHEMERAL ≈200GB on the SanDisks, ≈90GB on the KINGSTON. **The 50 GiB `/var` cap that bit
-  three times simply disappears**, and on the CP etcd stops competing with storage I/O
-- The entire 1TB NVMe becomes a miroir `lvmthin` pool — its production backend, no loopfile
-  and no reflink requirement (the upstream example points `device` at a partition label, so
-  either whole-disk or partition works)
-- `kube-nuc` and `kube-hp` keep a small `local` pool. Its real job is **topology membership**:
-  proven 2026-08-13, a pod on a node outside the topology is refused with
-  `cannot be consumed remotely … the node is not in the storage topology`
-- `miroir-replicated` at **replicas 3**, one per M720q — this restores the 3× durability Ceph
-  had, which phase 2 flagged as a downgrade, and costs nothing at 45 GiB on 3 TB raw
-- ⚠️ The Crucial P3 is QLC; at replicas 3 every write lands on all three, so it gates write
-  latency. Worth benchmarking early — this is also the **performance test phase 2 could not
-  do**, since a loopfile on shared XFS proves nothing about real disks
-
-#### Gates — all must pass before anything is destroyed
-
-- [ ] **G1 — phase 2.5 complete**, at its stated exit condition
-- [ ] **G2 — a barman restore, rehearsed again.** The one path kopiur cannot cover. It has been
-      tested before; test it again close to the date, because Authelia, paperless, atuin and
-      immich metadata all live in CNPG
-- [ ] **G3 — keep VolSync's old repository** as a cold second copy on elizabeth. Delete it only
-      after phase 3 succeeds
-- [ ] **G4 — let it recover unassisted, and treat every intervention as a bug.** No suspending
-      Kustomizations and no hand-ordered restore. The cluster is already built to self-recover:
-      both CNPG clusters use `bootstrap: recovery` with `externalClusters: source`, so a fresh
-      cluster restores from barman rather than running `initdb`, and `components/kopiur` ships a
-      populator that refills each PVC from its own last snapshot. Orchestrating by hand would
-      hide exactly the defect this rehearsal exists to find. **Write down everything that
-      needed hand-holding and fix it in git**, so the next recovery is unattended
-
-Three things to watch rather than orchestrate:
-
-- ⚠️ `onMissingSnapshot: Continue` means a PVC with **no** snapshot comes up empty *and
-  healthy-looking*. There is no error to catch — which is the whole reason phase 2.5's exit
-  condition is "every PVC protected or explicitly disposable"
-- `bootstrap: recovery` makes Postgres **depend on elizabeth being reachable at bootstrap**. If
-  the NAS is down or mid-parity, CNPG cannot bootstrap at all
-- The first reconcile is a thundering herd: every HelmRelease and image pull at once. Harmless,
-  and a useful stress test of the new `/var` sizing
-
-Not gates, but known before the day:
-
-- The **sops age key and BWS token** are exercised by the bootstrap itself, so the phase tests
-  them rather than needing them pre-verified.
-
-  ✅ **Resolved 2026-08-16 — and the earlier "only copy on an unbacked laptop" claim here was
-  simply wrong.** A second copy was already in BWS as `age-key`
-  (`c26e9d84-2735-4317-9564-b3df011ffd26`). Verified: it derives the same public key as
-  `./age.key` and as the recipient in `.sops.yaml`
-  (`age175fpp0mqvuhmfddz9f5gcvxaxv9x70mgrd0nfcnl2ypq2whckcsqtjds5v`), and sops decrypts with it.
-
-  `just setup` fetches it into `./age.key` on a fresh clone, and refuses to overwrite an
-  existing one. BWS stores the bare `AGE-SECRET-KEY-…` line, so the file it writes is 75 bytes
-  against the local 189 — age-keygen's two comment lines are the only difference, and the
-  secret line is identical.
-
-  **The circularity argument in the old note applied to the wrong direction.** It is real for
-  the *cluster*, which reaches BWS only via the sops-encrypted `bitwarden-access-token`. It
-  does not apply to a *workstation*, which authenticates with its own `BWS_ACCESS_TOKEN` from
-  `.env`. The recovery path therefore does not depend on this laptop: log in to the Bitwarden
-  web vault, mint a fresh access token, run `just setup`.
-
-  The key still decrypts four files — `cluster-secrets`, **`bitwarden-access-token`**,
-  cert-manager's and flux-instance's — so it remains the thing to guard; it just is not
-  single-copy.
-- `talosctl kubeconfig` mints a cert-based `admin@kubernetes` from the cluster CA, so admin
-  access never depends on Authelia. The narrow footnote: kube-apiserver carries
-  `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
-  It should only log warnings, but the escape hatch is to **comment the OIDC flags out of
-  `cluster.yaml` for the bootstrap and add them back once Authelia is up**
-- Every restore streams from elizabeth over NFS, and **phase 1.5 is still unexplained**. The
-  recovery path runs through the least trusted component — accepted knowingly, not overlooked
-
-#### Execution
-
-- [ ] Freeze: suspend Flux, scale apps to zero, take final kopiur snapshots and a CNPG backup
-- [ ] Record the node → IP → disk map and the schematic ID before wiping anything
-- [ ] Rename and re-lay-out in git: `talconfig.yaml` hostnames, the three
-      `patches/nodes/kube-ceph-0*-ethernet.yaml` files, three control planes, EPHEMERAL sizing,
-      miroir pools and classes. Also outside the cluster: `infra/data/networks.yaml` and
-      `services.yaml` carry the OPNsense DHCP/DNS entries, and
-      `docker/donkey/power-nap-over/config.yaml` references the nodes
-- [ ] Delete the `rook-ceph` app tree and the `openebs-hostpath` PVCs it no longer needs
-- [ ] `talosctl reset` all five, wiping disks
-- [ ] Bootstrap: apply config, `talosctl bootstrap` one CP, wait for **etcd at 3 members**
-- [ ] Point Flux at the repo and **let it reconcile unassisted** — miroir pools come up, the
-      kopiur populator refills each PVC, CNPG recovers from barman. Watch, do not orchestrate;
-      log every intervention as a bug to fix in git
-- [ ] Verify: Ceph gone, `/var` sized right, `drbd` on all five, replicas 3, no PVC silently
-      empty, alerts clean
-- [ ] Benchmark the NVMe pools and **record the numbers phase 2 could not measure**
-
-#### When
-
-Gated, not scheduled: after G1–G4. Budget **half a day**, not two hours — ~45 PVCs plus
-verification. Never on the **1st of the month**, when elizabeth's parity check runs
-(`0 5 1 * *`). Household services all go dark for the duration — Home Assistant automations,
-frigate, the baby monitor, jellyfin — so it needs buy-in, not just a quiet morning.
-
-### Phase 3.5 — in-cluster S3 with garage, and getting barman off elizabeth
-
-Placed after the rebuild deliberately: the target only makes sense once the storage layer is
-settled, and doing it earlier would mean migrating barman's backend twice.
+**Resolved 2026-08-20:** MinIO was restarted, its drive came back online, and immich-db produced
+`backup-20260820192847` in 1m49s — the first base backup since Aug 18. The immediate gap is
+closed, which is what makes this a planned migration rather than an emergency.
 
 **What garage is.** A self-hosted S3-compatible object store (Rust, by Deuxfleurs) built for a
 handful of cheap, unreliable, geographically-scattered nodes rather than a datacentre —
@@ -971,12 +850,12 @@ day at a time. The most critical backup in the cluster depends on the least reli
 ⚠️ **The trap to settle before any of this: do not put the cluster's disaster-recovery backup
 inside the cluster it protects.** If garage runs on miroir and the cluster is gone, barman
 cannot be reached to restore it — the dependency is circular and only shows up on the day it
-matters. Two shapes avoid it, and the choice is the first task here:
+matters. Two shapes avoided it, and **the first was chosen** (2026-08-20):
 
-- garage on the **Docker hosts** (donkey / navi / elizabeth) via doco-cd, outside the cluster.
+- ✅ garage on the **Docker hosts** (donkey / navi / elizabeth) via doco-cd, outside the cluster.
   Keeps DR independent, uses the geo-distributed design garage is built for
-- garage **in-cluster** for ordinary object storage, with barman replicating to a second
-  off-cluster target. More moving parts, and the second target is doing the real work
+- ✗ garage **in-cluster** for ordinary object storage, with barman replicating to a second
+  off-cluster target. More moving parts, and the second target does the real work anyway
 
 **Garage vs MinIO on Unraid — checked against both projects' docs, 2026-08-20.** An earlier
 draft of this section claimed garage would hit "the same trouble" and blamed the mover plus
@@ -1061,33 +940,213 @@ Two non-filesystem caveats found while checking:
   both backup systems** — they are already both on disk2. A correlated failure worth choosing
   deliberately rather than inheriting
 
-🔴 **And the shape decision needs a factor this section does not currently weigh: host
-reliability.** The MinIO failure was not the mover and not the disk (`sdg` SMART PASSED, 0
-reallocated/pending). It was elizabeth being shut down **uncleanly — twice in three weeks**
-(2026-07-29 and 2026-08-19), each time triggering a multi-hour correcting parity check, and the
-second time silently breaking every base backup for two days. Choosing elizabeth as the
-off-cluster DR host to escape circular dependency trades it for a machine with a demonstrated
-unclean-shutdown habit.
+🔴 **The cost accepted by choosing elizabeth, stated plainly.** The MinIO failure was not the
+mover and not the disk (`sdg` SMART PASSED, 0 reallocated/pending). It was elizabeth being shut
+down **uncleanly — twice in three weeks** (2026-07-29 and 2026-08-19), each time triggering a
+multi-hour correcting parity check, and the second time silently breaking every base backup for
+two days. Keeping DR on elizabeth escapes the circular dependency but accepts a machine with a
+demonstrated unclean-shutdown habit — which is precisely why `db_engine = "sqlite"`, a btrfs
+`metadata_dir` and metadata snapshots are **all three** required below rather than optional.
 
-Sizing, for the "Docker hosts" option: barman already holds **88 GB** (`postgresql` 23 GB +
-`immich` 65 GB) of 101 GB total MinIO data, and grows. That rules **donkey** out despite it being
-the natural DR host on battery + LTE — leaving navi or elizabeth. Also worth knowing: disk1 is
-**86% full**, and both MinIO's data and the kopiur repository (6.3 GB) sit on the same physical
-disk, disk2.
+⚠️ **Whatever is stopping elizabeth uncleanly is a separate open problem**, and garage will not
+fix it. Two unclean stops in three weeks is the root cause behind both this migration and 145
+corrected parity errors; worth chasing on its own.
 
-- [ ] Decide which shape, on the DR-independence argument **and host reliability** rather than
-      convenience. Current lean: garage **in-cluster on block storage** (LMDB gets real block
-      semantics) with barman replicating to a second off-cluster target, and that target picked
-      with elizabeth's unclean-shutdown record on the table
-- [ ] Deploy garage and a bucket for barman; keep MinIO serving in parallel
-- [ ] **Rehearse a barman restore from garage before switching**, and re-earn phase 3's G2 gate
-      against the new backend — a backup target that has never been restored from is a hope
-- [ ] Cut CNPG over, verify a scheduled backup and a WAL archive both land
-- [ ] Only then retire the MinIO dependency, and note what still points at elizabeth
-- [ ] Fix the monitoring gap while here: both CNPG clusters report
-      `status.lastSuccessfulBackup: NONE` even though `Backup` objects complete, because the
-      barman-cloud plugin does not populate the field — so anything alerting on it is blind
+Sizing: barman already holds **88 GB** (`postgresql` 23 GB + `immich` 65 GB) of 101 GB total
+MinIO data, and grows. That ruled **donkey** out despite it being the natural DR host on battery
++ LTE, and navi out on the same grounds — leaving elizabeth. Also worth knowing: disk1 is **86%
+full**, and both MinIO's data and the kopiur repository (6.3 GB) sit on the same physical disk,
+disk2.
 
+- [x] **Shape decided 2026-08-20: garage on elizabeth via doco-cd**, replacing MinIO in place
+      rather than running in-cluster. It keeps DR outside the cluster it protects, and the
+      rebuild cannot disturb it. The circularity trap above is what rules the in-cluster option
+      out for barman specifically; ordinary in-cluster object storage remains a separate question.
+
+#### Adoption plan
+
+Sequenced so the current backup path keeps working until the new one has been *restored from*,
+not merely written to. Nothing is cut over on the strength of a successful write.
+
+- [ ] **Give garage its own Unraid share**, cache disabled, rather than reusing `backups`. Two
+      reasons found while checking: `backups` has `shareInclude=""` with `highwater` allocation
+      so data written through `/mnt/user` can spread onto disk1 (**86% full**), and colocating
+      with the kopiur repository would put **both backup systems on one disk**
+- [ ] **Deploy garage via doco-cd** as a per-host compose service (donkey/elizabeth/navi pattern
+      already exists), pinned to a digest, with the layout settled above:
+
+      ```toml
+      metadata_dir = "/mnt/cache/appdata/garage"   # btrfs NVMe, direct path, NOT /mnt/user
+      data_dir     = "/mnt/user/<garage-share>"    # shfs is fine: garage checksums data itself
+      db_engine    = "sqlite"                      # LMDB corrupts on unclean shutdown
+      replication_factor = 1                       # single node; be explicit about it
+      ```
+
+      ⚠️ `metadata_dir` must use the **`/mnt/cache` path, not `/mnt/user/appdata`** — cache-only
+      is not the same as FUSE-free, and SQLite over FUSE is the documented way to get "database
+      disk image is malformed"
+- [ ] **Schedule btrfs snapshots of `metadata_dir`** — garage prescribes exactly this, and it is
+      the only mitigation that covers the failure mode elizabeth has actually demonstrated twice
+- [ ] Create buckets and access keys for barman (`postgresql`, `immich`), and a second
+      `ObjectStore` per cluster pointing at garage. **Keep MinIO serving in parallel** — CNPG
+      supports only one plugin objectstore per cluster at a time, so this is a cutover, not a
+      dual-write; the parallel period is for rehearsal, not redundancy
+- [ ] 🔴 **Rehearse a real barman restore from garage before switching anything**, for *both*
+      clusters, and re-earn phase 3's G2 gate against it. A backup target that has never been
+      restored from is a hope. This is the gate — not the write succeeding
+- [ ] Cut `cluster18` over first (smaller, 23 GB, and immich is the one that just broke), verify
+      a **scheduled** backup and a WAL archive both land, then `immich-db`
+- [ ] Watch for one full week with `DatabaseFailedBackup` armed — it works now, and it is the
+      only reason a repeat of the Aug 19 failure would be noticed
+- [ ] Only then retire MinIO, and write down what still points at elizabeth
+- [ ] Decide what happens to the **101 GB of MinIO data** on retirement: the old barman history
+      is the pre-garage recovery path, so keep it read-only until garage has a restore rehearsal
+      *and* a week of clean scheduled backups behind it
+- [x] Fix the monitoring gap while here — **done early, 2026-08-20**, because it was what hid the
+      immich-db failure. `DatabaseFailedBackup` could never fire; rewritten onto
+      `cnpg_collector_last_failed_backup_timestamp`. Details in phase 2.5
+
+
+### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
+
+One planned outage that fixes four things at once, none of which can be fixed in place:
+Ceph goes away, the nodes get honest names, etcd gets a third member, and the disk layout
+stops being backwards.
+
+**Approach: big bang.** Reset all five nodes and rebuild from git. The alternative — moving
+data onto miroir loopfiles first, deleting Ceph, then rebuilding node by node — avoids the
+outage but costs a second data hop, and it cannot fix the partition layout without wiping
+every system disk anyway. Chosen deliberately: **once the disks are wiped there is no
+rollback except restore**, which is exactly why phase 2.5's exit condition is what it is.
+
+**The framing that makes this worth doing:** you do not currently know that this cluster can
+be rebuilt — you have the hope of it. Better to find the gaps at a chosen hour than during a
+real failure. And **phase 2.5 is the rehearsal**: migrating an app to kopiur *is* recreating
+its PVC and repopulating it from backup, so by the end every app's restore has been proven
+individually. Phase 3 is doing all of them at once.
+
+#### Why the disks force the design
+
+miroir needs the disks Ceph is sitting on, so the two cannot coexist on final hardware.
+Hardware, measured 2026-08-14:
+
+| node | new name | model | system disk | data disk |
+|---|---|---|---|---|
+| 10.1.10.10 | `kube-nuc` | Intel NUC10i5FNH, 8 cpu / 32 GB | 500GB Samsung 970 EVO+ | — single disk |
+| 10.1.10.11 | `kube-hp` | HP EliteDesk 800 G4 DM, 6 / 16 | 256GB WDC SN720 | — single disk |
+| 10.1.10.21 | `kube-m720-01` | ThinkCentre M720q, 6 / 16 | 120GB KINGSTON SA400S3 | 1TB Crucial P3 |
+| 10.1.10.22 | `kube-m720-02` **(new CP)** | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
+| 10.1.10.23 | `kube-m720-03` | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
+
+**Third control plane is `kube-m720-02`, not -01.** All three M720q are identical on CPU and
+RAM, so the disks decide: etcd is fsync-latency-bound and the **KINGSTON SA400S3 is DRAM-less
+consumer SATA**, the worst disk here for that. The Crucial P3 is also QLC with lower endurance
+than the SN850X. Names map by IP so the addresses stay put — DHCP, DNS and every
+`instance`-keyed Prometheus series stay continuous; only `node`-labelled series break.
+
+**Target layout — `/var` on the SATA disk, the whole NVMe to miroir:**
+
+- EPHEMERAL ≈200GB on the SanDisks, ≈90GB on the KINGSTON. **The 50 GiB `/var` cap that bit
+  three times simply disappears**, and on the CP etcd stops competing with storage I/O
+- The entire 1TB NVMe becomes a miroir `lvmthin` pool — its production backend, no loopfile
+  and no reflink requirement (the upstream example points `device` at a partition label, so
+  either whole-disk or partition works)
+- `kube-nuc` and `kube-hp` keep a small `local` pool. Its real job is **topology membership**:
+  proven 2026-08-13, a pod on a node outside the topology is refused with
+  `cannot be consumed remotely … the node is not in the storage topology`
+- `miroir-replicated` at **replicas 3**, one per M720q — this restores the 3× durability Ceph
+  had, which phase 2 flagged as a downgrade, and costs nothing at 45 GiB on 3 TB raw
+- ⚠️ The Crucial P3 is QLC; at replicas 3 every write lands on all three, so it gates write
+  latency. Worth benchmarking early — this is also the **performance test phase 2 could not
+  do**, since a loopfile on shared XFS proves nothing about real disks
+
+#### Gates — all must pass before anything is destroyed
+
+- [ ] **G1 — phase 2.5 complete**, at its stated exit condition
+- [ ] **G2 — a barman restore, rehearsed again, against garage.** The one path kopiur cannot
+      cover. It has been tested before; test it again close to the date, because Authelia,
+      paperless, atuin and immich metadata all live in CNPG. Phase 2.7 moves the backend to
+      garage precisely so this gate is earned against a target that has not just silently failed
+      for two days — if 2.7 has not cut over by then, this gate is against MinIO and the
+      2026-08-19 incident says that is worth distrusting
+- [ ] **G3 — keep VolSync's old repository** as a cold second copy on elizabeth. Delete it only
+      after phase 3 succeeds
+- [ ] **G4 — let it recover unassisted, and treat every intervention as a bug.** No suspending
+      Kustomizations and no hand-ordered restore. The cluster is already built to self-recover:
+      both CNPG clusters use `bootstrap: recovery` with `externalClusters: source`, so a fresh
+      cluster restores from barman rather than running `initdb`, and `components/kopiur` ships a
+      populator that refills each PVC from its own last snapshot. Orchestrating by hand would
+      hide exactly the defect this rehearsal exists to find. **Write down everything that
+      needed hand-holding and fix it in git**, so the next recovery is unattended
+
+Three things to watch rather than orchestrate:
+
+- ⚠️ `onMissingSnapshot: Continue` means a PVC with **no** snapshot comes up empty *and
+  healthy-looking*. There is no error to catch — which is the whole reason phase 2.5's exit
+  condition is "every PVC protected or explicitly disposable"
+- `bootstrap: recovery` makes Postgres **depend on elizabeth being reachable at bootstrap**. If
+  the NAS is down or mid-parity, CNPG cannot bootstrap at all
+- The first reconcile is a thundering herd: every HelmRelease and image pull at once. Harmless,
+  and a useful stress test of the new `/var` sizing
+
+Not gates, but known before the day:
+
+- The **sops age key and BWS token** are exercised by the bootstrap itself, so the phase tests
+  them rather than needing them pre-verified.
+
+  ✅ **Resolved 2026-08-16 — and the earlier "only copy on an unbacked laptop" claim here was
+  simply wrong.** A second copy was already in BWS as `age-key`
+  (`c26e9d84-2735-4317-9564-b3df011ffd26`). Verified: it derives the same public key as
+  `./age.key` and as the recipient in `.sops.yaml`
+  (`age175fpp0mqvuhmfddz9f5gcvxaxv9x70mgrd0nfcnl2ypq2whckcsqtjds5v`), and sops decrypts with it.
+
+  `just setup` fetches it into `./age.key` on a fresh clone, and refuses to overwrite an
+  existing one. BWS stores the bare `AGE-SECRET-KEY-…` line, so the file it writes is 75 bytes
+  against the local 189 — age-keygen's two comment lines are the only difference, and the
+  secret line is identical.
+
+  **The circularity argument in the old note applied to the wrong direction.** It is real for
+  the *cluster*, which reaches BWS only via the sops-encrypted `bitwarden-access-token`. It
+  does not apply to a *workstation*, which authenticates with its own `BWS_ACCESS_TOKEN` from
+  `.env`. The recovery path therefore does not depend on this laptop: log in to the Bitwarden
+  web vault, mint a fresh access token, run `just setup`.
+
+  The key still decrypts four files — `cluster-secrets`, **`bitwarden-access-token`**,
+  cert-manager's and flux-instance's — so it remains the thing to guard; it just is not
+  single-copy.
+- `talosctl kubeconfig` mints a cert-based `admin@kubernetes` from the cluster CA, so admin
+  access never depends on Authelia. The narrow footnote: kube-apiserver carries
+  `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
+  It should only log warnings, but the escape hatch is to **comment the OIDC flags out of
+  `cluster.yaml` for the bootstrap and add them back once Authelia is up**
+- Every restore streams from elizabeth over NFS, and **phase 1.5 is still unexplained**. The
+  recovery path runs through the least trusted component — accepted knowingly, not overlooked
+
+#### Execution
+
+- [ ] Freeze: suspend Flux, scale apps to zero, take final kopiur snapshots and a CNPG backup
+- [ ] Record the node → IP → disk map and the schematic ID before wiping anything
+- [ ] Rename and re-lay-out in git: `talconfig.yaml` hostnames, the three
+      `patches/nodes/kube-ceph-0*-ethernet.yaml` files, three control planes, EPHEMERAL sizing,
+      miroir pools and classes. Also outside the cluster: `infra/data/networks.yaml` and
+      `services.yaml` carry the OPNsense DHCP/DNS entries, and
+      `docker/donkey/power-nap-over/config.yaml` references the nodes
+- [ ] Delete the `rook-ceph` app tree and the `openebs-hostpath` PVCs it no longer needs
+- [ ] `talosctl reset` all five, wiping disks
+- [ ] Bootstrap: apply config, `talosctl bootstrap` one CP, wait for **etcd at 3 members**
+- [ ] Point Flux at the repo and **let it reconcile unassisted** — miroir pools come up, the
+      kopiur populator refills each PVC, CNPG recovers from barman. Watch, do not orchestrate;
+      log every intervention as a bug to fix in git
+- [ ] Verify: Ceph gone, `/var` sized right, `drbd` on all five, replicas 3, no PVC silently
+      empty, alerts clean
+- [ ] Benchmark the NVMe pools and **record the numbers phase 2 could not measure**
+
+#### When
+
+Gated, not scheduled: after G1–G4. Budget **half a day**, not two hours — ~45 PVCs plus
+verification. Never on the **1st of the month**, when elizabeth's parity check runs
+(`0 5 1 * *`). Household services all go dark for the duration — Home Assistant automations,
+frigate, the baby monitor, jellyfin — so it needs buy-in, not just a quiet morning.
 
 ### Phase 4 — `just merge` and the gpu component
 
