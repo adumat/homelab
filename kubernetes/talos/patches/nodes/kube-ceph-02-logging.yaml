@@ -8,13 +8,18 @@
 # drops silently on a destination it cannot deliver to, so the direct path would look deployed
 # and ship nothing.
 #
+# 127.0.0.1, NOT the ClusterIP name. The Talos HOST has no cluster DNS - resolv.conf is
+# 127.0.0.53 - so fluent-bit.observability.svc.cluster.local does not resolve there, and Talos
+# silently drops. Proven on 2026-08-21: the config applied, Talos logged "enabling JSON
+# logging", and zero records arrived. fluent-bit runs hostNetwork so 5170 is bound on the node.
+#
 # extraTags is per-node because Talos does NOT template it - the map is copied verbatim - and
 # the only keys Talos guarantees are msg, talos-time and talos-level. Without this the node
 # identity is lost, since the ClusterIP load-balances a node's logs to an arbitrary pod.
 machine:
   logging:
     destinations:
-      - endpoint: "tcp://fluent-bit.observability.svc.cluster.local:5170"
+      - endpoint: "tcp://127.0.0.1:5170"
         format: json_lines
         extraTags:
           node: kube-ceph-02

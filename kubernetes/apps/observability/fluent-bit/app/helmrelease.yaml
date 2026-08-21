@@ -116,6 +116,14 @@ spec:
           json_date_format iso8601
           compress gzip
           log_response_payload false
+    # Talos must reach this listener from the HOST, where there is no cluster DNS
+    # (resolv.conf is 127.0.0.53) and no guarantee of ClusterIP routing. hostNetwork binds
+    # 5170 on the node itself so Talos can use 127.0.0.1:5170 - no DNS, no Cilium dependency.
+    # ClusterFirstWithHostNet keeps fluent-bit able to resolve victoria-logs-server for its
+    # OUTPUT; without it, hostNetwork would break the existing container-log pipeline.
+    # Container logs are read from files, so hostNetwork does not affect that side.
+    hostNetwork: true
+    dnsPolicy: ClusterFirstWithHostNet
     extraPorts:
       - port: 5170
         containerPort: 5170
