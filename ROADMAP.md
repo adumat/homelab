@@ -875,13 +875,24 @@ Verified on a live node, 2026-08-18:
       Talos adds ~7.7 M rows/day (~297 MB/day). Deliberately *not* filtering `machined` out:
       space is not the constraint, and a filter risks discarding the very evidence this task
       exists to keep — query around it with `talos-service:kernel`.
-      **Retention raised instead, to spend the headroom on forensic depth** (metrics 14 d →
-      **21 d**, ~26 GB of 52.5 GB; logs pinned at **30 d**, ~12.7 GB of 21.5 GB), because the
+      **Retention raised instead, to spend the headroom on forensic depth — metrics and logs
+      both at 30 d** (metrics 14 d → **30 d**, ~37 GB of 52.5 GB = 71 %; logs pinned at **30 d**,
+      ~12.7 GB of 21.5 GB = 59 %). **Deliberately matched**: correlating an incident across
+      metrics and logs is the point of having both, and the shorter side silently caps how far
+      back any comparison can reach. Chosen because the
       fault this phase was built for recurs on a longer cycle than 14 d and a window that cannot
       reach the previous occurrence cannot be compared against it. Prometheus also had
       `retentionSize: 50GB` on a 52.5 GB volume — 95 %, which is a cliff edge rather than a guard
-      rail and left nothing for WAL plus compaction — now 40 GB. VictoriaLogs gained
+      rail and left nothing for WAL plus compaction — now **40 GB**. VictoriaLogs gained
       `retentionDiskSpaceUsage: 16GiB` as the same kind of backstop.
+      ⚠️ **Prometheus parses size suffixes as BASE-2: `40GB` means 40 GiB.** Confirmed via
+      `/api/v1/status/runtimeinfo`, which echoes it back as `30d or 40GiB` — the API is the only
+      place the parsed unit is visible. Real figures: 42.9 GB decimal = **82 % of the volume**,
+      34.5 days of capacity at 1.25 GB/day, a **15 % growth buffer** over the 30 d target, so
+      *time* stays the binding constraint instead of size quietly trimming below 30 d. I briefly
+      raised this to `43GB` reasoning in decimal units — that is **88 %** of the volume, past the
+      ~85 % where the cap stops being a graceful trim and starts risking a full disk. Do not
+      re-make that change; if 40 GB ever binds, **grow the PVC** (Ceph has ~2.6 TiB free).
       ⚠️ **The VictoriaLogs retention had never actually been applied.** A top-level
       `retentionPeriod: 14d` sat in the values for 125 days while the chart read
       **`server.retentionPeriod`** and used its own default of `1` — which means one **month**,
