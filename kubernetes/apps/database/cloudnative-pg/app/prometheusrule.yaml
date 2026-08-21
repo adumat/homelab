@@ -145,17 +145,53 @@ spec:
         # makes `time() - metric` return the current epoch (~56 years). Any future
         # rule here needs both a `> 0` guard and min-by-job aggregation.
         #
-        # --- base backups: STILL NO WORKING ALERT ---------------------------
-        # This remains a real gap. The `!= 0` guard below makes the rule
-        # permanently inert - left commented rather than deleted so nobody
-        # re-derives it and believes it works. A working check has to read the
-        # Backup objects themselves, not metrics; tracked in the roadmap as a
-        # kube-state-metrics customResourceState exporter over
-        # postgresql.cnpg.io/Backup, which is what finally makes a
-        # kopiur-equivalent "no successful backup in 48h" rule possible.
-        # - alert: DatabaseNoBackup
-        #   annotations:
-        #     description: No database backup within the last 48 hours
-        #     summary: Checks for recent database backups
-        #   expr: |-
-        #     (cnpg_collector_last_available_backup_timestamp != 0) and (time() - cnpg_collector_last_available_backup_timestamp > 172800)
+        # --- base backups: the dead-man, modelled on KopiurBackupStale --------
+        # Working as of 2026-08-21. The old DatabaseNoBackup compared against
+        # cnpg_collector_last_available_backup_timestamp, which the barman-cloud
+        # plugin pins at 0 - re-confirmed AFTER three backups completed against
+        # garage - so it could never fire and was deleted rather than left to rot.
+        #
+        # The timestamp now comes from the Backup objects themselves, exported by
+        # kube-state-metrics customResourceState (configured in
+        # observability/kube-prometheus-stack). Only backups that actually finished
+        # set status.stoppedAt, so failed ones produce no series at all, and the
+        # phase="completed" filter is belt-and-braces on top of that.
+        #
+        # 48h matches kopiur's KopiurBackupStale. Backups are daily (23:30 and
+        # 23:45 UTC), so this tolerates exactly one missed run and fires on two.
+        - alert: DatabaseNoRecentBackup
+          annotations:
+            description: >-
+              No completed backup of {{ $labels.cluster }} for
+              {{ $value | humanizeDuration }}. Backups run daily, so this means at least
+              two consecutive runs did not complete.
+            summary: No recent completed database backup.
+          expr: |-
+            (
+              time() - max by (cluster, namespace) (cnpg_backup_stopped_at_seconds{phase="completed"})
+            ) > 172800
+          for: 1h
+          labels:
+            severity: critical
+        # The companion that makes the rule above trustworthy. A staleness check on
+        # its own cannot distinguish "backups stopped" from "the Backup objects were
+        # deleted" - when the series disappears the expression returns nothing and
+        # goes quiet, which is precisely the failure mode of a self-clearing alert.
+        # Backup objects are owned by their ScheduledBackup
+        # (backupOwnerReference: self) and so are prunable, making this a live risk
+        # rather than a theoretical one. Joining against the Cluster series means a
+        # cluster that exists with no completed backup is loud instead of silent.
+        - alert: DatabaseNeverBackedUp
+          annotations:
+            description: >-
+              Cluster {{ $labels.cluster }} has no completed backup on record at all.
+              Either it has never been backed up, or its Backup objects were deleted -
+              in both cases DatabaseNoRecentBackup cannot see anything to age.
+            summary: Database cluster has no completed backup on record.
+          expr: |-
+            max by (cluster, namespace) (cnpg_cluster_instances)
+              unless on (cluster, namespace)
+            max by (cluster, namespace) (cnpg_backup_stopped_at_seconds{phase="completed"})
+          for: 1h
+          labels:
+            severity: critical
