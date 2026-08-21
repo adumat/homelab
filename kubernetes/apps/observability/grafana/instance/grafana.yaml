@@ -71,6 +71,13 @@ spec:
       annotations:
         reloader.stakater.com/auto: "true"
     spec:
+      # TEMPORARY: 0 so the operator itself stops grafana, releasing grafana-pvc
+      # so it can be deleted and recreated with a dataSourceRef. Scaling the
+      # Deployment by hand does not work - it is owned by this CR and the
+      # operator reverts it - and deleting a still-mounted PVC arms the delete
+      # behind the pvc-protection finalizer to fire later. Removed in the very
+      # next commit.
+      replicas: 0
       strategy:
         type: Recreate
       template:
