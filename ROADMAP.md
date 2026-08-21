@@ -889,14 +889,31 @@ Verified on a live node, 2026-08-18:
 
       **Three of the five planned rules turned out to be unimplementable, and the plan's headline
       rule was one of them.** Verified against the exporter's raw `/ups_metrics`, not assumed:
-  - [x] ~~`network_ups_tools_ups_status{flag="ALARM"}`~~ — **impossible.** The exporter emits a
-        **fixed 15-flag set** (`BOOST BYPASS CAL CHRG DISCHRG FSD HB LB OB OFF OL OVER RB SD TRIM`)
-        and **ALARM is not in it**. `upsc` shows the `ALARM` token but the exporter drops it, and
-        `ups.alarm` itself is a **string** variable so it cannot become a gauge — `--nut.vars_enable=`
-        does not help. The condition that was missed **cannot be alerted on directly at all**.
-  - [x] ~~`ups.test.result`~~ — **not exported** (string variable, same reason).
-  - [x] ~~`battery.voltage`~~ — **not exported by this driver.** `output_voltage` exists but that is
-        mains output, not the pack, so it is not a substitute.
+  - [x] **The ALARM condition IS alertable, via `ups.alarm` — done 2026-08-21 as `UpsAlarm`.**
+        Not via the status flag: the exporter emits a **fixed 15-flag set**
+        (`BOOST BYPASS CAL CHRG DISCHRG FSD HB LB OB OFF OL OVER RB SD TRIM`) and **ALARM is not
+        in it**, so `flag="ALARM"` is genuinely impossible. But the `ups.alarm` *variable* works.
+        The exporter turns a string into a gauge only if it matches **`--nut.on_regex`**, whose
+        default (`^(enable|on|true|active|...)$`) no alarm text matches — which is the real reason
+        it was silently absent. Every NUT alarm string ends in `!`
+        ("Battery voltage too low!", "Replace battery!") and **no other variable this UPS reports
+        contains one**, so `on_regex` now carries a `|!` branch and alarms coax to 1 with no
+        collateral. **`--nut.vars_enable=` was never the relevant lever**, and assuming it exported
+        "everything" is what made this look impossible.
+        Verified by deploying a throwaway `|ECO` branch first, which made
+        `outlet.[12].ecocontrol` appear — proving both that the flag is plumbed through the chart
+        and that coercion works, neither of which can be exercised on demand because `ups.alarm`
+        **only exists while an alarm is active**. Also confirmed Flux's envsubst does not mangle
+        the `$` in the anchored pattern. ⚠️ Honest limit: the `!` branch itself stays **unexercised
+        until a real alarm**, and the alarm *text* is not in the metric — read it with
+        `docker exec nut-server upsc ups@localhost ups.alarm`.
+  - [x] ~~`ups.test.result`~~ and ~~`battery.voltage`~~ — **these two really are impossible, but
+        not because of the exporter.** A full `upsc` dump shows **neither variable exists on this
+        device at all**: `usbhid-ups`/MGE HID does not publish them for the Ellipse ECO 650.
+        `battery.voltage` is even in the exporter's *default* `vars_enable` list, so it would be
+        exported the moment the UPS offered it. No exporter or flag can conjure them; only
+        different hardware would. `output_voltage` is mains output, not the pack, so it is not a
+        substitute.
   - [x] `ups.load` and `battery.runtime` **while on line power** — done, and this is the real fix:
         every previous battery rule required `flag="OB"`, so none could warn *before* an outage.
         `UpsRuntimeInsufficientOnLine` / `UpsRuntimeCriticalOnLine` evaluate on line power.

@@ -26,10 +26,15 @@ spec:
             args:
               # export all variables
               - --nut.vars_enable=
-              # TEMPORARY PROBE (2026-08-21): the `ECO` branch exists only to prove that this
-              # flag is plumbed through and that string coercion works, by making
-              # outlet.[12].ecocontrol appear. It is removed in the follow-up commit.
-              - --nut.on_regex=^(enable|enabled|on|true|active|activated)$|!|ECO
+              # The trailing `|!` branch is what makes ups.alarm observable. NUT alarm texts
+              # are strings ("Battery voltage too low!", "Replace battery!") and the exporter
+              # only turns a string into a gauge if it matches on_regex/off_regex - which is
+              # why ups.alarm was silently absent while Unraid displayed it. Every NUT alarm
+              # string ends in "!", and no other variable this UPS reports contains one, so
+              # this coaxes alarms to 1 with no collateral. Verified 2026-08-21 that the flag
+              # is plumbed through and that coercion works (see git history for the probe).
+              # If a future alarm text somehow lacks "!", extend this pattern.
+              - --nut.on_regex=^(enable|enabled|on|true|active|activated)$|!
             probes:
               liveness:
                 enabled: true

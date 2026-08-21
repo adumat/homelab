@@ -29,6 +29,19 @@ spec:
             network_ups_tools_ups_status{flag="OB"} == 1
           labels:
             severity: critical
+        - alert: UpsAlarm
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} is asserting an alarm. This is the condition that went
+              unnoticed for months: the UPS reported ups.alarm "Battery voltage too low!" at
+              100% charge while every rule here watched something else. The alarm text itself is
+              not in the metric - read it with:
+              docker exec nut-server upsc ups@localhost ups.alarm
+            summary: UPS is asserting an alarm.
+          expr: |
+            network_ups_tools_ups_alarm == 1
+          labels:
+            severity: critical
         - alert: UpsBatteryReplace
           annotations:
             description: >-
