@@ -12,3 +12,4 @@ resources:
   - ./externalsecret.yaml
   - ./externalsecret-garage.yaml
   - ./prometheusrule-garage.yaml
+  - ./prometheusrule-node-health.yaml

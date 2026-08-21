@@ -86,6 +86,7 @@ nodes:
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
       - "@./patches/nodes/kube-nuc-ethernet.yaml"
+      - "@./patches/nodes/kube-nuc-logging.yaml"
     nodeLabels: &controlPlaneLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   # - hostname: "kube-dell"
@@ -128,6 +129,7 @@ nodes:
     extensionServices: *extensionServices
     patches:
       - "@./patches/nodes/kube-hp-ethernet.yaml"
+      - "@./patches/nodes/kube-hp-logging.yaml"
     nodeLabels: *controlPlaneLabels
   - hostname: "kube-ceph-01"
     ipAddress: "10.1.10.21"
@@ -148,6 +150,7 @@ nodes:
     extensionServices: *extensionServices
     patches:
       - "@./patches/nodes/kube-ceph-01-ethernet.yaml"
+      - "@./patches/nodes/kube-ceph-01-logging.yaml"
     nodeLabels: &cephNodeLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "kube-ceph-02"
@@ -169,6 +172,7 @@ nodes:
     extensionServices: *extensionServices
     patches:
       - "@./patches/nodes/kube-ceph-02-ethernet.yaml"
+      - "@./patches/nodes/kube-ceph-02-logging.yaml"
     nodeLabels: *cephNodeLabels
   - hostname: "kube-ceph-03"
     ipAddress: "10.1.10.23"
@@ -189,6 +193,7 @@ nodes:
     extensionServices: *extensionServices
     patches:
       - "@./patches/nodes/kube-ceph-03-ethernet.yaml"
+      - "@./patches/nodes/kube-ceph-03-logging.yaml"
     nodeLabels: *cephNodeLabels
 
 # Global patches
@@ -199,6 +204,7 @@ patches:
   - "@./patches/global/machine-network.yaml"  # search Domain
   - "@./patches/global/machine-sysctls.yaml"  # network tweaks
   - "@./patches/global/machine-longhorn.yaml" # longhorn settings
+  - "@./patches/global/machine-watchdog.yaml" # hardware watchdog, self-heal a hung node
 
 # Controller patches
 controlPlane:

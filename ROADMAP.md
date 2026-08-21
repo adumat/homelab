@@ -401,10 +401,9 @@ kopiur at a Postgres data directory, so:
       clean. `mdNumInvalid=1` is the empty `parity2` slot, not a fault, and the cache NVMe
       showing `DISK_NP_DSBL` is present and mounted — the backups share is
       `shareUseCache="no"`, so backups never touch cache and it cannot explain the corruption.
-- [ ] **Blocked until elizabeth's parity check finishes** (started 2026-08-18 after the
-      unclean shutdown, 1% of 9.77 TB, historically 20-28h). The migration restores over NFS
-      from the array that check is saturating, and two outages in two days is the wrong
-      moment to be deleting and repopulating live PVCs.
+- [x] ~~**Blocked until elizabeth's parity check finishes**~~ — cleared 2026-08-20. The check
+      (started 2026-08-18 after the unclean shutdown) finished at 01:27 UTC on 2026-08-20 having
+      corrected **145 sync errors**, and the migration proceeded that day.
 - [x] **All 15 un-migrated apps protected in kopiur — 2026-08-18.** The 2026-08-17 blackout
       corrupted VolSync's repository mid-write and every mover died on a truncated index
       blob, leaving those apps with no backup for ~36h. Rather than wait for the repair, each
@@ -468,10 +467,10 @@ kopiur at a Postgres data directory, so:
       ⚠️ Also proved that **Flux does not remove an app's PVC** when the app is pruned — it
       stayed `Bound` with an empty `deletionTimestamp`. Deleting an app is not finished until
       `kubectl get pvc,pv -A | grep <app>` is empty. Both in [AGENTS.md](AGENTS.md).
-- [ ] **Batch 2 in progress 2026-08-20: pyload-ng, radarr, sonarr done; qbittorrent left
-      deliberately.** 4 of 19 → 7 of 19 on kopiur. Its Kustomization is Ready and the app runs
-      on its old PVC, because the `ssa: IfNotPresent` label stops Flux touching it — a stable
-      resting point, not a half-migration.
+- [x] **Batch 2 done 2026-08-20: pyload-ng, radarr, sonarr, then qbittorrent.** The
+      `ssa: IfNotPresent` label proved out exactly as intended — an app whose git manifest had
+      moved to `components/kopiur` kept running on its old PVC, Kustomization Ready, a stable
+      resting point rather than a half-migration.
 
       **13 volumes migrated as of 2026-08-20**, confirmed by `dataSourceRef.kind == Restore`:
       metube, prowlarr, pyload-ng, qbittorrent, radarr, sonarr, esp-home, home-assistant,
@@ -541,7 +540,9 @@ kopiur at a Postgres data directory, so:
 
       The four orphaned `ReplicationDestination` objects Flux will not prune (qbittorrent,
       home-assistant, node-red, karakeep) are deleted. **VolSync now has zero workload objects.**
-- [ ] Migrate the remaining 18 VolSync apps to kopiur, in batches, not in bulk.
+- [x] **All 18 apps migrated to kopiur — complete 2026-08-20.** Every one verified by diffing a
+      per-file checksum manifest of the quiesced volume against the restored one before the app
+      was allowed to start. In batches, never in bulk.
       **Batch 1 done 2026-08-16 — metube, jellyseerr, filebrowser**, each verified by diffing
       a per-file checksum manifest of the quiesced volume against the restored one:
       identical, 9 / 2 / 2 files. First kopiur snapshots `Succeeded` at 21,007,083 / 13,966 /
@@ -559,10 +560,26 @@ kopiur at a Postgres data directory, so:
       `replicationsource.status.lastSyncTime`; `offset: 0` reads the live repository regardless.
 - [x] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it.
       Done 2026-08-20: all four gone, no VolSync object of any kind left in the cluster.
-- [ ] Two leftover `premigrate` snapshot CRs (`downloads/qbittorrent`, `home/home-assistant`) from
-      runs that aborted before their cleanup step, plus `media/romm-fixcheck2` — left in place
-      deliberately: they are valid pre-migration copies, and `romm-fixcheck2` is romm's only
-      *post-fix* backup until the 00:40 UTC run. Delete once that run succeeds. Also still there:
+- [x] **Leftover snapshots cleaned up 2026-08-21.** The two `premigrate` copies
+      (`downloads/qbittorrent`, `home/home-assistant`) came from runs that aborted before their
+      cleanup step — quiesced safety copies taken with the app stopped, just before its PVC was
+      deleted and recreated, which is what the restore then pulled from. Both apps have since
+      taken successful **scheduled** backups on two consecutive days, so the copies were
+      redundant and are deleted.
+
+      `media/romm-fixcheck2` deleted too, because the condition set for it is now met — and it
+      confirms the romm fix on a real scheduled run rather than only a manual test:
+
+      | snapshot | result | mover |
+      | --- | --- | --- |
+      | `romm-20260819004135` | Failed | root (uid 0) |
+      | `romm-20260820004052` | Failed | root (uid 0) |
+      | `romm-20260821004055` | **Succeeded** | uid 1000 |
+
+      Two consecutive scheduled failures under the root mover, then success once it went back to
+      1000. That closes the loop opened when the "fix" was found to be backwards.
+
+      Still there:
       the `downloads/prowlarr-rescue` PVC (2Gi, 8 days old) — flagged rather than deleted, since
       the standing rule is to keep cold fallbacks through phase 3
 - [x] **All four unprotected PVCs now backed up — 2026-08-20.** `services/paperless-ai`,
@@ -682,9 +699,12 @@ kopiur at a Postgres data directory, so:
       container). **90 `cnpg_` metrics are scraped.** Query Prometheus through the API proxy
       (`kubectl get --raw /api/v1/namespaces/observability/services/kube-prometheus-stack-prometheus:9090/proxy/api/v1/...`)
       rather than exec, and sanity-check with `up` before trusting a "no data" result.
-- [ ] 🔴 **OPEN: MinIO on elizabeth is flapping, and it is why immich-db has no base backup
-      since 2026-08-18.** Diagnosed 2026-08-20. Not a CNPG problem and not immich-specific — the
-      object store itself is degraded:
+- [x] ✅ **RESOLVED — MinIO on elizabeth was flapping, and it is why immich-db had no base backup
+      from 2026-08-18 to 2026-08-20.** Fixed in two stages: a MinIO restart brought the drive back
+      online and produced `backup-20260820192847` (the first base backup in two days), and phase
+      2.7 then moved both clusters off MinIO to garage entirely, so the failure mode is retired
+      rather than merely cleared. Diagnosis kept below because the reasoning is reusable — it was
+      not a CNPG problem and not immich-specific:
 
       ```
       ListObjectsV2 → InternalError ... cause(listPathRaw: 0 drives provided)
@@ -764,18 +784,37 @@ Verified on a live node, 2026-08-18:
 | `machine.logging.destinations` | not configured |
 | EDAC (RAM error) metrics | absent, so RAM errors are invisible |
 
-- [ ] Enable the Talos **hardware watchdog** (`WatchdogTimerConfig`, against `/dev/watchdog0`).
+- [x] **Enable the Talos hardware watchdog — done 2026-08-21.** `WatchdogTimerConfig` against
+      `/dev/watchdog0`, `timeout: 5m`, via
+      [machine-watchdog.yaml](kubernetes/talos/patches/global/machine-watchdog.yaml). Applied to all
+      five nodes with `apply-config`, no reboot. Verified by read-back:
+      `/sys/class/watchdog/watchdog0/timeout` = `300` and `state` = `active` on every node, with
+      Talos feeding at `feedInterval: 1m40s`. The read-back is the test — the driver reports
+      `max_timeout=0` because it advertises no limits, so exit status alone would not prove 300s
+      was accepted rather than clamped. Hardware is TCO `Version=6`, ceiling 613s.
       The device exists and nothing arms it. If the kernel stops petting it the board resets
       itself, turning "hangs until someone drives over" into a ~1 min reboot — and it works
       whether the cause is the NIC, the kernel or RAM
-- [ ] Add `panic=10` to [machine-kernel.yaml](kubernetes/talos/patches/global/machine-kernel.yaml)
+- [ ] Add `panic=10` to the **schematic's `extraKernelArgs`** in
+      [talconfig.yaml](kubernetes/talos/talconfig.yaml) — **not** to `machine-kernel.yaml`, which
+      configures kernel *modules*. This is a schematic change, so it needs a new installer image
+      and a **rolling `talosctl upgrade`**, one node at a time respecting etcd quorum (only two
+      members). Silence `NodeUnexpectedReboot` first or it pages once per node.
       so a panic reboots instead of sitting dead
-- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` into
+- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` — but **to the
+      local fluent-bit, not straight to VictoriaLogs.** Talos emits `json_lines` only; VictoriaLogs'
+      syslog listener accepts RFC3164/RFC5424 only, and Talos drops silently on a destination it
+      cannot deliver to, so the direct path looks deployed and ships nothing. Add a `tcp` INPUT
+      (`format json`) to fluent-bit on a hostPort and point Talos at `127.0.0.1` — a ClusterIP would
+      need Cilium healthy, which a node with broken networking does not have. Was: into
       VictoriaLogs. fluent-bit collects *container* logs only, which is exactly why this
       incident left no kernel evidence. Verify the schema against Talos 1.13 first
 - [ ] Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
       this way — stops being invisible
-- [ ] Alert on `node_network_carrier_changes_total` rising: it catches a flapping NIC *before*
+- [x] **Alert on `node_network_carrier_changes_total` rising — done 2026-08-21**, as
+      `NodeNICCarrierFlapping` in
+      [prometheusrule-node-health.yaml](kubernetes/apps/observability/kube-prometheus-stack/app/prometheusrule-node-health.yaml).
+      It catches a flapping NIC *before*
       a full hang, and its being flat at 0 is what weakened the e1000e theory here
 - [ ] **Fix the NUT alert rules.** The UPS is currently reporting `ups.status: ALARM OL CHRG` with
       `ups.alarm: "Battery voltage too low!"` at `battery.charge: 100`, and **nothing alerts on it**:
@@ -813,6 +852,25 @@ Deleting the Node first orphans its `VolumeAttachment`s with `deletionTimestamp:
 controller left to clean them, and they must then be removed by hand before any RWO volume can
 attach elsewhere. Before forcing any RBD detach, prove no stale client holds the image:
 `rbd status <pool>/<image>` must show no `watcher=` from the dead node.
+
+**What differed from the design (2026-08-21).** Two assumptions in the phase description above
+turned out to be wrong, both discovered by checking rather than by failing:
+
+- **Watchdog-specific alerting is impossible on this hardware.** `iTCO_wdt` reports
+  `options: 0x8180` = `SETTIMEOUT｜MAGICCLOSE｜KEEPALIVEPING`, omitting `WDIOF_CARDRESET`. So
+  `/sys/class/watchdog/watchdog0/bootstatus` can never say "the watchdog reset me" and will read
+  `0` forever. `NodeUnexpectedReboot` alerts on *any* unexpected boot instead — which also catches
+  panics and power events, so it is arguably the better signal. It does fire on planned reboots,
+  hence the silence requirement noted above.
+- **Kernel logs cannot go straight to VictoriaLogs.** Talos emits `json_lines` only; the syslog
+  listener accepts RFC3164/RFC5424 only. Since Talos drops silently on an undeliverable
+  destination, the original plan would have looked deployed and shipped nothing. Corrected to route
+  via the local fluent-bit.
+
+Also worth recording: kernel log shipping captures the **run-up** to a failure, not the fatal
+instant — if the node is dying, the shipping path dies with it, and anything logged before
+fluent-bit's pod starts is unshippable. The watchdog is the part of this phase that actually pays
+the rent; the logging is for naming causes afterwards.
 
 ### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
 
@@ -968,13 +1026,13 @@ disk2.
 Sequenced so the current backup path keeps working until the new one has been *restored from*,
 not merely written to. Nothing is cut over on the strength of a successful write.
 
-- [ ] **`data_dir` goes in the existing `backups` share as-is** — `/mnt/user/backups/garage`. It
+- [x] **`data_dir` goes in the existing `backups` share as-is** — `/mnt/user/backups/garage`. It
       is already `shareUseCache="no"` so the mover never touches it, and letting `highwater`
       allocate across disk1 (1.1 TB free) and disk2 (4.6 TB) is fine: garage sees one filesystem
       either way. Pinning to one disk would only trade "one disk dies, lose everything" for "one
       disk dies, lose part", and with `replication_factor = 1` neither is redundancy. Deliberately
       **not** solved here — see the deferred item below
-- [ ] **Deploy garage via doco-cd** as a per-host compose service (donkey/elizabeth/navi pattern
+- [x] **Deploy garage via doco-cd — done 2026-08-21** as a per-host compose service (donkey/elizabeth/navi pattern
       already exists), pinned to a digest, with the layout settled above:
 
       ```toml
@@ -987,9 +1045,25 @@ not merely written to. Nothing is cut over on the strength of a successful write
       ⚠️ `metadata_dir` must use the **`/mnt/cache` path, not `/mnt/user/appdata`** — cache-only
       is not the same as FUSE-free, and SQLite over FUSE is the documented way to get "database
       disk image is malformed"
-- [ ] **Schedule btrfs snapshots of `metadata_dir`** — garage prescribes exactly this, and it is
-      the only mitigation that covers the failure mode elizabeth has actually demonstrated twice
-- [ ] Create buckets and access keys for barman (`postgresql`, `immich`), and a second
+- [x] ~~**Schedule btrfs snapshots of `metadata_dir`**~~ — **built, then deliberately removed as
+      over-engineered, 2026-08-21.** What remains is one declarative line,
+      `metadata_auto_snapshot_interval = "24h"` in `garage.toml`: garage snapshots its own
+      metadata internally, with nothing to monitor and no cron. It caps itself at the two most
+      recent — documented and hardcoded, no retention setting, and it prunes anything else in
+      that directory including unrelated files.
+
+      The discarded half was a host cron copying snapshots out for 7-day retention. **Do not
+      rebuild it.** It added four fragilities for a marginal gain: a script on a vfat filesystem
+      that cannot carry an execute bit (`chmod +x` silently no-ops, bare invocation exits 126), a
+      cron in a RAM filesystem needing a `/boot/config/go` entry to survive reboots, and an
+      unmonitored job — all on the same NVMe pool, so no defence against the disk loss that
+      actually threatens this.
+
+      Two bugs found while building it, worth keeping: `garage meta snapshot` self-prunes to two
+      entries *before* any wrapper retention runs, which made `KEEP=7` dead code; and sorting
+      snapshot directories by mtime pruned a real snapshot while keeping newer-mtime junk,
+      because `cp -a` preserves the source mtime. ISO8601 names must be sorted by name.
+- [x] Create buckets and access keys for barman (`postgresql`, `immich`), and a second
       `ObjectStore` per cluster pointing at garage. **Keep MinIO serving in parallel** — CNPG
       supports only one plugin objectstore per cluster at a time, so this is a cutover, not a
       dual-write; the parallel period is for rehearsal, not redundancy
@@ -1094,6 +1168,59 @@ subset (CNPG base backups are the only truly irreplaceable data; media is re-acq
 is actually built for exactly this — it is a *geo-distributed* store, so a second garage node
 elsewhere replicating the barman bucket is the native answer, and 2.7 deliberately sets
 `replication_factor = 1` now rather than pretending otherwise.
+
+
+### ⚠️ Open now — belongs to no phase, both found 2026-08-21
+
+Two live Ceph issues, surfaced while unblocking Flux during phase 2.7. Neither is caused by the
+garage migration; both need a decision.
+
+- [ ] 🔴 **The mgr crash loop is NOT fixed, and it will re-block every Kustomization.** Rook
+      v1.20.2→v1.20.6 and Ceph v20.2.3→v20.2.4 were merged (PR #467) specifically to fix it. They
+      did not. Crashes resumed immediately on v20.2.4 at roughly **4 per minute** — same
+      signature: `mgr_module: rook`, `mgr_module_caller: ActivePyModule::dispatch_remote
+      node_proxy_fullreport`, `NotImplementedError`. It only *looked* fixed because the mgr
+      restart during the upgrade reset the counter.
+
+      The chain: the `prometheus` mgr module's `get_hardware_metrics()` calls
+      `node_proxy_fullreport()`, which the Rook orchestrator does not implement → a crash report
+      every ~15 s → reports arrive faster than the `crash` module can iterate → `dictionary
+      changed size during iteration` → the module fails → **HEALTH_ERR** → `rook-ceph-cluster`'s
+      health check fails → **31 Kustomizations stall** on `dependency ... is not ready`. Measured
+      twice today: about **one hour** from clean to blocked.
+
+      Not an outage when it happens — mons, OSDs, MDS and the data plane stay healthy, 190 pods
+      keep running. What breaks is GitOps: no Flux change can land.
+
+      Options, none free:
+      1. **Raise `mgr/prometheus/scrape_interval`** (currently `15`). 60 s cuts the rate 4×, 300 s
+         cuts it 20× to ~12/hour, which the crash module tolerates. Cost: staler Ceph metrics.
+         Cheapest and most reversible
+      2. **Periodic `ceph crash archive-all`** via CronJob, every 30 min. Keeps health at WARN so
+         Flux never blocks. Note `archive-all` itself fails once the module is already broken, so
+         it must stay ahead of the backlog — and a broken mgr needs a pod restart to recover
+      3. **Disable the `prometheus` mgr module** — stops it at source, but the `rook-ceph-mgr`
+         ServiceMonitor feeds `ceph_health_status` and every Ceph alert. Rejected: it would blind
+         the monitoring that surfaced this
+      4. Report upstream; #488 (Ceph **v21.1.0**, Renovate-flagged breaking) is a separate
+         decision and should not be merged casually
+
+      Interim state: crashes archived and the mgr restarted, so Flux is unblocked right now.
+
+- [ ] 🔴 **CVE-2025-30156 — cephx keys are the old insecure `aes` type, and the ERR is muted
+      until 2026-08-28.** Ceph v20.2.4 exists largely to fix this CVE; it introduces the
+      `aes256k` key type, and the new `AUTH_INSECURE_*` health checks are the intended signal
+      that existing keys must be rotated. Ours are all `aes`: 8 client entities (`client.admin`,
+      the four CSI identities, `client.crash`, `client.ceph-exporter`,
+      `client.rbd-mirror-peer`), 6 service entities, and 4 rotating service keys.
+
+      `AUTH_INSECURE_SERVICE_KEY_TYPE` is **ERR** level, which blocks Flux the same way the crash
+      loop does, so it is muted with `ceph health mute ... 7d` — **deliberately time-boxed so it
+      returns rather than being silenced for good.**
+
+      Rotation touches cluster authentication and the CSI drivers, so it needs its own session,
+      not a tail-end action: Rook documents a managed cephx rotation path, and Ceph notes daemons
+      and clients keep using the old type internally for two to three hours after a rotation.
 
 
 ### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes

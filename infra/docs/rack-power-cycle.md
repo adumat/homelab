@@ -168,4 +168,5 @@ WOL arming was verified 2026-08-19: all four Talos nodes report `wakeOnLAN: ["ma
 | Cutting power to a running Unraid array | Write hole; 2026-08-17 produced 145 corrected parity blocks |
 | Leaving the VPN up through the cut | Full tunnel to a dead peer blackholes all Mac traffic |
 | Trusting `vpn.${DOMAIN}` after an outage | Stale record, possibly another customer's IP, answers pings |
+| Rebooting nodes without silencing `NodeUnexpectedReboot` | Pages you once per node; teaches you to ignore a critical alert |
 | Assuming a big `sbSyncErrs` means a dying disk | Check character not count: `mdResyncCorr=1` + one contiguous burst + clean SMART = a write hole, not hardware |

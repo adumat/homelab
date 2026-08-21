@@ -33,6 +33,18 @@ spec:
           skip_empty_lines on
           skip_long_lines on
 
+        # Talos kernel + service logs, so a hung node leaves evidence. Talos emits json_lines
+        # ONLY, which is why these cannot go straight to VictoriaLogs' syslog listener
+        # (RFC3164/RFC5424 only) - and Talos drops silently on a destination it cannot deliver
+        # to, so that mistake would look deployed and ship nothing.
+        [INPUT]
+          name tcp
+          alias talos
+          listen 0.0.0.0
+          port 5170
+          format json
+          tag talos.*
+
       filters: |-
         [FILTER]
           name kubernetes
@@ -93,6 +105,22 @@ spec:
           json_date_format iso8601
           compress gzip
           log_response_payload false
+
+        [OUTPUT]
+          name http
+          match talos.*
+          host victoria-logs-server.observability.svc.cluster.local
+          port 9428
+          uri /insert/jsonline?_stream_fields=node,talos-level&_msg_field=msg&_time_field=talos-time
+          format json_lines
+          json_date_format iso8601
+          compress gzip
+          log_response_payload false
+    extraPorts:
+      - port: 5170
+        containerPort: 5170
+        protocol: TCP
+        name: talos-logs
     dashboards:
       enabled: true
     serviceMonitor:
