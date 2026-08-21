@@ -3,7 +3,24 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mosquitto
+  labels:
+    # Flux creates this PVC and then leaves it alone. dataSourceRef below is
+    # IMMUTABLE, so Flux cannot add it to a PVC that already exists - the apply
+    # would fail. IfNotPresent makes it a no-op instead: the live volume is
+    # untouched, while a REBUILT cluster creates it fresh with the dataSourceRef
+    # and restores from garage rather than coming up empty.
+    #
+    # Same trade-off as components/kopiur: capacity changes here will not reach
+    # the existing PVC either, so resize by hand if it ever needs it.
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 spec:
+  # Without this a rebuild brings mosquitto up with an EMPTY volume reporting
+  # healthy, which phase 3's G4 counts as a bug rather than an inconvenience.
+  # The Restore is created by components/kopiur-external and named after the app.
+  dataSourceRef:
+    apiGroup: kopiur.home-operations.com
+    kind: Restore
+    name: mosquitto
   accessModes:
     - ReadWriteOnce
   resources:
