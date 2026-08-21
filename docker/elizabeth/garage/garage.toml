@@ -46,7 +46,17 @@ replication_factor = 1
 rpc_bind_addr = "[::]:3901"
 
 [s3_api]
-s3_region     = "garage"
+# us-east-1, NOT "garage" as the docs example uses. Garage validates the region
+# in the SigV4 credential scope, and boto3 - which barman-cloud uses - signs with
+# its default us-east-1 unless explicitly told otherwise. A mismatch is rejected:
+#
+#   400 Bad Request, Authorization header malformed, unexpected scope:
+#     '20260821/us-east-1/s3/aws4_request', expected: '20260821/garage/...'
+#
+# The client only sees "400 Bad Request" on HeadBucket, which says nothing - the
+# real reason appears only in garage's own log. Matching the universal client
+# default removes the whole class of problem for any S3 tool, not just barman.
+s3_region     = "us-east-1"
 api_bind_addr = "[::]:3900"
 
 [admin]
