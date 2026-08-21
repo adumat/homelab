@@ -13,18 +13,22 @@ metadata_dir = "/var/lib/garage/meta"
 data_dir     = "/var/lib/garage/data"
 db_engine    = "sqlite"
 
-# Garage takes its own application-consistent metadata snapshots on this
-# interval, into <metadata_dir>/snapshots/. Declarative and needs no cron.
+# No metadata snapshots, deliberately. metadata_auto_snapshot_interval was tried
+# and removed: garage keeps only the TWO most recent snapshots (hardcoded, no
+# retention setting), so it buys at most ~2 days, and the accepted consequence of
+# losing the metadata DB is to recreate garage - new layout, buckets and key -
+# and take fresh backups. The databases themselves are the source of truth and
+# are unaffected; what is lost is the record of past backups.
 #
-# A filesystem copy would NOT be a substitute: cp of a live SQLite DB is not
-# atomic across db.sqlite/-wal/-shm and can capture a torn state.
+# An attempt at longer retention via a host cron copying snapshots out was also
+# removed: it added a script on a vfat filesystem that cannot hold an execute
+# bit, a cron in a RAM filesystem needing /boot/config/go to survive reboots, and
+# an unmonitored job - four fragilities for a narrow case, all on the same NVMe
+# pool, so useless against the disk loss that actually threatens this.
 #
-# ⚠️ Garage keeps only the TWO most recent snapshots and deletes older ones
-# itself - documented, hardcoded, no retention setting. It also prunes anything
-# else in that directory, including unrelated files. Longer retention therefore
-# has to copy snapshots OUT to a separate directory; see
-# /boot/config/scripts/garage-meta-snapshot.sh on the host.
-metadata_auto_snapshot_interval = "24h"
+# sqlite (not the default lmdb) remains the real mitigation here: garage's docs
+# warn LMDB "files have a tendency of becoming corrupted after an unclean
+# shutdown", which is this host's demonstrated failure mode.
 
 # Single node. Stated explicitly rather than left implicit: this is NOT
 # redundancy, and the backup-of-backups problem is tracked separately.
