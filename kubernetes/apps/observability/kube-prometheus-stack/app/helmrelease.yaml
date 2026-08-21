@@ -141,7 +141,10 @@ spec:
       rbac:
         extraRules:
           - apiGroups: ["postgresql.cnpg.io"]
-            resources: ["backups"]
+            # `clusters` is required as well as `backups`. Granting only backups makes the
+            # Cluster metrics silently absent - KSM logs "forbidden" and carries on serving
+            # everything else, so /metrics looks healthy and only the missing series shows it.
+            resources: ["backups", "clusters"]
             verbs: ["list", "watch"]
       customResourceState:
         enabled: true
@@ -154,6 +157,12 @@ spec:
                   version: v1
                   kind: Backup
                 metricNamePrefix: cnpg_backup
+                # Failed backups never set status.stoppedAt, so path resolution fails for
+                # each of them on every scrape and floods the log with
+                # "got nil while resolving path". They are correctly excluded from the
+                # metric; only the logging is unwanted, so raise the verbosity needed to
+                # print it rather than suppressing the metric or faking a zero.
+                errorLogV: 10
                 labelsFromPath:
                   namespace: [metadata, namespace]
                   backup: [metadata, name]
