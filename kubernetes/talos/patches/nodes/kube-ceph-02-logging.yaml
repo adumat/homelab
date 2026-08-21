@@ -1,0 +1,20 @@
+---
+# Ships kernel and service logs off-node so a hang leaves evidence behind. Without this, a
+# hardware unit hang, a panic trace or an MCE all vanish on reboot - which is exactly why
+# kube-ceph-03's 2026-08-19 hang is still unexplained.
+#
+# Goes to fluent-bit, NOT to VictoriaLogs directly: Talos emits json_lines only (see
+# sender_jsonlines.go) while VictoriaLogs' syslog listener accepts RFC3164/RFC5424 only. Talos
+# drops silently on a destination it cannot deliver to, so the direct path would look deployed
+# and ship nothing.
+#
+# extraTags is per-node because Talos does NOT template it - the map is copied verbatim - and
+# the only keys Talos guarantees are msg, talos-time and talos-level. Without this the node
+# identity is lost, since the ClusterIP load-balances a node's logs to an arbitrary pod.
+machine:
+  logging:
+    destinations:
+      - endpoint: "tcp://fluent-bit.observability.svc.cluster.local:5170"
+        format: json_lines
+        extraTags:
+          node: kube-ceph-02
