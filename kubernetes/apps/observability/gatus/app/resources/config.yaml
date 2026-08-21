@@ -31,6 +31,13 @@ endpoints:
     url: http://${SECRET_NAS_NAME}:3900
     interval: 1m
     conditions:
+      # [CONNECTED] first, and it is the one that matters. With only
+      # "[STATUS] < 500" this endpoint reported success while failing to connect
+      # at all: a failed dial yields status 0, and 0 < 500 is true. Gatus logged
+      # success alongside "dial tcp :3900: connect: connection refused".
+      - "[CONNECTED] == true"
+      # garage answers 403 to an unauthenticated S3 root, which is a live
+      # listener. This catches a 5xx once it is genuinely reachable.
       - "[STATUS] < 500"
 
 metrics: true
