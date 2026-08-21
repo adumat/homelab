@@ -53,7 +53,10 @@ spec:
         endpoints:
           - port: metrics
             scheme: http
-            interval: 60s
+            # 30s, not 60s: several UPS status flags (RB, LB, OVER, FSD) are asserted
+            # transiently and a 60s scrape can miss them entirely - which is exactly how
+            # Unraid warned about this battery for months while Prometheus stayed silent.
+            interval: 30s
             scrapeTimeout: 10s
             path: /ups_metrics
             params:

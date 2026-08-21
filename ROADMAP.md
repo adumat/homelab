@@ -879,19 +879,51 @@ Verified on a live node, 2026-08-18:
       [prometheusrule-node-health.yaml](kubernetes/apps/observability/kube-prometheus-stack/app/prometheusrule-node-health.yaml).
       It catches a flapping NIC *before*
       a full hang, and its being flat at 0 is what weakened the e1000e theory here
-- [ ] **Fix the NUT alert rules.** The UPS is currently reporting `ups.status: ALARM OL CHRG` with
-      `ups.alarm: "Battery voltage too low!"` at `battery.charge: 100`, and **nothing alerts on it**:
-      the rules in [prometheusrule.yaml](kubernetes/apps/observability/nut-exporter/app/prometheusrule.yaml)
-      only cover `OB`, `RB`, `charge < 50` and runtime-while-`OB`. This is the actual reason Unraid
-      warned for months while the cluster stayed silent. The exporter already runs with
-      `--nut.vars_enable=` so every variable is exported and these alerts cost nothing but rules:
-  - [ ] `network_ups_tools_ups_status{flag="ALARM"}` — the condition that was missed
-  - [ ] `ups.test.result` — battery self-test outcome, watched by nothing today
-  - [ ] `ups.load` and `battery.runtime` **while on line power** — `UpsLowRuntime` only evaluates
-        once already on battery, so it can never warn *before* an outage
-  - [ ] `battery.charge` failing to return to 100 after a discharge, and `battery.voltage`
-  - [ ] Raise the scrape rate or drop `for:` on flag-based rules — a 60 s scrape with `for: 10s`
-        needs the flag present in two consecutive samples to fire
+- [x] **Fix the NUT alert rules — done 2026-08-21.** The UPS had been reporting
+      `ups.status: ALARM OL CHRG` with `ups.alarm: "Battery voltage too low!"` at
+      `battery.charge: 100` and **nothing alerted**, which is why Unraid warned for months while
+      the cluster stayed silent. Rewritten in
+      [prometheusrule.yaml](kubernetes/apps/observability/nut-exporter/app/prometheusrule.yaml);
+      scrape lowered 60s → 30s in
+      [helmrelease.yaml](kubernetes/apps/observability/nut-exporter/app/helmrelease.yaml).
+
+      **Three of the five planned rules turned out to be unimplementable, and the plan's headline
+      rule was one of them.** Verified against the exporter's raw `/ups_metrics`, not assumed:
+  - [x] ~~`network_ups_tools_ups_status{flag="ALARM"}`~~ — **impossible.** The exporter emits a
+        **fixed 15-flag set** (`BOOST BYPASS CAL CHRG DISCHRG FSD HB LB OB OFF OL OVER RB SD TRIM`)
+        and **ALARM is not in it**. `upsc` shows the `ALARM` token but the exporter drops it, and
+        `ups.alarm` itself is a **string** variable so it cannot become a gauge — `--nut.vars_enable=`
+        does not help. The condition that was missed **cannot be alerted on directly at all**.
+  - [x] ~~`ups.test.result`~~ — **not exported** (string variable, same reason).
+  - [x] ~~`battery.voltage`~~ — **not exported by this driver.** `output_voltage` exists but that is
+        mains output, not the pack, so it is not a substitute.
+  - [x] `ups.load` and `battery.runtime` **while on line power** — done, and this is the real fix:
+        every previous battery rule required `flag="OB"`, so none could warn *before* an outage.
+        `UpsRuntimeInsufficientOnLine` / `UpsRuntimeCriticalOnLine` evaluate on line power.
+  - [x] `battery.charge` failing to return to full — done as `UpsChargeNotRecovering`.
+  - [x] Dropped `for:` on all flag-based rules and raised the scrape to 30s.
+  - [x] Also added flags nothing watched: **`FSD`** (upsmon has decided to kill every client —
+        the most consequential flag in the set and it was unmonitored), `OFF`, `OVER`, `BYPASS`,
+        and `LB` (distinct from `charge < 50`: the UPS raises LB on voltage under load, and can
+        assert it at a charge reading well above 50%).
+
+      **Thresholds came from 14 days of measured history, so they do not chatter**, and every
+      expression was checked against live Prometheus **with positive controls** — an empty result
+      otherwise cannot be distinguished from a broken `and on(...)` join:
+  - Runtime on line power floats **265–560 s** per instance → warn at 240 s, critical at 150 s,
+    smoothed with `avg_over_time(...[30m])` so load spikes do not trip it.
+  - Load averages **48–57 %** with brief spikes to **92 %** → sustained-load rule at 90 % for 30m.
+    An `> 80` rule, which looked reasonable, would have fired routinely.
+  - Charge floor over 14 days was **95 %** → `< 95` for 6h.
+
+      ⚠️ **Two findings that are worth more than the rules.** First, **`CHRG` is asserted 99.9 % of
+      the last 14 days** — "charging never completes" was the best available proxy for the missing
+      ALARM, and it is unusable as an alert because it is the steady state. It is still a real
+      statement about the pack: it effectively never reaches float. Second, **`RB` has never
+      asserted once in 14 days**, so `UpsBatteryReplace` has never had anything to fire on — the
+      earlier "RB is under-sampled" theory was wrong, and the flag simply is not being raised.
+      Both belong to the battery-health investigation, not to alerting. **Runtime is currently
+      468 s at 48 % load on a fully charged pack**, and elizabeth's array stop alone takes ~2 min.
 
 ⚠️ **Do not set `hung_task_panic=1`.** It looks like the natural companion to `panic=10` and it
 is wrong for this cluster: phase 1.5 documents stale NFS handles from elizabeth, and that flag

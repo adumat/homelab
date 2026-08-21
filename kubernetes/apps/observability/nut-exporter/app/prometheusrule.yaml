@@ -16,15 +16,155 @@ spec:
           for: 5m
           labels:
             severity: critical
+
+        # --- state flags -------------------------------------------------------------
+        # No `for:` on flag-based rules. These flags are asserted transiently, and with a
+        # 30s scrape any `for:` requires the flag to survive two consecutive samples -
+        # which is how a real RB assertion goes unnoticed. Fire on the first sample.
         - alert: UpsOnBattery
           annotations:
             description: UPS {{ $labels.instance }} has lost power and is running on battery.
             summary: UPS is running on battery.
           expr: |
             network_ups_tools_ups_status{flag="OB"} == 1
-          for: 10s
           labels:
             severity: critical
+        - alert: UpsBatteryReplace
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} asserted the replace-battery flag. This flag has
+              never once been seen in 14 days of history, so treat any firing as real.
+            summary: Replace UPS battery.
+          expr: |
+            network_ups_tools_ups_status{flag="RB"} == 1
+          labels:
+            severity: critical
+        - alert: UpsLowBatteryFlag
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} asserted the low-battery flag. Distinct from
+              UpsLowBattery, which watches the charge percentage - the UPS raises LB on its
+              own judgement (voltage under load), and it can assert at a charge reading
+              well above 50%.
+            summary: UPS signalled low battery.
+          expr: |
+            network_ups_tools_ups_status{flag="LB"} == 1
+          labels:
+            severity: critical
+        - alert: UpsForcedShutdown
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} is in forced-shutdown (FSD). upsmon has decided to
+              shut every client down. Nothing watched this flag before 2026-08-21.
+            summary: UPS forced shutdown in progress.
+          expr: |
+            network_ups_tools_ups_status{flag="FSD"} == 1
+          labels:
+            severity: critical
+        - alert: UpsOutputOff
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} reports its output is OFF - the load is
+              de-energised while the UPS itself is still reachable.
+            summary: UPS output is off.
+          expr: |
+            network_ups_tools_ups_status{flag="OFF"} == 1
+          labels:
+            severity: critical
+        - alert: UpsOverload
+          annotations:
+            description: UPS {{ $labels.instance }} reports an overload condition.
+            summary: UPS overloaded.
+          expr: |
+            network_ups_tools_ups_status{flag="OVER"} == 1
+          labels:
+            severity: critical
+        - alert: UpsOnBypass
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} is on bypass - mains is passed straight through and
+              the load is NOT protected.
+            summary: UPS is on bypass, load unprotected.
+          expr: |
+            network_ups_tools_ups_status{flag="BYPASS"} == 1
+          labels:
+            severity: warning
+
+        # --- capacity while still on line power --------------------------------------
+        # The structural gap this phase was written to close: every battery rule below
+        # used to require flag="OB", so none of them could warn BEFORE an outage. These
+        # evaluate while on line power, which is the only time a warning is actionable.
+        #
+        # Thresholds are taken from 14 days of measured history, not guessed: runtime on
+        # line power floats ~265-560s per instance, so 240s/150s sit below the observed
+        # floor and will not chatter. avg_over_time smooths the load spikes that would
+        # otherwise trip an instantaneous comparison.
+        - alert: UpsRuntimeInsufficientOnLine
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} predicts only {{ $value | humanizeDuration }} of
+              runtime while still on line power. elizabeth's array stop alone takes ~2 min
+              and the Talos nodes hang on Ceph unmount, so a clean shutdown needs more
+              headroom than this.
+            summary: UPS runtime is too short for a clean shutdown.
+          expr: |
+            avg_over_time(network_ups_tools_battery_runtime[30m]) < 240
+            and on(instance, job)
+            network_ups_tools_ups_status{flag="OL"} == 1
+          for: 15m
+          labels:
+            severity: warning
+        - alert: UpsRuntimeCriticalOnLine
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} predicts only {{ $value | humanizeDuration }} of
+              runtime on line power. A power cut now means an unclean stop of elizabeth's
+              array.
+            summary: UPS runtime critically short.
+          expr: |
+            avg_over_time(network_ups_tools_battery_runtime[30m]) < 150
+            and on(instance, job)
+            network_ups_tools_ups_status{flag="OL"} == 1
+          for: 15m
+          labels:
+            severity: critical
+        - alert: UpsLowBattery
+          annotations:
+            description: UPS {{ $labels.instance }} battery charge is {{ $value }} which is below 50%.
+            summary: UPS battery low
+          expr: network_ups_tools_battery_charge < 50
+          labels:
+            severity: warning
+        - alert: UpsChargeNotRecovering
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} has sat at {{ $value }}% charge for 6h on line
+              power without reaching full. The pack is not accepting a full charge.
+              Measured floor over 14 days was 95%, so this does not fire in normal
+              operation.
+            summary: UPS battery is not charging back to full.
+          expr: |
+            network_ups_tools_battery_charge < 95
+            and on(instance, job)
+            network_ups_tools_ups_status{flag="OL"} == 1
+          for: 6h
+          labels:
+            severity: warning
+        - alert: UpsLoadHigh
+          annotations:
+            description: >-
+              UPS {{ $labels.instance }} has averaged {{ $value }}% load for 30m. Load
+              directly sets how much runtime the battery can deliver. Measured 14-day
+              average is 48-57% with brief spikes to 92%, so the threshold sits above
+              normal behaviour.
+            summary: UPS load is sustained high.
+          expr: |
+            avg_over_time(network_ups_tools_ups_load[30m]) > 90
+          for: 30m
+          labels:
+            severity: warning
+
+        # --- kept: only meaningful once already on battery ---------------------------
         - alert: UpsLowRuntime
           annotations:
             description:
@@ -38,21 +178,5 @@ spec:
               network_ups_tools_battery_runtime < 600
             )
           for: 1m
-          labels:
-            severity: critical
-        - alert: UpsLowBattery
-          annotations:
-            description: UPS {{ $labels.instance }} battery charge is {{ $value }} which is below 50%.
-            summary: UPS battery low
-          expr: network_ups_tools_battery_charge < 50
-          labels:
-            severity: warning
-        - alert: UpsBatteryReplace
-          annotations:
-            description: UPS {{ $labels.instance }} battery needs to be replaced.
-            summary: Replace UPS battery.
-          expr: |
-            network_ups_tools_ups_status{flag="RB"} == 1
-          for: 10s
           labels:
             severity: critical
