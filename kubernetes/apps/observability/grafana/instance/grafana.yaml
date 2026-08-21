@@ -117,4 +117,24 @@ spec:
         requests:
           storage: 10Gi
       storageClassName: ceph-block
+      # Closes the last of phase 3's G1. Without this a rebuilt cluster creates
+      # grafana-pvc EMPTY and grafana starts on it reporting healthy, losing
+      # grafana.db - users, preferences, annotations, starred dashboards. The
+      # dashboards themselves are GrafanaDashboard CRs and survive regardless.
+      #
+      # The Restore comes from components/kopiur-external and is named after APP
+      # (`grafana`), not after the PVC (`grafana-pvc`).
+      #
+      # ⚠️ dataSourceRef is IMMUTABLE, so this cannot be patched onto an existing
+      # PVC - the operator reports "spec is immutable after creation" and enters a
+      # reconcile error loop. It was applied by deleting and recreating the volume,
+      # and the ordering matters: the operator recreates a deleted PVC within
+      # seconds, so the field must already be in this CR before the delete, and
+      # grafana must be stopped via `deployment.spec.replicas: 0` here (scaling
+      # the Deployment by hand is reverted, and deleting a mounted PVC arms the
+      # finalizer delete).
+      dataSourceRef:
+        apiGroup: kopiur.home-operations.com
+        kind: Restore
+        name: grafana
   disableDefaultSecurityContext: All
