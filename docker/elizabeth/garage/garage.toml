@@ -13,22 +13,26 @@ metadata_dir = "/var/lib/garage/meta"
 data_dir     = "/var/lib/garage/data"
 db_engine    = "sqlite"
 
-# No metadata snapshots, deliberately. metadata_auto_snapshot_interval was tried
-# and removed: garage keeps only the TWO most recent snapshots (hardcoded, no
-# retention setting), so it buys at most ~2 days, and the accepted consequence of
-# losing the metadata DB is to recreate garage - new layout, buckets and key -
-# and take fresh backups. The databases themselves are the source of truth and
-# are unaffected; what is lost is the record of past backups.
+# Garage takes its own application-consistent metadata snapshots on this
+# interval, into <metadata_dir>/snapshots/. It caps itself at the TWO most recent
+# (hardcoded, no retention setting), so this cannot grow unbounded.
 #
-# An attempt at longer retention via a host cron copying snapshots out was also
-# removed: it added a script on a vfat filesystem that cannot hold an execute
-# bit, a cron in a RAM filesystem needing /boot/config/go to survive reboots, and
-# an unmonitored job - four fragilities for a narrow case, all on the same NVMe
-# pool, so useless against the disk loss that actually threatens this.
+# Kept because it costs nothing: one declarative line, done internally by garage,
+# with no cron, no script and no job to monitor. What it buys is the metadata
+# index - lose that and the data blocks survive but are unreferenced, so the
+# record of every past backup is gone and garage has to be rebuilt from scratch.
 #
-# sqlite (not the default lmdb) remains the real mitigation here: garage's docs
-# warn LMDB "files have a tendency of becoming corrupted after an unclean
-# shutdown", which is this host's demonstrated failure mode.
+# Worth it specifically on THIS host: garage's docs warn its metadata engine
+# "can become corrupted after an unclean shutdown", and elizabeth has had two
+# unclean shutdowns in three weeks.
+#
+# ⚠️ Do NOT rebuild the discarded companion to this - a host cron copying
+# snapshots out for 7-day retention. That was tried and removed: a script on a
+# vfat filesystem that cannot carry an execute bit, a cron in a RAM filesystem
+# needing /boot/config/go to survive reboots, and an unmonitored job. Four
+# fragilities for a marginal gain, and all on the same NVMe pool, so no defence
+# against the disk loss that actually threatens this.
+metadata_auto_snapshot_interval = "24h"
 
 # Single node. Stated explicitly rather than left implicit: this is NOT
 # redundancy, and the backup-of-backups problem is tracked separately.
