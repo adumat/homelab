@@ -682,8 +682,11 @@ kopiur at a Postgres data directory, so:
       nothing while containing entries is now a hard error.
 - [x] **Observability history: decided NOT to back up — 2026-08-20**, on the numbers rather than
       by default. prometheus is **16 GB in use** against a **7.0 GB total repository**, and its
-      content self-expires at 14d retention, so a restore would recover metrics already partly
-      stale; victoria-logs is the same argument at 14d. alertmanager is only 40 KB, but its one
+      content self-expires at retention (14d then, **21d since 2026-08-21**), so a restore would
+      recover metrics already partly stale; victoria-logs is the same argument (**30d** since
+      2026-08-21 — and its retention had never actually been applied before then, see phase 2.6).
+      Longer retention slightly strengthens the case *for* backing these up, but not enough to
+      change the decision: the data is still self-expiring and still dwarfs the repository. alertmanager is only 40 KB, but its one
       piece of real state is silences — and all 4 are declared in git under
       `silence-operator/silences`, so it is reconstructible. `config-gatus-0` holds only probe
       history; its config comes from git. All four are declared `disposable` with reasons.
@@ -866,9 +869,28 @@ Verified on a live node, 2026-08-18:
       ⚠️ **Query trap**: do **not** select these with `node:*`. Container logs carry their own
       `node` field (CNPG's records, for one), so `node:*` silently over-matches application logs
       and you will read a pod log and think it is a kernel log. Select on `talos-service:*`.
-      ⚠️ Intake roughly doubled, so the 20 Gi / 14 d VictoriaLogs retention needs re-checking —
-      `machined` at 48 k records per 30 min is by far the biggest new contributor and is mostly
-      routine controller chatter.
+      Intake roughly doubled — `machined` at 48 k records per 30 min is by far the biggest new
+      contributor and is mostly routine controller chatter. **Checked 2026-08-21: no capacity
+      problem, and no PVC change needed.** 3.75 GB in use at **38.6 bytes/row** compressed;
+      Talos adds ~7.7 M rows/day (~297 MB/day). Deliberately *not* filtering `machined` out:
+      space is not the constraint, and a filter risks discarding the very evidence this task
+      exists to keep — query around it with `talos-service:kernel`.
+      **Retention raised instead, to spend the headroom on forensic depth** (metrics 14 d →
+      **21 d**, ~26 GB of 52.5 GB; logs pinned at **30 d**, ~12.7 GB of 21.5 GB), because the
+      fault this phase was built for recurs on a longer cycle than 14 d and a window that cannot
+      reach the previous occurrence cannot be compared against it. Prometheus also had
+      `retentionSize: 50GB` on a 52.5 GB volume — 95 %, which is a cliff edge rather than a guard
+      rail and left nothing for WAL plus compaction — now 40 GB. VictoriaLogs gained
+      `retentionDiskSpaceUsage: 16GiB` as the same kind of backstop.
+      ⚠️ **The VictoriaLogs retention had never actually been applied.** A top-level
+      `retentionPeriod: 14d` sat in the values for 125 days while the chart read
+      **`server.retentionPeriod`** and used its own default of `1` — which means one **month**,
+      not one day. A wrongly-nested Helm value is **silently dropped**: no error, no warning, and
+      `flux reconcile` reports success because the manifest it applied is internally valid. The
+      only place the truth appears is the **rendered argument** in the StatefulSet, so that — not
+      the values file — is what must be checked after any chart-value change. Setting the
+      originally-intended 21 d would have **deleted 9 days of real history** while looking like an
+      increase; hence 30 d.
 - [x] ~~Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
       this way — stops being invisible~~ — **CLOSED 2026-08-21, not implementable. The hardware
       cannot detect memory errors at all.** This was scoped as "load the missing EDAC module",
