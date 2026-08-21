@@ -1021,11 +1021,49 @@ not merely written to. Nothing is cut over on the strength of a successful write
       broken archive as an idle one: `pg_switch_wal()` is a **no-op on an unwritten segment**, and
       `psql -c` with escaped double quotes turns the payload into an **identifier**, failing
       silently and leaving the counter flat.
-- [ ] Cut `cluster18` over first (smaller, 23 GB, and immich is the one that just broke), verify
-      a **scheduled** backup and a WAL archive both land, then `immich-db`
+- [x] **Both clusters cut over — 2026-08-21.** Order reversed from the original plan: immich-db
+      first, because the rehearsal target has to be writing to garage before it can be restored
+      from garage. `garage-immich` and `garage-postgresql`, MinIO left commented beside each so
+      rollback is uncommenting one line.
+
+      Neither cluster has recorded a **single new WAL failure** since moving, against 22 and 126
+      accumulated on MinIO — cluster18 had been failing roughly a quarter of its archives.
+
+- [x] **cluster18 restore rehearsed too, not argued by analogy — 2026-08-21.** The plan said a
+      restore proven on immich-db covers cluster18. That was the weaker choice: cluster18 holds
+      **Authelia**, so if it is unrecoverable nothing can be logged into, and it had the worse WAL
+      record of the two.
+
+      All **15 databases** restored from garage into a throwaway cluster. Across the 10 compared
+      programmatically — authelia, lldap, vaultwarden, paperless, atuin, romm, jellyseerr, radarr,
+      sonarr, prowlarr — every table matched exactly, including `webauthn_credentials`,
+      `totp_configurations`, lldap's 5 users / 6 groups, vaultwarden's 554 ciphers and atuin's
+      17,687 store rows. The only two deltas were radarr/sonarr `Commands`, a rolling task queue
+      shown to be churning in production between consecutive reads while the restored copy stayed
+      frozen.
+
+      ⚠️ Both rehearsal clusters were created with **no `plugins:` block on purpose**. With
+      `isWALArchiver` they would have archived their own WAL into the live bucket under the same
+      `serverName`, corrupting production's WAL stream. Recovery only ever needs to read.
 - [ ] Watch for one full week with `DatabaseFailedBackup` armed — it works now, and it is the
-      only reason a repeat of the Aug 19 failure would be noticed
+      only reason a repeat of the Aug 19 failure would be noticed. **Specifically: confirm a
+      SCHEDULED backup completes for each cluster** (23:30 and 23:45 UTC). Every backup so far has
+      been triggered by hand
 - [ ] Only then retire MinIO, and write down what still points at elizabeth
+
+- [x] **MinIO frozen, not stopped — 2026-08-21.** Still `Up`, still serving reads, holding **100 GB**
+      (immich 66 GB, postgresql 23 GB, plus 12 GB of dead `volsync` bucket). Nothing writes to it:
+      both clusters target garage and the only `minio-*` references left in the repo are the two
+      commented rollback lines. Deliberately left running per D7 — it is the fixed-point recovery
+      source until after the rebuild.
+
+- [x] **Fixed `docker/doco-cd/README.md`, which documented a mechanism that no longer exists.**
+      It described SOPS + Age and a `--age-key` flag; the agent has used Bitwarden Secrets Manager
+      and `--bws-token` for some time. Also missing the `navi` profile. Now records the traps found
+      while bootstrapping elizabeth: hostname must be lowercased (Unraid capitalises it), Docker
+      Compose must be checked separately from Docker, `/usr` is RAM-backed so plugin binaries do
+      not survive reboot, `external_secrets:` maps env names to Bitwarden UUIDs needing
+      `# gitleaks:allow`, and a missing `working_dir` is an error rather than an empty result.
 - [ ] Decide what happens to the **101 GB of MinIO data** on retirement: the old barman history
       is the pre-garage recovery path, so keep it read-only until garage has a restore rehearsal
       *and* a week of clean scheduled backups behind it
