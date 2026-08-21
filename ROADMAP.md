@@ -784,18 +784,37 @@ Verified on a live node, 2026-08-18:
 | `machine.logging.destinations` | not configured |
 | EDAC (RAM error) metrics | absent, so RAM errors are invisible |
 
-- [ ] Enable the Talos **hardware watchdog** (`WatchdogTimerConfig`, against `/dev/watchdog0`).
+- [x] **Enable the Talos hardware watchdog — done 2026-08-21.** `WatchdogTimerConfig` against
+      `/dev/watchdog0`, `timeout: 5m`, via
+      [machine-watchdog.yaml](kubernetes/talos/patches/global/machine-watchdog.yaml). Applied to all
+      five nodes with `apply-config`, no reboot. Verified by read-back:
+      `/sys/class/watchdog/watchdog0/timeout` = `300` and `state` = `active` on every node, with
+      Talos feeding at `feedInterval: 1m40s`. The read-back is the test — the driver reports
+      `max_timeout=0` because it advertises no limits, so exit status alone would not prove 300s
+      was accepted rather than clamped. Hardware is TCO `Version=6`, ceiling 613s.
       The device exists and nothing arms it. If the kernel stops petting it the board resets
       itself, turning "hangs until someone drives over" into a ~1 min reboot — and it works
       whether the cause is the NIC, the kernel or RAM
-- [ ] Add `panic=10` to [machine-kernel.yaml](kubernetes/talos/patches/global/machine-kernel.yaml)
+- [ ] Add `panic=10` to the **schematic's `extraKernelArgs`** in
+      [talconfig.yaml](kubernetes/talos/talconfig.yaml) — **not** to `machine-kernel.yaml`, which
+      configures kernel *modules*. This is a schematic change, so it needs a new installer image
+      and a **rolling `talosctl upgrade`**, one node at a time respecting etcd quorum (only two
+      members). Silence `NodeUnexpectedReboot` first or it pages once per node.
       so a panic reboots instead of sitting dead
-- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` into
+- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` — but **to the
+      local fluent-bit, not straight to VictoriaLogs.** Talos emits `json_lines` only; VictoriaLogs'
+      syslog listener accepts RFC3164/RFC5424 only, and Talos drops silently on a destination it
+      cannot deliver to, so the direct path looks deployed and ships nothing. Add a `tcp` INPUT
+      (`format json`) to fluent-bit on a hostPort and point Talos at `127.0.0.1` — a ClusterIP would
+      need Cilium healthy, which a node with broken networking does not have. Was: into
       VictoriaLogs. fluent-bit collects *container* logs only, which is exactly why this
       incident left no kernel evidence. Verify the schema against Talos 1.13 first
 - [ ] Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
       this way — stops being invisible
-- [ ] Alert on `node_network_carrier_changes_total` rising: it catches a flapping NIC *before*
+- [x] **Alert on `node_network_carrier_changes_total` rising — done 2026-08-21**, as
+      `NodeNICCarrierFlapping` in
+      [prometheusrule-node-health.yaml](kubernetes/apps/observability/kube-prometheus-stack/app/prometheusrule-node-health.yaml).
+      It catches a flapping NIC *before*
       a full hang, and its being flat at 0 is what weakened the e1000e theory here
 - [ ] **Fix the NUT alert rules.** The UPS is currently reporting `ups.status: ALARM OL CHRG` with
       `ups.alarm: "Battery voltage too low!"` at `battery.charge: 100`, and **nothing alerts on it**:
@@ -833,6 +852,25 @@ Deleting the Node first orphans its `VolumeAttachment`s with `deletionTimestamp:
 controller left to clean them, and they must then be removed by hand before any RWO volume can
 attach elsewhere. Before forcing any RBD detach, prove no stale client holds the image:
 `rbd status <pool>/<image>` must show no `watcher=` from the dead node.
+
+**What differed from the design (2026-08-21).** Two assumptions in the phase description above
+turned out to be wrong, both discovered by checking rather than by failing:
+
+- **Watchdog-specific alerting is impossible on this hardware.** `iTCO_wdt` reports
+  `options: 0x8180` = `SETTIMEOUT｜MAGICCLOSE｜KEEPALIVEPING`, omitting `WDIOF_CARDRESET`. So
+  `/sys/class/watchdog/watchdog0/bootstatus` can never say "the watchdog reset me" and will read
+  `0` forever. `NodeUnexpectedReboot` alerts on *any* unexpected boot instead — which also catches
+  panics and power events, so it is arguably the better signal. It does fire on planned reboots,
+  hence the silence requirement noted above.
+- **Kernel logs cannot go straight to VictoriaLogs.** Talos emits `json_lines` only; the syslog
+  listener accepts RFC3164/RFC5424 only. Since Talos drops silently on an undeliverable
+  destination, the original plan would have looked deployed and shipped nothing. Corrected to route
+  via the local fluent-bit.
+
+Also worth recording: kernel log shipping captures the **run-up** to a failure, not the fatal
+instant — if the node is dying, the shipping path dies with it, and anything logged before
+fluent-bit's pod starts is unshippable. The watchdog is the part of this phase that actually pays
+the rent; the logging is for naming causes afterwards.
 
 ### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
 
