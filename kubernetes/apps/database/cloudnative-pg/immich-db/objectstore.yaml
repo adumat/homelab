@@ -21,3 +21,26 @@ spec:
       compression: bzip2
       maxParallel: 4
   retentionPolicy: 30d
+---
+# yaml-language-server: $schema=https://github.com/datreeio/CRDs-catalog/raw/refs/heads/main/barmancloud.cnpg.io/objectstore_v1.json
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: garage-immich
+spec:
+  configuration:
+    endpointURL: http://elizabeth.lan:3900
+    destinationPath: s3://immich/
+    s3Credentials:
+      accessKeyId:
+        name: garage-s3
+        key: aws-access-key-id
+      secretAccessKey:
+        name: garage-s3
+        key: aws-secret-access-key
+    data:
+      compression: bzip2
+    wal:
+      compression: bzip2
+      maxParallel: 4
+  retentionPolicy: 30d

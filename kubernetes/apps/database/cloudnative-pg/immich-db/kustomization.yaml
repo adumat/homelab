@@ -6,3 +6,4 @@ resources:
   - ./objectstore.yaml
   - ./scheduledbackup.yaml
   - ./externalsecret.yaml
+  - ./externalsecret-garage.yaml
