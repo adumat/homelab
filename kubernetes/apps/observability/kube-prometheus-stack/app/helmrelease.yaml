@@ -95,17 +95,19 @@ spec:
         # tightly than recent ones, so a linear projection over-estimates - 37GB is the
         # pessimistic figure.
         retention: 30d
-        # 43GB (~82% of the volume), down from a original 50GB. 50GB on a 52.5GB volume is 95%
-        # full - not a guard rail but the cliff edge, with nothing left for WAL plus compaction,
-        # which needs room for the blocks it is merging.
-        # Why not 40GB: at 1.25GB/day that is only ~32 days of capacity, a 7% growth buffer over
-        # the 30d target, so a modest rise in series count would make SIZE bind first and
-        # silently deliver less than 30d. 43GB is ~35 days, a 15% buffer, keeping time the
-        # binding constraint while still leaving ~9GB free for compaction headroom.
-        # If series count ever grows enough to make this bind, grow the PVC rather than raising
-        # this further - Ceph has ~2.6TiB free, and pushing the cap past ~85% of the volume
-        # trades a graceful retention trim for a risk of filling the disk.
-        retentionSize: 43GB
+        # 40GB, down from the original 50GB, which was 95% of the volume - not a guard rail but
+        # the cliff edge, leaving nothing for WAL plus compaction (which needs room for the
+        # blocks it is merging).
+        # ⚠️ Prometheus parses these suffixes as BASE-2: "40GB" means 40 GiB. Confirmed by
+        # /api/v1/status/runtimeinfo, which echoes the value back as "30d or 40GiB". So the real
+        # figures are 42.9GB decimal = 82% of the 52.5GB volume, and 34.5 days of capacity at
+        # the measured 1.25GB/day - a 15% growth buffer over the 30d target, which keeps TIME
+        # the binding constraint rather than size silently trimming below 30d.
+        # Do not "fix" this to 43GB reasoning in decimal units: that is 88% of the volume.
+        # If series count ever grows enough to make 40GB bind, grow the PVC instead - Ceph has
+        # ~2.6TiB free, and pushing the cap past ~85% trades a graceful retention trim for the
+        # risk of filling the disk.
+        retentionSize: 40GB
         resources:
           requests:
             cpu: 100m
