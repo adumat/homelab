@@ -43,7 +43,7 @@ spec:
       # logger fallback", merged 2026-07-02), shipped in v20.2.3. Drop this once
       # the chart default reaches v20.2.3.
       # renovate: datasource=docker depName=quay.io/ceph/ceph
-      tag: v20.2.4
+      tag: v21.1.0
     cephClusterSpec:
       cephConfig:
         global:
