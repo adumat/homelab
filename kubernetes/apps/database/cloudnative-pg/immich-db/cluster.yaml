@@ -54,7 +54,13 @@ spec:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters: &barmanParameters
-        barmanObjectName: minio-immich
+        # MinIO is kept FROZEN as a fixed-point recovery source until after the
+        # rebuild - it still holds ~88 GB of history including a good backup from
+        # 2026-08-20. To roll back: comment garage-immich, uncomment minio-immich.
+        # Note the anchor is shared with externalClusters below, so this one line
+        # moves both the backup target and the recovery source.
+        # barmanObjectName: minio-immich
+        barmanObjectName: garage-immich
         serverName: immich-pg17-0
   externalClusters:
     - name: source
