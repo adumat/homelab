@@ -1,0 +1,25 @@
+---
+# Turns an indefinite hang into a reboot. If the kernel stops petting /dev/watchdog0 the
+# iTCO_wdt hardware resets the board - no network, no kubelet, no human required.
+#
+# This is what kube-ceph-03 needed on 2026-08-19. It hung with a dead NIC (no ICMP, no Talos
+# API, no ARP) and would not answer WOL, so recovery meant cutting UPS output to the ENTIRE
+# rack - the Ellipse ECO 650 has no switchable outlets and shutdown.return is its only cycle
+# primitive. Cost: ~10h of Ceph at 33% degraded plus a full-cluster shutdown.
+#
+# 5m is deliberately conservative. A watchdog that fires spuriously reboots a HEALTHY node,
+# and with three Ceph OSD hosts and only two etcd members that is not free. At 5m, transient
+# stalls (Ceph backfill, an NFS hiccup, a kubelet pause) cannot trip it, while a real hang
+# still becomes a ~6 minute recovery.
+#
+# Hardware supports it: TCO Version=6 (verified 2026-08-19), so the 613s ceiling applies.
+# The driver reports max_timeout=0 because it does not advertise limits, not because it
+# cannot do 300s - verify the applied value reads back as 300.
+#
+# NOTE: this does NOT give you watchdog-specific alerting. iTCO_wdt omits WDIOF_CARDRESET
+# (options: 0x8180), so bootstatus can never say "the watchdog reset me". That is why
+# NodeUnexpectedReboot alerts on any unexpected boot instead.
+apiVersion: v1alpha1
+kind: WatchdogTimerConfig
+device: /dev/watchdog0
+timeout: 5m
