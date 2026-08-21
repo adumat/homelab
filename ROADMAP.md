@@ -639,7 +639,7 @@ kopiur at a Postgres data directory, so:
       | `database/mosquitto` | Flux (`pvc.yaml`) | ✅ **done** — `dataSourceRef` + `ssa: IfNotPresent` | none; no-op now, correct on rebuild |
       | `database/pgadmin` | Helm (app-template) | ✅ **done** — PVC recreated, restored from snapshot | — |
       | `services/paperless-ai` | Helm (app-template) | ✅ **done** — PVC recreated, restored from snapshot | — |
-      | `observability/grafana-pvc` | grafana-operator | ❌ **attempted and reverted** | the operator went into a reconcile **error loop** |
+      | `observability/grafana-pvc` | grafana-operator | ✅ **done** — PVC recreated via `replicas: 0`, restored from snapshot | needed two attempts; see below |
 
       **Three of four closed 2026-08-21.** For the two Helm-managed ones the immutability problem
       dissolved once the PVC could be recreated: with the HelmRelease **suspended** (so Helm cannot
@@ -650,9 +650,11 @@ kopiur at a Postgres data directory, so:
       paperless-ai's `chromadb` index being written by the running app). So this also **proved the
       restore path** for these PVCs, not just declared it.
 
-      🔴 **grafana remains open, and the least-invasive approach does not work.** Adding
-      `dataSourceRef` to the CR while leaving the live PVC alone was tried on the theory that the
-      operator would tolerate the mismatch. It does not:
+      ✅ **G1 is closed — all four done 2026-08-21.** grafana took two attempts, and the failed
+      one is worth keeping because the obvious approach is the wrong one.
+
+      Adding `dataSourceRef` to the CR while leaving the live PVC alone was tried first, on the
+      theory that the operator would tolerate the mismatch. It does not:
 
       ```
       failed to reconcile Grafana stage: PersistentVolumeClaim "grafana-pvc" is invalid:
@@ -663,16 +665,24 @@ kopiur at a Postgres data directory, so:
       within minutes). An operator that cannot complete reconciliation is worse than the gap it
       was closing, since no later grafana change would apply either.
 
-      To finish it, the PVC must be recreated — and the awkward part is stopping grafana first.
-      The Deployment is owned by the Grafana CR with **no explicit replicas**, so a manual
-      scale-down is reverted by the operator, and deleting a still-mounted PVC arms the delete
-      behind the `pvc-protection` finalizer to fire later — the failure that cost radarr 7 hours.
-      The safe route is to set `spec.deployment.spec.replicas: 0` in the CR, let it apply, delete
-      the PVC, then restore the replica count so the operator recreates it with the field.
+      The working sequence, and **the ordering is the whole trick**:
 
-      Lowest-stakes of the four: the dashboards are GitOps'd as `GrafanaDashboard` CRs and survive
-      regardless, and 47.5 MB of the 49 MB is re-downloadable plugins. What `grafana.db` holds is
-      users, preferences, annotations and starred dashboards.
+      1. `spec.deployment.spec.replicas: 0` in the CR — the operator must stop grafana itself.
+         Scaling the Deployment by hand is reverted (it is owned by the CR), and deleting a
+         still-mounted PVC arms the delete behind the `pvc-protection` finalizer to fire later —
+         the failure that cost radarr 7 hours
+      2. quiesced snapshot while it is stopped (49.5 MB)
+      3. **add `dataSourceRef` to the CR *before* deleting the PVC.** Deleting first does not
+         work: the operator recreated the PVC within **6 seconds**, without the field, and the
+         window is far too short to win
+      4. delete the PVC — the operator recreates it with `dataSourceRef` and the Restore populates
+         it
+      5. remove `replicas: 0` and let it start on the restored volume
+
+      Result: 48.9 MB restored against a 49.0 MB baseline, `grafana.db` and plugins intact,
+      operator immutability errors back to 0. Lowest-stakes of the four in any case — the
+      dashboards are `GrafanaDashboard` CRs and survive regardless, and 47.5 MB of the 49 MB is
+      re-downloadable plugins.
 
 - [ ] ⚠️ **Unrelated, found while doing the above: grafana-operator cannot authenticate to
       Grafana.** `failed to reconcile Grafana stage: failed to authenticate with instance` —
