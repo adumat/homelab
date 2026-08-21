@@ -40,7 +40,12 @@ spec:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters: &barmanParameters
-        barmanObjectName: minio-postgresql
+        # MinIO is kept FROZEN as a fixed-point recovery source until after the
+        # rebuild. To roll back: comment garage-postgresql, uncomment
+        # minio-postgresql. Note the anchor is shared with externalClusters
+        # below, so this single line moves the recovery source too.
+        # barmanObjectName: minio-postgresql
+        barmanObjectName: garage-postgresql
         serverName: postgres18-0
   externalClusters:
     - name: source
