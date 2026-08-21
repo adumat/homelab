@@ -93,6 +93,17 @@ spec:
         type: persistentVolumeClaim
         accessMode: ReadWriteOnce
         size: 2Gi
+        # Closes phase 3's G1. Without this a rebuilt cluster creates this volume
+        # EMPTY and paperless-ai starts on it reporting healthy - which loses the
+        # wizard-generated .env and means running the onboarding wizard again.
+        #
+        # dataSourceRef is IMMUTABLE, so it cannot be patched onto an existing
+        # PVC: Helm would fail the upgrade. The PVC was deleted and recreated once
+        # with the HelmRelease suspended, restoring from the kopiur snapshot.
+        dataSourceRef:
+          apiGroup: kopiur.home-operations.com
+          kind: Restore
+          name: paperless-ai
         storageClass: ceph-block
         globalMounts:
           - path: /app/data
