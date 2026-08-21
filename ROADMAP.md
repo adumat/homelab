@@ -1359,29 +1359,40 @@ not merely written to. Nothing is cut over on the strength of a successful write
       only reason a repeat of the Aug 19 failure would be noticed. **Specifically: confirm a
       SCHEDULED backup completes for each cluster** (23:30 and 23:45 UTC). Every backup so far has
       been triggered by hand
-- [ ] ⚠️ **Add a "no successful backup" dead-man, mimicking kopiur.** `DatabaseFailedBackup` only
-      catches a *recorded failure* and **self-clears after 24h**, so a backup that stops happening
-      altogether goes silent within a day and the silence reads as success. This is the same shape
-      as the phase-2.6 `Watchdog` hole: nothing asserts that protection is *still working*.
-      kopiur already does this correctly and is the model —
-      `KopiurBackupStale` alerts on `time() - kopiur_policy_last_backup_success_timestamp_seconds
-      > 172800` (48h), i.e. on the **age of the last success**, with a second clause for
-      "failures recorded but no success ever". Mimic that.
-      **The blocker is that CNPG has no equivalent metric.** Re-confirmed 2026-08-21 that
-      `cnpg_collector_last_available_backup_timestamp` and `cnpg_collector_first_recoverability_point`
-      stay **0 even after three backups completed against garage** — the barman-cloud plugin never
-      populates them. So the timestamp has to come from the `Backup` objects themselves, via
-      **kube-state-metrics `customResourceState`** over `postgresql.cnpg.io/Backup` (KSM is
-      deployed but has no CRS config today), exposing `status.stoppedAt` and `status.phase`, then
-      alerting on the newest `completed` one per cluster.
-      Two traps to handle: (a) verify KSM actually parses the RFC3339 `stoppedAt` into a numeric
-      gauge before trusting the rule — if it does not, the metric is silently absent and the rule
-      is inert, which is exactly how the original `DatabaseNoBackup` failed; and (b) `Backup`
-      objects are owned by the ScheduledBackup (`backupOwnerReference: self`) and can be pruned,
-      so the rule needs an `absent()` clause or it goes quiet precisely when the objects vanish.
-      The continuous half is already covered as of 2026-08-21 — `DatabaseWALArchiveBacklog` and
-      `DatabaseWALArchiveFailing` in
-      [prometheusrule.yaml](kubernetes/apps/database/cloudnative-pg/app/prometheusrule.yaml).
+- [x] **A "no successful backup" dead-man now exists — done 2026-08-21, mimicking kopiur.**
+      `DatabaseFailedBackup` only catches a *recorded failure* and **self-clears after 24h**, so a
+      backup that stopped happening altogether went silent within a day and the silence read as
+      success. Two rules now in
+      [prometheusrule.yaml](kubernetes/apps/database/cloudnative-pg/app/prometheusrule.yaml):
+  - `DatabaseNoRecentBackup` — age of the newest **completed** backup > **48 h**, the same
+    threshold as kopiur's `KopiurBackupStale`. Backups are daily (23:30 / 23:45 UTC), so it
+    tolerates one missed run and fires on two.
+  - `DatabaseNeverBackedUp` — a cluster that exists with **no completed backup at all**. This is
+    what makes the first rule trustworthy: a staleness check alone cannot tell "backups stopped"
+    from "the `Backup` objects were deleted", because when the series disappears the expression
+    returns nothing and goes quiet — the exact failure being fixed. `Backup` objects are owned by
+    their ScheduledBackup (`backupOwnerReference: self`) and so are prunable, making it a live
+    risk. Joining against a per-`Cluster` series makes that case loud.
+  - The timestamp comes from the `Backup` objects via **kube-state-metrics
+    `customResourceState`** (config in the kube-prometheus-stack HelmRelease), since
+    `cnpg_collector_last_available_backup_timestamp` stays **0 even after backups complete**.
+    **KSM does parse the RFC3339 `status.stoppedAt` into a Unix timestamp** — verified against the
+    live endpoint, which was the one genuinely unknown assumption. Failed backups never set
+    `stoppedAt`, so they produce no series at all (`errorLogV: 10` silences the resulting
+    per-object nil-path log spam).
+  - ⚠️ **Trap worth keeping: the RBAC grant must name every kind referenced.** Granting `backups`
+    but not `clusters` left the `Cluster` metrics **silently absent** — KSM logs one `forbidden`
+    line and carries on serving every other metric, so `/metrics` looks perfectly healthy and the
+    only symptom is a missing series. `DatabaseNeverBackedUp` was therefore **inert on first
+    deploy**, and only a **positive control** on the expression revealed it. The old
+    `DatabaseNoBackup` failed the same way for two years; the lesson is that an alert expression
+    must be evaluated once with a deliberately-true variant to prove it can return anything.
+  - Also added for the **continuous** half: `DatabaseWALArchiveBacklog` (WAL segments piling up
+    unarchived — write-volume independent, so it stays quiet on an idle database) and
+    `DatabaseWALArchiveFailing`. Deliberately **not** alerting on `last_archived_time` age:
+    measured with `min by (job)` so only the primary counts, cluster18's worst gap was 9.5 min but
+    immich-db's was **399 min**, because a low-write database can take hours to fill a 16 MB WAL
+    segment. A threshold loose enough for immich detects nothing useful.
 - [ ] Only then retire MinIO, and write down what still points at elizabeth
 
 - [x] **MinIO frozen, not stopped — 2026-08-21.** Still `Up`, still serving reads, holding **100 GB**
