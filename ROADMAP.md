@@ -626,11 +626,30 @@ kopiur at a Postgres data directory, so:
       component adds: nothing claims it, so kstatus holds it `InProgress` forever. Replaced with
       an explicit HelmRelease health check.
 
-      **Still open for phase 3:** none of these four sets `dataSourceRef` on its PVC, so a
-      rebuilt cluster would bring them up **empty and reporting healthy** — which G4 counts as a
-      bug. Backups protect the data today and can be restored by hand; the automatic-restore half
-      needs each chart to expose `dataSourceRef` (mosquitto's own `pvc.yaml` and grafana's CR can,
-      app-template's `persistence` needs checking).
+      🔴 **This is phase 3's G1 blocker, and it is subtler than it looks.** None of these four
+      set `dataSourceRef`, so a rebuilt cluster brings them up **empty and reporting healthy** —
+      which G4 counts as a bug. `just backup-audit` reports "clean" because it verifies backups
+      *exist*, not that they would be *restored*.
+
+      `dataSourceRef` is **immutable**, so it cannot be added to a PVC that already exists. Each
+      of the four needs a different mechanism, and three of them carry a real hazard:
+
+      | PVC | owner | how | hazard |
+      | --- | --- | --- | --- |
+      | `database/mosquitto` | Flux (`pvc.yaml`) | ✅ **done 2026-08-21** — `dataSourceRef` + `ssa: IfNotPresent` | none; no-op now, correct on rebuild |
+      | `observability/grafana-pvc` | grafana-operator | the Grafana CR **does** accept `dataSourceRef` under `persistentVolumeClaim.spec` (confirmed in the CRD) | the operator will try to patch an immutable field on the live PVC — may throw a reconcile error. Test and watch the operator log |
+      | `database/pgadmin` | Helm (app-template) | app-template **does** support `dataSourceRef` (`_pvc.tpl:56`) | ⚠️ adding it makes the **Helm upgrade fail** on the immutable field, breaking the HelmRelease |
+      | `services/paperless-ai` | Helm (app-template) | same | same |
+
+      ⚠️ **For the two Helm-managed ones, do NOT simply switch to `existingClaim`.** Neither PVC
+      carries `helm.sh/resource-policy: keep`, so removing it from the release makes **Helm delete
+      the volume** — the same class of mistake that cost radarr 7 hours. The safe order is:
+
+      1. add `retain: true` to the persistence item (app-template then stamps
+         `helm.sh/resource-policy: keep`) and let it apply
+      2. only then switch to `existingClaim` and add `components/kopiur`, whose PVC carries
+         `ssa: IfNotPresent` so it leaves the live volume alone
+      3. verify the PVC survived and is still `Bound` before touching the next one
 - [x] **Every PVC now has declared intent, and `just backup-audit` enforces it — 2026-08-20.**
       [backup-policy.yaml](backup-policy.yaml) at the repo root, checked by
       [scripts/backup-audit.sh](scripts/backup-audit.sh). 50 live PVCs = 22 protected by kopiur +
