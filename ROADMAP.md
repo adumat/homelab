@@ -73,6 +73,23 @@ home-assistant, kopia, qbittorrent, radarr, sonarr, filebrowser, jellyfin, romm.
       interrupt active NFS sessions
 - [ ] Improve `nfs-canary` (see Follow-ups): today it detects, but does not distinguish the
       mover from the parity check, nor report which share died
+- [ ] ⚠️ **A stale mount does not fail readiness — add a probe that actually touches the mount.**
+      Observed concretely on 2026-08-21 after the phase 2.6 reboots: on `kube-hp`, both mounts of
+      `elizabeth.lan:/mnt/user/media` (metube and pyload-ng) went `ESTALE` **on mounts only ~30 min
+      old**, while the three mounts of *other* exports on the same node stayed healthy — so
+      staleness is **per-export, not per-node**, and the canary watching one share proves nothing
+      about the others. `metube` sat `Running`, `ready=1/1`, serving a dead filesystem; nothing
+      alerted. The only reason it surfaced at all is that `pyload-ng` happens to use a `subPath`,
+      and kubelet lstats the mount **root** to prepare a subPath bind — which is what threw
+      `CreateContainerConfigError: failed to prepare subPath`. Without that accident it would have
+      stayed silent.
+      Sharp diagnostic detail worth keeping: the **child handle stayed valid while the parent root
+      went stale** — `ls <mount>/downloads` listed fine while `ls <mount>` returned
+      `stale file handle`. So a probe that reads a known subdirectory **passes on a broken mount**.
+      The probe must stat the mount root.
+      Recovery that worked, and is cheap: `kubectl delete pod` on the affected pods. kubelet
+      unmounts on teardown and remounts clean (they rescheduled onto ceph-03 and came up healthy);
+      the two stale mounts on kube-hp were gone afterwards. No node reboot, no remount by hand.
 
 Until this is solved, the recognition and recovery procedure lives in
 [AGENTS.md](AGENTS.md), traps section.
@@ -813,15 +830,26 @@ Verified on a live node, 2026-08-18:
       column** — "both members are listed" is a weaker check that would let you take the second
       down while the first is still catching up, which loses quorum permanently on a two-member
       cluster.
-      so a panic reboots instead of sitting dead
-- [ ] Ship kernel and service logs off-node via `machine.logging.destinations` — but **to the
+- [x] **Ship kernel and service logs off-node — done 2026-08-21, verified receiving.** **To the
       local fluent-bit, not straight to VictoriaLogs.** Talos emits `json_lines` only; VictoriaLogs'
       syslog listener accepts RFC3164/RFC5424 only, and Talos drops silently on a destination it
       cannot deliver to, so the direct path looks deployed and ships nothing. Add a `tcp` INPUT
       (`format json`) to fluent-bit on a hostPort and point Talos at `127.0.0.1` — a ClusterIP would
       need Cilium healthy, which a node with broken networking does not have. Was: into
       VictoriaLogs. fluent-bit collects *container* logs only, which is exactly why this
-      incident left no kernel evidence. Verify the schema against Talos 1.13 first
+      incident left no kernel evidence. Verify the schema against Talos 1.13 first.
+      **Verified end to end**: all five nodes shipping, ~82 k records/30 min, correctly split into
+      `node` + `talos-level` stream fields with `_msg`/`_time` mapped. Kernel messages *are*
+      included — `talos-service: kernel`, ~3.7 k/30 min — which was the actual requirement, since
+      the whole point is that the next hang leaves evidence. Volume order by service:
+      `machined` 48 k, `etcd` 8 k, `cri` 7 k, `dns-resolve-cache` 6 k, `controller-runtime` 4 k,
+      `kernel` 3.7 k, `kubelet` 3 k.
+      ⚠️ **Query trap**: do **not** select these with `node:*`. Container logs carry their own
+      `node` field (CNPG's records, for one), so `node:*` silently over-matches application logs
+      and you will read a pod log and think it is a kernel log. Select on `talos-service:*`.
+      ⚠️ Intake roughly doubled, so the 20 Gi / 14 d VictoriaLogs retention needs re-checking —
+      `machined` at 48 k records per 30 min is by far the biggest new contributor and is mostly
+      routine controller chatter.
 - [x] ~~Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
       this way — stops being invisible~~ — **CLOSED 2026-08-21, not implementable. The hardware
       cannot detect memory errors at all.** This was scoped as "load the missing EDAC module",
