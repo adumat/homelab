@@ -110,26 +110,4 @@ spec:
         requests:
           storage: 10Gi
       storageClassName: ceph-block
-      # Closes phase 3's G1: without this a rebuilt cluster creates grafana-pvc
-      # EMPTY and grafana starts on it reporting healthy, losing grafana.db -
-      # users, preferences, annotations, starred dashboards. The dashboards
-      # themselves are GitOps'd as GrafanaDashboard CRs and survive regardless;
-      # this is about the rest.
-      #
-      # The Restore comes from components/kopiur-external and is named after APP
-      # (`grafana`), not after the PVC (`grafana-pvc`).
-      #
-      # ⚠️ dataSourceRef is IMMUTABLE and the live PVC predates it, so the
-      # operator cannot patch it onto the existing volume - expect a reconcile
-      # complaint, not a change. Deliberately NOT resolved by deleting and
-      # recreating the PVC: this Deployment is owned by the Grafana CR with no
-      # explicit replicas, so a manual scale-down is reverted by the operator,
-      # and deleting a still-mounted PVC arms the delete behind the
-      # pvc-protection finalizer to fire later - the failure that cost radarr 7
-      # hours of metadata. A rebuild creates this PVC fresh, which is the only
-      # case the field needs to be right for.
-      dataSourceRef:
-        apiGroup: kopiur.home-operations.com
-        kind: Restore
-        name: grafana
   disableDefaultSecurityContext: All
