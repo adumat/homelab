@@ -89,6 +89,20 @@ spec:
         storageClass: ceph-block
         accessMode: ReadWriteOnce
         size: 5Gi
+        # Closes phase 3's G1: without this a rebuilt cluster creates this volume
+        # EMPTY and pgadmin starts on it reporting healthy, which G4 counts as a
+        # bug. The Restore is created by components/kopiur-external.
+        #
+        # dataSourceRef is IMMUTABLE, so this cannot be patched onto a PVC that
+        # already exists - Helm would fail the upgrade. The PVC was therefore
+        # deleted and recreated once, restoring from the kopiur snapshot rather
+        # than starting blank. Anyone adding this to another app-template chart
+        # must do the same, with the HelmRelease suspended so Helm cannot recreate
+        # the PVC without the field mid-way.
+        dataSourceRef:
+          apiGroup: kopiur.home-operations.com
+          kind: Restore
+          name: pgadmin
         globalMounts:
           - path: /var/lib/pgadmin
       servers:
