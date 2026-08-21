@@ -1091,10 +1091,12 @@ the rent; the logging is for naming causes afterwards.
   Prometheus or Alertmanager stops, **every alert added in this phase goes quiet and the silence is
   indistinguishable from health.** gatus cannot cover it either, since it sits on `envoy-external`
   and dies with the cluster.
-  - [ ] Route `Watchdog` to an **external** dead-man's-switch endpoint (healthchecks.io or
-        similar) that pages when the ping *stops*. Keep the `null` route as the fallback for when
-        no external target is configured. This is the single highest-leverage alerting fix left,
-        because it is the only one that can detect the failure of everything else.
+  - [ ] Route `Watchdog` to an **external** dead-man's-switch endpoint that pages when the ping
+        *stops*, keeping the `null` route as the fallback. **Moved to phase 5 and to §8.1 of the
+        blackout-monitor design (2026-08-21)** — it belongs with donkey's own heartbeat, because
+        the only useful place to run it is a host that does not share the cluster's fate, and
+        donkey is battery-backed with its own LTE uplink. Tracked as low priority there; it is
+        still the only mechanism that can detect the failure of everything else.
 
 ### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
 
@@ -1347,6 +1349,29 @@ not merely written to. Nothing is cut over on the strength of a successful write
       only reason a repeat of the Aug 19 failure would be noticed. **Specifically: confirm a
       SCHEDULED backup completes for each cluster** (23:30 and 23:45 UTC). Every backup so far has
       been triggered by hand
+- [ ] ⚠️ **Add a "no successful backup" dead-man, mimicking kopiur.** `DatabaseFailedBackup` only
+      catches a *recorded failure* and **self-clears after 24h**, so a backup that stops happening
+      altogether goes silent within a day and the silence reads as success. This is the same shape
+      as the phase-2.6 `Watchdog` hole: nothing asserts that protection is *still working*.
+      kopiur already does this correctly and is the model —
+      `KopiurBackupStale` alerts on `time() - kopiur_policy_last_backup_success_timestamp_seconds
+      > 172800` (48h), i.e. on the **age of the last success**, with a second clause for
+      "failures recorded but no success ever". Mimic that.
+      **The blocker is that CNPG has no equivalent metric.** Re-confirmed 2026-08-21 that
+      `cnpg_collector_last_available_backup_timestamp` and `cnpg_collector_first_recoverability_point`
+      stay **0 even after three backups completed against garage** — the barman-cloud plugin never
+      populates them. So the timestamp has to come from the `Backup` objects themselves, via
+      **kube-state-metrics `customResourceState`** over `postgresql.cnpg.io/Backup` (KSM is
+      deployed but has no CRS config today), exposing `status.stoppedAt` and `status.phase`, then
+      alerting on the newest `completed` one per cluster.
+      Two traps to handle: (a) verify KSM actually parses the RFC3339 `stoppedAt` into a numeric
+      gauge before trusting the rule — if it does not, the metric is silently absent and the rule
+      is inert, which is exactly how the original `DatabaseNoBackup` failed; and (b) `Backup`
+      objects are owned by the ScheduledBackup (`backupOwnerReference: self`) and can be pruned,
+      so the rule needs an `absent()` clause or it goes quiet precisely when the objects vanish.
+      The continuous half is already covered as of 2026-08-21 — `DatabaseWALArchiveBacklog` and
+      `DatabaseWALArchiveFailing` in
+      [prometheusrule.yaml](kubernetes/apps/database/cloudnative-pg/app/prometheusrule.yaml).
 - [ ] Only then retire MinIO, and write down what still points at elizabeth
 
 - [x] **MinIO frozen, not stopped — 2026-08-21.** Still `Up`, still serving reads, holding **100 GB**
@@ -1618,6 +1643,25 @@ Hardware already in the house, metrics absent.
       the cluster in `HEALTH_WARN` and so masks real problems. **Not** a regression: the same
       crash goes back to 2026-05-11. `ceph crash archive-all` clears it until it
       re-accumulates. v20.2.4 exists and is a one-line change to the `cephImage.tag` pin.
+- [ ] ⚠️ **External dead-man for the alerting pipeline — implement §8.1 of the blackout-monitor
+      design.** *Low priority, and deliberately deferred to that project rather than done here:
+      it only works from a host that does not share the cluster's fate, which is donkey.*
+      Phase 2.6 ends with the cluster unable to report the death of its own alerting. The
+      `Watchdog` alert fires permanently by design so that an outside observer can treat its
+      *absence* as "monitoring is dead", but it routes to the `"null"` receiver and **`null` is
+      the only consumer**. If Prometheus or Alertmanager stops, every alert in the cluster —
+      including all of phase 2.6's — goes quiet, and the silence is indistinguishable from
+      health. The `null` route itself is **correct** and must stay as the fallback; paging on an
+      always-firing alert would page every 12h forever.
+      Work: an Alertmanager receiver with `webhook_configs` → a Healthchecks ping URL (Bitwarden
+      → ExternalSecret), the `Watchdog` route moved onto it, and the check living in **donkey's
+      own Healthchecks project** so one place answers "is the house alive, and is the monitoring
+      alive". Grace period must **exceed `repeatInterval`** or a healthy cluster flaps the check.
+      ⚠️ Do **not** invert this into donkey polling Prometheus: a pull check traverses glados and
+      the cluster network, so it fails for reasons unrelated to Prometheus being dead — the same
+      false-signal trap as `vpn.${DOMAIN}` after an outage. Push, with the timeout owned
+      externally. Full rationale and the dependency-inversion caveat in §8.1 of
+      `docs/superpowers/specs/2026-08-18-power-monitoring-and-emergency-access-design.md`.
 - [ ] `snmp-exporter` — HPE OfficeConnect 1820 switch and the UPS, invisible today
 - [ ] `drm-exporter` — Intel GPU utilisation, invisible today even though frigate and
       jellyfin transcode on it

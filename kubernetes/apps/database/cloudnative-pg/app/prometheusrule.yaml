@@ -90,15 +90,69 @@ spec:
           for: 15m
           labels:
             severity: warning
-        # NO working "no recent backup" alert is possible today, and this is a
-        # real gap rather than an oversight. Both candidate metrics are pinned at
-        # 0 on every pod because the barman-cloud plugin does not populate them:
+        # --- continuous WAL archiving ---------------------------------------
+        # Added 2026-08-21, modelled on kopiur's alerting (see kopiur.rules): the
+        # useful shape is "protection has STOPPED", not "an operation failed".
+        # These cover the continuous half of CNPG's protection. The base-backup
+        # half still has no working alert - see the block below.
+        #
+        # Re-confirmed 2026-08-21 that the two success metrics stay 0 even AFTER
+        # three backups completed against garage, so this is a plugin limitation
+        # and not a transient:
         #   cnpg_collector_last_available_backup_timestamp  = 0
         #   cnpg_collector_first_recoverability_point       = 0
-        # The `!= 0` guard below therefore makes the rule permanently inert - it
-        # is left commented rather than deleted so nobody re-derives it and
-        # believes it works. A working check has to read the Backup objects
-        # themselves, not metrics.
+        #
+        # `job` is the per-cluster label (database/cluster18, database/immich-db);
+        # both clusters share namespace `database`, so grouping by namespace would
+        # silently merge them.
+        - alert: DatabaseWALArchiveBacklog
+          annotations:
+            description: >-
+              {{ $labels.job }} has {{ $value }} WAL segments waiting to be archived.
+              Archiving has stalled while the database keeps writing, so the PITR
+              window is no longer advancing.
+            summary: WAL segments are piling up unarchived.
+          expr: |-
+            max by (job) (cnpg_collector_pg_wal_archive_status{value="ready"}) > 5
+          for: 30m
+          labels:
+            severity: critical
+        - alert: DatabaseWALArchiveFailing
+          annotations:
+            description: >-
+              {{ $labels.job }} recorded {{ $value }} WAL archive failures in the last
+              hour.
+            summary: WAL archiving is returning errors.
+          expr: |-
+            increase(cnpg_pg_stat_archiver_failed_count[1h]) > 0
+          for: 15m
+          labels:
+            severity: warning
+        # Deliberately NOT alerting on the age of cnpg_pg_stat_archiver_last_archived_time,
+        # even though it is the most obvious analogue of KopiurBackupStale. Measured over
+        # 24h, taking min by (job) so only the primary counts:
+        #   database/cluster18   worst  9.5 min
+        #   database/immich-db   worst  399.7 min  (6.7 HOURS)
+        # immich is low-write, so a 16MB WAL segment can take hours to fill and a
+        # long gap is entirely legitimate - nothing was written, so nothing was
+        # lost. A threshold loose enough for immich (>7h) is too loose to detect
+        # anything useful, and one tight enough to be useful would page on every
+        # quiet night. The `ready` backlog above is the better signal because it
+        # is independent of write volume: nothing to archive means ready=0 and
+        # silence, while broken archiving grows without bound.
+        # Also note the metric is stale BY DESIGN on a replica - only the primary
+        # archives - and it reads 0 before the first archive ever runs, which
+        # makes `time() - metric` return the current epoch (~56 years). Any future
+        # rule here needs both a `> 0` guard and min-by-job aggregation.
+        #
+        # --- base backups: STILL NO WORKING ALERT ---------------------------
+        # This remains a real gap. The `!= 0` guard below makes the rule
+        # permanently inert - left commented rather than deleted so nobody
+        # re-derives it and believes it works. A working check has to read the
+        # Backup objects themselves, not metrics; tracked in the roadmap as a
+        # kube-state-metrics customResourceState exporter over
+        # postgresql.cnpg.io/Backup, which is what finally makes a
+        # kopiur-equivalent "no successful backup in 48h" rule possible.
         # - alert: DatabaseNoBackup
         #   annotations:
         #     description: No database backup within the last 48 hours
