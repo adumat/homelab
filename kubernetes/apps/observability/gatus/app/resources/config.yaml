@@ -40,6 +40,19 @@ endpoints:
       # listener. This catches a 5xx once it is genuinely reachable.
       - "[STATUS] < 500"
 
+  # TEMPORARY - delete after confirming Pushover delivery. Deliberately dead
+  # target (port 1 on localhost) so it fails immediately. failure-threshold 3 at
+  # 30s means an alert fires after ~90s. Declares alerts: explicitly because no
+  # endpoint in this file does, so nothing here would otherwise ever alert.
+  - name: Pushover Delivery Test
+    group: storage
+    url: http://127.0.0.1:1/
+    interval: 30s
+    conditions:
+      - "[CONNECTED] == true"
+    alerts:
+      - type: pushover
+
 metrics: true
 
 storage:
