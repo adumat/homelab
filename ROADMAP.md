@@ -993,9 +993,34 @@ not merely written to. Nothing is cut over on the strength of a successful write
       `ObjectStore` per cluster pointing at garage. **Keep MinIO serving in parallel** — CNPG
       supports only one plugin objectstore per cluster at a time, so this is a cutover, not a
       dual-write; the parallel period is for rehearsal, not redundancy
-- [ ] 🔴 **Rehearse a real barman restore from garage before switching anything**, for *both*
-      clusters, and re-earn phase 3's G2 gate against it. A backup target that has never been
-      restored from is a hope. This is the gate — not the write succeeding
+- [x] 🔴 **G2 earned against garage — 2026-08-21.** immich-db restored into a throwaway CNPG
+      cluster from garage alone, row counts **exactly** matching production (`asset` 60,031,
+      `asset_exif` 60,029, `person` 1,887) with every extension intact including `vchord` and
+      `vector`. Test cluster and its PVCs deleted; production untouched throughout.
+
+      **The rehearsal justified itself immediately: the first attempt failed, and would have left
+      an unrestorable backup nobody knew about.** "Switch the target, then take a base backup
+      straight away" is not sufficient — a base backup is only restorable if the WAL segment
+      current at its *start* is in the same archive, and right after cutover that segment had gone
+      to MinIO. The restore stopped with:
+
+      ```
+      encountered an error while checking the presence of first needed WAL in the archive:
+        object storage or file not found 000000190000003500000022: WAL not found
+      ```
+
+      That backup reported `phase=completed` and sat in the bucket at the right size. **A completed
+      backup is not a restorable backup**, and only an actual restore tells the difference — which
+      is the entire argument for this gate existing.
+
+      Corrected sequence, now in the plan: switch → force WAL into the new archive and confirm
+      `archived_count` rises → base backup → force WAL again → check the Backup's `beginWal`/
+      `endWal` sit at or below `last_archived_wal`.
+
+      ⚠️ Two traps while generating that WAL, both of which briefly fooled me into reading a
+      broken archive as an idle one: `pg_switch_wal()` is a **no-op on an unwritten segment**, and
+      `psql -c` with escaped double quotes turns the payload into an **identifier**, failing
+      silently and leaving the counter flat.
 - [ ] Cut `cluster18` over first (smaller, 23 GB, and immich is the one that just broke), verify
       a **scheduled** backup and a WAL archive both land, then `immich-db`
 - [ ] Watch for one full week with `DatabaseFailedBackup` armed — it works now, and it is the
