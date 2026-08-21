@@ -42,6 +42,30 @@ spec:
               GATUS_DELAY_START_SECONDS: 5
               GATUS_WEB_PORT: &port 80
               TZ: Europe/Rome
+              # Gatus expands ${...} inside its config at RUNTIME, from its own
+              # environment - Flux never does it, because the configMapGenerator
+              # in kustomization.yaml carries
+              # `kustomize.toolkit.fluxcd.io/substitute: disabled`.
+              #
+              # These two were missing from the container, so every ${DOMAIN} and
+              # ${SECRET_NAS_NAME} in config.yaml expanded to an EMPTY STRING.
+              # Endpoints then dialled hosts like "http://:3900", failed to
+              # connect, and a `[STATUS] < 500` condition read the resulting 0 as
+              # 0 < 500 = true - so those checks reported healthy forever while
+              # testing nothing at all.
+              #
+              # Substituted here by Flux, which is allowed: only the ConfigMap is
+              # exempt, and ks.yaml already has substituteFrom cluster-secrets.
+              DOMAIN: ${DOMAIN}
+              SECRET_NAS_NAME: ${SECRET_NAS_NAME}
+            # The `gatus` ExternalSecret has existed and synced correctly all
+            # along, holding PUSHOVER_TOKEN and PUSHOVER_USER_KEY - but nothing
+            # ever mounted it. So the alerting block rendered an empty token and
+            # user key, and Gatus could never notify anyone. This is why Pushover
+            # notifications have been silently missing.
+            envFrom:
+              - secretRef:
+                  name: gatus
             probes:
               liveness: &probes
                 enabled: true
