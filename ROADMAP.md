@@ -560,10 +560,26 @@ kopiur at a Postgres data directory, so:
       `replicationsource.status.lastSyncTime`; `offset: 0` reads the live repository regardless.
 - [x] Delete each app's orphaned `ReplicationDestination` by hand — Flux will not prune it.
       Done 2026-08-20: all four gone, no VolSync object of any kind left in the cluster.
-- [ ] Two leftover `premigrate` snapshot CRs (`downloads/qbittorrent`, `home/home-assistant`) from
-      runs that aborted before their cleanup step, plus `media/romm-fixcheck2` — left in place
-      deliberately: they are valid pre-migration copies, and `romm-fixcheck2` is romm's only
-      *post-fix* backup until the 00:40 UTC run. Delete once that run succeeds. Also still there:
+- [x] **Leftover snapshots cleaned up 2026-08-21.** The two `premigrate` copies
+      (`downloads/qbittorrent`, `home/home-assistant`) came from runs that aborted before their
+      cleanup step — quiesced safety copies taken with the app stopped, just before its PVC was
+      deleted and recreated, which is what the restore then pulled from. Both apps have since
+      taken successful **scheduled** backups on two consecutive days, so the copies were
+      redundant and are deleted.
+
+      `media/romm-fixcheck2` deleted too, because the condition set for it is now met — and it
+      confirms the romm fix on a real scheduled run rather than only a manual test:
+
+      | snapshot | result | mover |
+      | --- | --- | --- |
+      | `romm-20260819004135` | Failed | root (uid 0) |
+      | `romm-20260820004052` | Failed | root (uid 0) |
+      | `romm-20260821004055` | **Succeeded** | uid 1000 |
+
+      Two consecutive scheduled failures under the root mover, then success once it went back to
+      1000. That closes the loop opened when the "fix" was found to be backwards.
+
+      Still there:
       the `downloads/prowlarr-rescue` PVC (2Gi, 8 days old) — flagged rather than deleted, since
       the standing rule is to keep cold fallbacks through phase 3
 - [x] **All four unprotected PVCs now backed up — 2026-08-20.** `services/paperless-ai`,
