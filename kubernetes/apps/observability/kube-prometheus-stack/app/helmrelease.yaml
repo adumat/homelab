@@ -132,6 +132,40 @@ spec:
         requests:
           cpu: 10m
           memory: 64Mi
+      # Expose CNPG Backup objects as metrics. CNPG's own
+      # cnpg_collector_last_available_backup_timestamp is pinned at 0 because the
+      # barman-cloud plugin never populates it (re-confirmed 2026-08-21 after three
+      # backups completed against garage), so the only trustworthy source for "when
+      # did a backup last SUCCEED" is the Backup objects themselves. This is what
+      # makes a kopiur-style "no successful backup in 48h" dead-man possible.
+      rbac:
+        extraRules:
+          - apiGroups: ["postgresql.cnpg.io"]
+            resources: ["backups"]
+            verbs: ["list", "watch"]
+      customResourceState:
+        enabled: true
+        config:
+          kind: CustomResourceStateMetrics
+          spec:
+            resources:
+              - groupVersionKind:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Backup
+                metricNamePrefix: cnpg_backup
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  backup: [metadata, name]
+                  cluster: [spec, cluster, name]
+                  phase: [status, phase]
+                metrics:
+                  - name: stopped_at_seconds
+                    help: Unix time at which a CNPG backup finished, from status.stoppedAt
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [status, stoppedAt]
     grafana:
       enabled: false
       forceDeployDashboards: true
