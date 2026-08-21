@@ -984,6 +984,25 @@ instant — if the node is dying, the shipping path dies with it, and anything l
 fluent-bit's pod starts is unshippable. The watchdog is the part of this phase that actually pays
 the rent; the logging is for naming causes afterwards.
 
+**Two limits of this phase, stated so they are not mistaken for coverage:**
+
+- **The watchdog is verified *armed*, not verified *firing*.** `timeout=300` / `state=active` /
+  `feedInterval` were all read back on every node, but nothing has yet made a node actually reset.
+  The same applies to `UpsAlarm`'s `!` regex branch. Both are sound by construction and neither has
+  been exercised by the real event.
+- ⚠️ **Nothing external watches the alerting pipeline, so this phase's alerts cannot report their
+  own death.** The `Watchdog` dead-man alert is routed to the `"null"` receiver in
+  [alertmanagerconfig.yaml](kubernetes/apps/observability/kube-prometheus-stack/app/alertmanagerconfig.yaml).
+  **That routing is correct, not a bug** — the alert always fires, so sending it to Pushover would
+  page every 12h forever. The gap is that the null route is the *only* thing consuming it: if
+  Prometheus or Alertmanager stops, **every alert added in this phase goes quiet and the silence is
+  indistinguishable from health.** gatus cannot cover it either, since it sits on `envoy-external`
+  and dies with the cluster.
+  - [ ] Route `Watchdog` to an **external** dead-man's-switch endpoint (healthchecks.io or
+        similar) that pages when the ping *stops*. Keep the `null` route as the fallback for when
+        no external target is configured. This is the single highest-leverage alerting fix left,
+        because it is the only one that can detect the failure of everything else.
+
 ### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
 
 **Moved ahead of the rebuild on 2026-08-20**, after the MinIO incident. The original reasoning
