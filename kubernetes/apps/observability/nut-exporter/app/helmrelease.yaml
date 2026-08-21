@@ -26,6 +26,10 @@ spec:
             args:
               # export all variables
               - --nut.vars_enable=
+              # TEMPORARY PROBE (2026-08-21): the `ECO` branch exists only to prove that this
+              # flag is plumbed through and that string coercion works, by making
+              # outlet.[12].ecocontrol appear. It is removed in the follow-up commit.
+              - --nut.on_regex=^(enable|enabled|on|true|active|activated)$|!|ECO
             probes:
               liveness:
                 enabled: true
