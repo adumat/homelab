@@ -1306,12 +1306,17 @@ elsewhere replicating the barman bucket is the native answer, and 2.7 deliberate
 Two live Ceph issues, surfaced while unblocking Flux during phase 2.7. Neither is caused by the
 garage migration; both need a decision.
 
-- [ ] 🔴 **The mgr crash loop is NOT fixed, and it will re-block every Kustomization.** Rook
-      v1.20.2→v1.20.6 and Ceph v20.2.3→v20.2.4 were merged (PR #467) specifically to fix it. They
-      did not. Crashes resumed immediately on v20.2.4 at roughly **4 per minute** — same
-      signature: `mgr_module: rook`, `mgr_module_caller: ActivePyModule::dispatch_remote
-      node_proxy_fullreport`, `NotImplementedError`. It only *looked* fixed because the mgr
-      restart during the upgrade reset the counter.
+- [x] ✅ **RESOLVED — the mgr crash loop is fixed by PR #467** (Rook v1.20.2→v1.20.6, Ceph
+      v20.2.3→v20.2.4), merged 2026-08-21.
+
+      ⚠️ **Two wrong conclusions were reached before the right one, both from extrapolating a
+      burst.** First the upgrade looked successful because the mgr restart reset the counter.
+      Then, seeing 6 crashes in a 75-second window, it was recorded here as "NOT fixed, ~4 per
+      minute" — but those 6 all fell between 09:59:26 and 10:00:41, *during the daemon roll*.
+      Measured properly afterwards: **0 `node_proxy_fullreport` errors and 0
+      `NotImplementedError` in the following 2 hours**, and 0 new crashes across a 90-second
+      sample. Rate is not a thing you can infer from a burst; it has to be measured over a window
+      that excludes the event you are recovering from.
 
       The chain: the `prometheus` mgr module's `get_hardware_metrics()` calls
       `node_proxy_fullreport()`, which the Rook orchestrator does not implement → a crash report
@@ -1323,20 +1328,21 @@ garage migration; both need a decision.
       Not an outage when it happens — mons, OSDs, MDS and the data plane stay healthy, 190 pods
       keep running. What breaks is GitOps: no Flux change can land.
 
-      Options, none free:
-      1. **Raise `mgr/prometheus/scrape_interval`** (currently `15`). 60 s cuts the rate 4×, 300 s
-         cuts it 20× to ~12/hour, which the crash module tolerates. Cost: staler Ceph metrics.
-         Cheapest and most reversible
-      2. **Periodic `ceph crash archive-all`** via CronJob, every 30 min. Keeps health at WARN so
-         Flux never blocks. Note `archive-all` itself fails once the module is already broken, so
-         it must stay ahead of the backlog — and a broken mgr needs a pod restart to recover
-      3. **Disable the `prometheus` mgr module** — stops it at source, but the `rook-ceph-mgr`
-         ServiceMonitor feeds `ceph_health_status` and every Ceph alert. Rejected: it would blind
-         the monitoring that surfaced this
-      4. Report upstream; #488 (Ceph **v21.1.0**, Renovate-flagged breaking) is a separate
-         decision and should not be merged casually
+      That was the pre-upgrade behaviour, and it is worth keeping because it explains how a
+      cosmetic mgr fault becomes a GitOps outage: crash reports arrive faster than the `crash`
+      module can iterate, so the module fails, health goes ERR, and **31 Kustomizations stall**
+      on `dependency 'rook-ceph/rook-ceph-cluster' is not ready`. Never an outage — mons, OSDs,
+      MDS and 190 pods stayed healthy throughout — but no Flux change could land.
 
-      Interim state: crashes archived and the mgr restarted, so Flux is unblocked right now.
+      Mitigations considered and now unnecessary, recorded in case it returns: raising
+      `mgr/prometheus/scrape_interval` (15 s → 60/300 s, at the cost of staler Ceph metrics), or a
+      CronJob running `ceph crash archive-all` every 30 min. Disabling the `prometheus` mgr module
+      was rejected outright — the `rook-ceph-mgr` ServiceMonitor feeds `ceph_health_status` and
+      every Ceph alert, so it would blind the monitoring that surfaced the problem.
+
+      Final state: health is `HEALTH_WARN` from the CVE auth checks alone, and all Kustomizations
+      are Ready. **#488 (Ceph v21.1.0, Renovate-flagged breaking) remains a separate decision and
+      should not be merged casually.**
 
 - [ ] 🔴 **CVE-2025-30156 — cephx keys are the old insecure `aes` type, and the ERR is muted
       until 2026-08-28.** Ceph v20.2.4 exists largely to fix this CVE; it introduces the
