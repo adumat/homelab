@@ -39,17 +39,11 @@ endpoints:
       # garage answers 403 to an unauthenticated S3 root, which is a live
       # listener. This catches a 5xx once it is genuinely reachable.
       - "[STATUS] < 500"
-
-  # TEMPORARY - delete after confirming Pushover delivery. Deliberately dead
-  # target (port 1 on localhost) so it fails immediately. failure-threshold 3 at
-  # 30s means an alert fires after ~90s. Declares alerts: explicitly because no
-  # endpoint in this file does, so nothing here would otherwise ever alert.
-  - name: Pushover Delivery Test
-    group: storage
-    url: http://127.0.0.1:1/
-    interval: 30s
-    conditions:
-      - "[CONNECTED] == true"
+    # Required, and easy to miss: endpoints defined in THIS file inherit nothing.
+    # The 37 auto-discovered endpoints get their alerts from the parent Gateway
+    # annotations on envoy-internal/envoy-external, but a static endpoint here
+    # has no parent - so without this block it would show red on the dashboard
+    # and notify nobody.
     alerts:
       - type: pushover
 
