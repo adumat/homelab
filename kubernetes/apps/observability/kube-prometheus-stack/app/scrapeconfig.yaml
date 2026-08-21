@@ -29,3 +29,23 @@ spec:
 #     - action: replace
 #       targetLabel: job
 #       replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name garage
+spec:
+  staticConfigs:
+    - targets:
+        - ${SECRET_NAS_NAME}:3903
+  metricsPath: /metrics
+  authorization:
+    type: Bearer
+    credentials:
+      name: garage-metrics
+      key: token
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name

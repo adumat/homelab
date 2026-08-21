@@ -1,0 +1,48 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: garage-rules
+spec:
+  groups:
+    - name: garage.rules
+      rules:
+        # THE load-bearing alert. On 2026-08-19 MinIO's health endpoint returned
+        # 200 while ListObjectsV2 failed, so every base backup failed for two
+        # days unnoticed. A liveness probe would not have caught it; an S3 error
+        # rate would have.
+        - alert: GarageS3Errors
+          annotations:
+            summary: >-
+              garage is returning 5xx on {{ $labels.api_endpoint }}
+              ({{ $value | printf "%.2f" }}/s)
+          expr: |
+            sum by (api_endpoint) (rate(api_s3_error_counter{status_code=~"5.."}[5m])) > 0
+          for: 5m
+          labels:
+            severity: critical
+        - alert: GarageUnhealthy
+          annotations:
+            summary: garage reports not all storage nodes connected
+          expr: cluster_healthy == 0
+          for: 10m
+          labels:
+            severity: critical
+        # Per volume, so metadata (NVMe) and data (array) are covered separately.
+        - alert: GarageVolumeFillingUp
+          annotations:
+            summary: >-
+              garage volume {{ $labels.volume }} is
+              {{ $value | humanizePercentage }} free
+          expr: |
+            garage_local_disk_avail / garage_local_disk_total < 0.15
+          for: 15m
+          labels:
+            severity: warning
+        - alert: GarageResyncErrors
+          annotations:
+            summary: garage failed to resync {{ $value }} block(s)
+          expr: block_resync_errored_blocks > 0
+          for: 15m
+          labels:
+            severity: warning

@@ -26,6 +26,13 @@ endpoints:
     conditions:
       - "[CONNECTED] == true"
 
+  - name: Garage S3
+    group: storage
+    url: http://${SECRET_NAS_NAME}:3900
+    interval: 1m
+    conditions:
+      - "[STATUS] < 500"
+
 metrics: true
 
 storage:
