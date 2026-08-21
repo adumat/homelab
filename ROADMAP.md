@@ -822,8 +822,30 @@ Verified on a live node, 2026-08-18:
       need Cilium healthy, which a node with broken networking does not have. Was: into
       VictoriaLogs. fluent-bit collects *container* logs only, which is exactly why this
       incident left no kernel evidence. Verify the schema against Talos 1.13 first
-- [ ] Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
-      this way — stops being invisible
+- [x] ~~Export **EDAC** counters, so a single-bit RAM error — which hangs a box in precisely
+      this way — stops being invisible~~ — **CLOSED 2026-08-21, not implementable. The hardware
+      cannot detect memory errors at all.** This was scoped as "load the missing EDAC module",
+      and that premise was wrong: `ie31200_edac` is **already built into the Talos kernel and
+      already loaded** on all four Coffee Lake boxes. It probes at every boot and refuses:
+
+      ```
+      EDAC ie31200: No ECC support
+      ```
+
+      The i5-8400T/8500T are Core i5 desktop parts with non-ECC DIMMs, so the memory controller
+      has no ECC logic to report from — `/sys/devices/system/edac/mc` exists but registers no
+      `mc0`, and Prometheus holds **zero** `node_edac_*` series. kube-nuc (i5-10210U, Comet
+      Lake-U) has no EDAC driver probe whatsoever. The gap is not software: **without ECC memory
+      a single-bit error is not detected, it is silently wrong**, so there is nothing any
+      exporter could surface. Reopen this only if a node is ever rebuilt on a Xeon E/W or Ryzen
+      Pro board with ECC DIMMs, at which point the driver is already present and only the
+      alerting rule is needed.
+
+      ⚠️ Consequence worth stating plainly, because it changes what the rest of phase 2.6 is
+      worth: **RAM remains the one hang cause with no detection path**, and it fits kube-ceph-03's
+      symptoms (alive, powered, NIC dead, no logs) as well as the e1000e theory does. It cannot be
+      ruled in or out by monitoring — only by a memtest on a physical visit. The watchdog and
+      `panic=10` still *recover* from it blindly, which is why they were the right first move.
 - [x] **Alert on `node_network_carrier_changes_total` rising — done 2026-08-21**, as
       `NodeNICCarrierFlapping` in
       [prometheusrule-node-health.yaml](kubernetes/apps/observability/kube-prometheus-stack/app/prometheusrule-node-health.yaml).
