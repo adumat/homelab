@@ -1,0 +1,51 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-health-rules
+spec:
+  groups:
+    - name: node-health.rules
+      rules:
+        # THE alert this phase exists for. On 2026-08-19 kube-ceph-03 hung with a dead NIC:
+        # no ICMP, no Talos API, no ARP, and it would not answer WOL. Recovery needed cutting
+        # UPS output to the whole rack, because the Ellipse ECO 650 has no switchable outlets.
+        #
+        # Why "unexpected reboot" and not "watchdog fired": iTCO_wdt does not advertise
+        # WDIOF_CARDRESET (options: 0x8180), so /sys/class/watchdog/watchdog0/bootstatus can
+        # NEVER report a watchdog-caused reset on this hardware. Alerting on any unexpected
+        # reboot is the only option - and it also catches panics and power events, which is
+        # what you actually want to know about.
+        #
+        # ⚠️ This fires on PLANNED reboots too, including Talos upgrades. Silence it during
+        # maintenance, or you will page yourself once per node and learn to ignore it.
+        - alert: NodeUnexpectedReboot
+          annotations:
+            description: >-
+              Node {{ $labels.instance }} booted {{ $value | humanizeDuration }} ago and this
+              alert was not silenced, so it was not a planned reboot. Could be the hardware
+              watchdog firing, a kernel panic, or a power event. Check kernel logs.
+            summary: Node rebooted unexpectedly.
+          expr: |
+            time() - node_boot_time_seconds < 600
+          labels:
+            severity: critical
+        # Precursor signal. An e1000e hardware unit hang resets the NIC, which drops and
+        # re-raises carrier - so this climbs BEFORE the interface dies for good.
+        #
+        # This metric was already collected and nothing watched it. When kube-ceph-03 died it
+        # read 0 for the preceding 30 minutes, which is what argued AGAINST a driver-reset loop
+        # and left the cause open. It earns its place as evidence either way.
+        #
+        # >2 because a single link transition is normal at boot; sustained flapping is not.
+        - alert: NodeNICCarrierFlapping
+          annotations:
+            description: >-
+              {{ $labels.device }} on {{ $labels.instance }} changed carrier {{ $value }} times
+              in 15m. Check dmesg for "Detected Hardware Unit Hang".
+            summary: NIC carrier is flapping.
+          expr: |
+            increase(node_network_carrier_changes_total{device="eno1"}[15m]) > 2
+          for: 5m
+          labels:
+            severity: warning
