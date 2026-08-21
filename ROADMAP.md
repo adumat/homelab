@@ -795,11 +795,24 @@ Verified on a live node, 2026-08-18:
       The device exists and nothing arms it. If the kernel stops petting it the board resets
       itself, turning "hangs until someone drives over" into a ~1 min reboot — and it works
       whether the cause is the NIC, the kernel or RAM
-- [ ] Add `panic=10` to the **schematic's `extraKernelArgs`** in
+- [x] **Add `panic=10` — done 2026-08-21.** In the **schematic's `extraKernelArgs`** in
       [talconfig.yaml](kubernetes/talos/talconfig.yaml) — **not** to `machine-kernel.yaml`, which
       configures kernel *modules*. This is a schematic change, so it needs a new installer image
       and a **rolling `talosctl upgrade`**, one node at a time respecting etcd quorum (only two
       members). Silence `NodeUnexpectedReboot` first or it pages once per node.
+      Rolled out workers-first then control planes; schematic went
+      `e4e5b0e3…d85044` → `38130295…31559b`. All five verified `panic=10` present and
+      `watchdog=300 active` — **the watchdog survives a schematic reinstall**, so Task 2's
+      `apply-config` setting does not need re-applying per node.
+      ⚠️ Two gates that the written plan got wrong and had to be corrected mid-rollout:
+      `kubectl get nodes` showing `Ready` is **not** sufficient between Ceph hosts — the node is
+      Ready within seconds while its OSD needs ~2.5 min, and upgrading the next host in that
+      window drops Ceph below `min_size 2` and halts cluster I/O. Gate on
+      `ceph osd stat` = `3 up` **and** `pg stat` = `81 active+clean`. And between control planes,
+      gate on `talosctl etcd status` showing **matching RAFT INDEX/TERM with an empty ERRORS
+      column** — "both members are listed" is a weaker check that would let you take the second
+      down while the first is still catching up, which loses quorum permanently on a two-member
+      cluster.
       so a panic reboots instead of sitting dead
 - [ ] Ship kernel and service logs off-node via `machine.logging.destinations` — but **to the
       local fluent-bit, not straight to VictoriaLogs.** Talos emits `json_lines` only; VictoriaLogs'
