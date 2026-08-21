@@ -62,6 +62,7 @@ nodes:
           - intel_iommu=on # PCI Passthrough
           - iommu=pt # PCI Passthrough
           - mitigations=off # Less security, faster puter
+          - panic=10 # Reboot 10s after a panic instead of sitting dead forever
           - security=none # Less security, faster puter
           - talos.auditd.disabled=1 # Less security, faster puter
         systemExtensions:
