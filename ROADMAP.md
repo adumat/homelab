@@ -636,10 +636,51 @@ kopiur at a Postgres data directory, so:
 
       | PVC | owner | how | hazard |
       | --- | --- | --- | --- |
-      | `database/mosquitto` | Flux (`pvc.yaml`) | ✅ **done 2026-08-21** — `dataSourceRef` + `ssa: IfNotPresent` | none; no-op now, correct on rebuild |
-      | `observability/grafana-pvc` | grafana-operator | the Grafana CR **does** accept `dataSourceRef` under `persistentVolumeClaim.spec` (confirmed in the CRD) | the operator will try to patch an immutable field on the live PVC — may throw a reconcile error. Test and watch the operator log |
-      | `database/pgadmin` | Helm (app-template) | app-template **does** support `dataSourceRef` (`_pvc.tpl:56`) | ⚠️ adding it makes the **Helm upgrade fail** on the immutable field, breaking the HelmRelease |
-      | `services/paperless-ai` | Helm (app-template) | same | same |
+      | `database/mosquitto` | Flux (`pvc.yaml`) | ✅ **done** — `dataSourceRef` + `ssa: IfNotPresent` | none; no-op now, correct on rebuild |
+      | `database/pgadmin` | Helm (app-template) | ✅ **done** — PVC recreated, restored from snapshot | — |
+      | `services/paperless-ai` | Helm (app-template) | ✅ **done** — PVC recreated, restored from snapshot | — |
+      | `observability/grafana-pvc` | grafana-operator | ❌ **attempted and reverted** | the operator went into a reconcile **error loop** |
+
+      **Three of four closed 2026-08-21.** For the two Helm-managed ones the immutability problem
+      dissolved once the PVC could be recreated: with the HelmRelease **suspended** (so Helm cannot
+      recreate the PVC without the field mid-way), take a quiesced snapshot, delete the PVC,
+      resume — Helm recreates it with `dataSourceRef` and the Restore populates it. Both came back
+      byte-identical on the files that matter: pgadmin's `pgadmin4.db`, and paperless-ai's
+      wizard-generated `.env`. The only diffs were transient (pgadmin's empty session files,
+      paperless-ai's `chromadb` index being written by the running app). So this also **proved the
+      restore path** for these PVCs, not just declared it.
+
+      🔴 **grafana remains open, and the least-invasive approach does not work.** Adding
+      `dataSourceRef` to the CR while leaving the live PVC alone was tried on the theory that the
+      operator would tolerate the mismatch. It does not:
+
+      ```
+      failed to reconcile Grafana stage: PersistentVolumeClaim "grafana-pvc" is invalid:
+        spec: Forbidden: spec is immutable after creation except resources.requests
+      ```
+
+      The operator entered a reconcile error loop, so the change was reverted (the error went to 0
+      within minutes). An operator that cannot complete reconciliation is worse than the gap it
+      was closing, since no later grafana change would apply either.
+
+      To finish it, the PVC must be recreated — and the awkward part is stopping grafana first.
+      The Deployment is owned by the Grafana CR with **no explicit replicas**, so a manual
+      scale-down is reverted by the operator, and deleting a still-mounted PVC arms the delete
+      behind the `pvc-protection` finalizer to fire later — the failure that cost radarr 7 hours.
+      The safe route is to set `spec.deployment.spec.replicas: 0` in the CR, let it apply, delete
+      the PVC, then restore the replica count so the operator recreates it with the field.
+
+      Lowest-stakes of the four: the dashboards are GitOps'd as `GrafanaDashboard` CRs and survive
+      regardless, and 47.5 MB of the 49 MB is re-downloadable plugins. What `grafana.db` holds is
+      users, preferences, annotations and starred dashboards.
+
+- [ ] ⚠️ **Unrelated, found while doing the above: grafana-operator cannot authenticate to
+      Grafana.** `failed to reconcile Grafana stage: failed to authenticate with instance` —
+      **84 occurrences in 7 hours**, first seen at 17:50 UTC, i.e. before and independent of the
+      `dataSourceRef` attempt. Worth chasing because the operator authenticates to Grafana's API
+      to push `GrafanaDashboard` CRs: while it cannot, dashboard changes in git are **not**
+      reaching Grafana, silently. Note the config sets `auth.basic.enabled: 'false'`, which is a
+      plausible starting point.
 
       ⚠️ **For the two Helm-managed ones, do NOT simply switch to `existingClaim`.** Neither PVC
       carries `helm.sh/resource-policy: keep`, so removing it from the release makes **Helm delete
