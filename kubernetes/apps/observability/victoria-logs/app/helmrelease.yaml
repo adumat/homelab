@@ -11,14 +11,24 @@ spec:
   interval: 1h
   values:
     fullnameOverride: victoria-logs
-    # 21d, measured 2026-08-21: 3.75GB total at 38.6 bytes/row compressed. Talos kernel and
-    # service logs (added in phase 2.6) contribute ~7.7M rows/day, roughly doubling intake, so
-    # 21d projects to ~12GB of the 21.5GB usable volume (~55%). Longer than the default on
-    # purpose: the point of shipping these logs is post-incident forensics, and the fault this
-    # phase was built for (kube-ceph-03 hanging) recurs on a longer cycle than 14d - a window
-    # that cannot reach the previous occurrence cannot be used to compare against it.
-    retentionPeriod: 21d
     server:
+      # ⚠️ retentionPeriod MUST live under `server:`. A top-level `retentionPeriod` is silently
+      # ignored by this chart, and one sat here reading `14d` for 125 days while the chart used
+      # its own default of `1` (which means one MONTH, not one day). Nothing surfaced the
+      # discrepancy: the flag was simply never rendered. Verified against the rendered arg in
+      # the StatefulSet, not the values file - that is the only place the truth shows up.
+      #
+      # 30d, not 21d: because the effective retention was already ~1 month, setting 21d would
+      # have DELETED 9 days of existing history while appearing to be an increase. Sized from
+      # measurement: 3.75GB held ~30d of container logs (0.125GB/day), and Talos kernel/service
+      # logs added in phase 2.6 contribute ~7.7M rows/day at 38.6 bytes/row compressed
+      # (~297MB/day), so 30d projects to ~12.7GB of the 21.5GB volume (~59%).
+      retentionPeriod: 30d
+      # Safety valve, the analogue of Prometheus's retentionSize. Intake roughly doubled when
+      # Talos logs were added, and the rows/day figure above is extrapolated from a few hours
+      # that included a rolling reboot, so it may understate a busier day. This evicts on disk
+      # use before the volume fills, whichever binds first.
+      retentionDiskSpaceUsage: 16GiB
       persistentVolume:
         enabled: true
         storageClassName: ceph-block
