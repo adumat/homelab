@@ -86,15 +86,26 @@ spec:
         ruleSelectorNilUsesHelmValues: false
         scrapeConfigSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
-        # 21d, measured 2026-08-21: TSDB held exactly 14d (data at -14d, none at -15d), so
-        # TIME was the binding constraint and retentionSize never engaged. 17.4GB/14d =
-        # 1.24GB/day, so 21d lands at ~26GB of the 52.5GB volume (~50%).
-        retention: 21d
-        # 40GB, not 50GB. On a 52.5GB volume, 50GB is 95% full - that is not a guard rail, it
-        # is the cliff edge, and it leaves nothing for WAL plus compaction, which needs room
-        # for the blocks it is merging. 40GB (~76%) evicts early enough to stay safe if the
-        # series count grows. This is a backstop only; time retention is what binds today.
-        retentionSize: 40GB
+        # 30d, matching victoria-logs so metrics and logs cover the same window - correlating an
+        # incident across the two is the whole point, and a shorter metrics window silently caps
+        # how far back any comparison can reach.
+        # Measured 2026-08-21: TSDB held exactly 14d (data at -14d, none at -15d), so TIME was
+        # the binding constraint and retentionSize never engaged. 17.4GB/14d = 1.25GB/day, so
+        # 30d lands at ~37GB of the 52.5GB volume (~71%). Compaction packs older blocks more
+        # tightly than recent ones, so a linear projection over-estimates - 37GB is the
+        # pessimistic figure.
+        retention: 30d
+        # 43GB (~82% of the volume), down from a original 50GB. 50GB on a 52.5GB volume is 95%
+        # full - not a guard rail but the cliff edge, with nothing left for WAL plus compaction,
+        # which needs room for the blocks it is merging.
+        # Why not 40GB: at 1.25GB/day that is only ~32 days of capacity, a 7% growth buffer over
+        # the 30d target, so a modest rise in series count would make SIZE bind first and
+        # silently deliver less than 30d. 43GB is ~35 days, a 15% buffer, keeping time the
+        # binding constraint while still leaving ~9GB free for compaction headroom.
+        # If series count ever grows enough to make this bind, grow the PVC rather than raising
+        # this further - Ceph has ~2.6TiB free, and pushing the cap past ~85% of the volume
+        # trades a graceful retention trim for a risk of filling the disk.
+        retentionSize: 43GB
         resources:
           requests:
             cpu: 100m
