@@ -165,7 +165,31 @@ spec:
                     each:
                       type: Gauge
                       gauge:
+                        # KSM parses the RFC3339 string into a Unix timestamp. Verified
+                        # 2026-08-21 against the live endpoint (1.787300771e+09) rather
+                        # than assumed - if it did not parse, the series would be silently
+                        # absent and any rule on it inert.
                         path: [status, stoppedAt]
+              # One series per Cluster, so a cluster with NO completed backup at all can be
+              # detected with `unless on (cluster)`. Without this the staleness rule cannot
+              # distinguish "backups stopped" from "the Backup objects were deleted", which
+              # is the same blind spot that makes a self-clearing failure alert useless.
+              # spec.instances is used simply because it always exists and is numeric.
+              - groupVersionKind:
+                  group: postgresql.cnpg.io
+                  version: v1
+                  kind: Cluster
+                metricNamePrefix: cnpg_cluster
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  cluster: [metadata, name]
+                metrics:
+                  - name: instances
+                    help: Configured instance count, one series per CNPG cluster
+                    each:
+                      type: Gauge
+                      gauge:
+                        path: [spec, instances]
     grafana:
       enabled: false
       forceDeployDashboards: true
