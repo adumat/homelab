@@ -13,6 +13,19 @@ metadata_dir = "/var/lib/garage/meta"
 data_dir     = "/var/lib/garage/data"
 db_engine    = "sqlite"
 
+# Garage takes its own application-consistent metadata snapshots on this
+# interval, into <metadata_dir>/snapshots/. Declarative and needs no cron.
+#
+# A filesystem copy would NOT be a substitute: cp of a live SQLite DB is not
+# atomic across db.sqlite/-wal/-shm and can capture a torn state.
+#
+# ⚠️ Garage keeps only the TWO most recent snapshots and deletes older ones
+# itself - documented, hardcoded, no retention setting. It also prunes anything
+# else in that directory, including unrelated files. Longer retention therefore
+# has to copy snapshots OUT to a separate directory; see
+# /boot/config/scripts/garage-meta-snapshot.sh on the host.
+metadata_auto_snapshot_interval = "24h"
+
 # Single node. Stated explicitly rather than left implicit: this is NOT
 # redundancy, and the backup-of-backups problem is tracked separately.
 replication_factor = 1
