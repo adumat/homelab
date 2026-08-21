@@ -11,7 +11,13 @@ spec:
   interval: 1h
   values:
     fullnameOverride: victoria-logs
-    retentionPeriod: 14d
+    # 21d, measured 2026-08-21: 3.75GB total at 38.6 bytes/row compressed. Talos kernel and
+    # service logs (added in phase 2.6) contribute ~7.7M rows/day, roughly doubling intake, so
+    # 21d projects to ~12GB of the 21.5GB usable volume (~55%). Longer than the default on
+    # purpose: the point of shipping these logs is post-incident forensics, and the fault this
+    # phase was built for (kube-ceph-03 hanging) recurs on a longer cycle than 14d - a window
+    # that cannot reach the previous occurrence cannot be used to compare against it.
+    retentionPeriod: 21d
     server:
       persistentVolume:
         enabled: true
