@@ -1700,6 +1700,23 @@ Hardware already in the house, metrics absent.
       false-signal trap as `vpn.${DOMAIN}` after an outage. Push, with the timeout owned
       externally. Full rationale and the dependency-inversion caveat in §8.1 of
       `docs/superpowers/specs/2026-08-18-power-monitoring-and-emergency-access-design.md`.
+- [ ] **Rotate every ESPHome per-device credential.** Each device has its own
+      `<device>_api_encryption` key and `<device>_ota_password` in `secrets.yaml` on the `esp-home`
+      PVC, plus the shared `wifi_password` and `fallback_hotspot_password`. **None has ever been
+      rotated.** They have sat in cleartext on a volume for the life of the cluster, and three
+      now-dead device configs additionally carried them **inline** rather than via `!secret`.
+      Rotation was previously expensive — hand-edit a YAML in the dashboard, hope the OTA lands.
+      Since the 2026-08-22 migration it is cheap: change the value in `secrets.yaml`, and the
+      device's stub picks it up on the next compile from the shared package.
+      Do all of them in one pass rather than singly, so there is one Home Assistant reconciliation
+      instead of several — **changing an `api_encryption` key requires updating that device in the
+      Home Assistant ESPHome integration too**, or HA loses the device until it is re-paired. Order
+      each device as: new value in `secrets.yaml` → compile → OTA → update HA → verify entities.
+      Do the OTA password and API key in the *same* flash per device; a device that takes the new
+      API key but keeps the old OTA password is fine, the reverse is not.
+      ⚠️ Treat every one of these as compromised-until-rotated rather than reasoning about which
+      individually matter. They are local-network credentials behind the firewall, so the practical
+      exposure is low, which is why this is not urgent — but it is also why it keeps being deferred.
 - [ ] `snmp-exporter` — HPE OfficeConnect 1820 switch and the UPS, invisible today
 - [ ] `drm-exporter` — Intel GPU utilisation, invisible today even though frigate and
       jellyfin transcode on it
