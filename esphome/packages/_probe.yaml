@@ -1,0 +1,13 @@
+# Throwaway probe. Proves remote packages resolve and that a substitution set from a
+# local !secret reaches a package. Deleted once verified — see plan Task 2.
+substitutions:
+  probe_ssid: "unset"
+esphome:
+  name: probe
+  friendly_name: probe
+esp8266:
+  board: esp01_1m
+logger:
+wifi:
+  ssid: ${probe_ssid}
+  password: ${probe_password}
