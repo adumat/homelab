@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/helm.toolkit.fluxcd.io/helmrelease_v2.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: nfs-stale-exporter
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: nfs-stale-exporter
+  values:
+    # Talos puts the kubelet root at the default location; k0s and microk8s do not.
+    # A wrong value here means zero mounts are ever probed, which looks exactly
+    # like a healthy cluster - see the NfsExporterSeesNoMounts alert.
+    kubeletDir: /var/lib/kubelet
+
+    exporter:
+      checkInterval: 30s
+      # Cluster NFS mounts are soft,timeo=50,retrans=3, so a dead server errors
+      # out rather than hanging; 5s is comfortably above a healthy statfs.
+      mountTimeout: 5s
+      # nfs-canary already probes the server, and its metric is what the existing
+      # nfs-scaler trigger consumes. Leave that division of labour alone for now.
+      serverProbe: false
+
+    prometheusRule:
+      enabled: true
+      # Every app in this repo carries this label via commonMetadata, and
+      # kube-state-metrics is configured to expose it. The chart derives
+      # label_app_kubernetes_io_name from this - joining on the raw name would
+      # yield app="" everywhere and silently break recovery.
+      appLabel: app.kubernetes.io/name
+      gracePeriod: 5m
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
