@@ -1355,10 +1355,28 @@ not merely written to. Nothing is cut over on the strength of a successful write
       ⚠️ Both rehearsal clusters were created with **no `plugins:` block on purpose**. With
       `isWALArchiver` they would have archived their own WAL into the live bucket under the same
       `serverName`, corrupting production's WAL stream. Recovery only ever needs to read.
-- [ ] Watch for one full week with `DatabaseFailedBackup` armed — it works now, and it is the
-      only reason a repeat of the Aug 19 failure would be noticed. **Specifically: confirm a
-      SCHEDULED backup completes for each cluster** (23:30 and 23:45 UTC). Every backup so far has
-      been triggered by hand
+- [x] **First SCHEDULED backups against garage completed — 2026-08-21 night, verified end to
+      end.** Both fired on time and both wrote real data; every prior success had been triggered
+      by hand, so this was the actual open question.
+
+      | | started | stopped | object written |
+      |---|---|---|---|
+      | `cluster18-20260821233000` | 23:30:00 Z | 23:30:33 Z | `postgres18-0/base/20260821T233000/data.tar.bz2` — **46.2 MiB** |
+      | `immich-db-20260821234500` | 23:45:00 Z | 23:46:25 Z | `immich-pg17-0/base/20260821T234500/data.tar.bz2` — **509.9 MiB** |
+
+      **Checked the objects in garage, not just the `phase: completed` status** — a status that
+      reports success without writing is exactly the failure this phase exists to rule out. Bucket
+      totals: `postgresql` 144.3 MB / 270 objects, `immich` 1.6 GB / 62 objects. Continuous WAL is
+      flowing too: cluster18 archives every **5 min** like clockwork (266 segments), immich every
+      ~10 min in tiny 249 B–1.5 KiB segments (56).
+      Confirms the low-write behaviour that shaped the alerting: immich's newest WAL was **95 min
+      old** at the time of checking, well inside the legitimate range, which is why
+      `DatabaseWALArchiveBacklog` was chosen over a WAL-age rule — an age rule would be pending
+      right now for no reason.
+- [ ] Continue the **full week** watch with the backup alerting armed (through ~2026-08-28) before
+      touching MinIO. One good night proves the path works; it does not prove the *weekly* pattern
+      is gone, and the whole reason this phase exists is that the failure was weekly. Now backed by
+      `DatabaseNoRecentBackup` / `DatabaseNeverBackedUp`, so an absence is loud rather than silent
 - [x] **A "no successful backup" dead-man now exists — done 2026-08-21, mimicking kopiur.**
       `DatabaseFailedBackup` only catches a *recorded failure* and **self-clears after 24h**, so a
       backup that stopped happening altogether went silent within a day and the silence read as
