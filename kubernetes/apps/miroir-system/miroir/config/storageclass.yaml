@@ -8,6 +8,16 @@ metadata:
 provisioner: miroir.home-operations.com
 parameters:
   miroir.home-operations.com/replicas: "1"
+  # Genuinely local, which the name previously only implied. Unset, this defaults
+  # to ALLOWED: a pod on another node would reach the single copy over the
+  # replication network through a diskless client leg - network I/O for data with
+  # no redundancy, and I/O errors rather than a clear failure once the node
+  # holding it is gone. With it false the PV carries node affinity, so the pod is
+  # pinned to the node holding its copy and stays Pending with an obvious reason
+  # instead.
+  #
+  # No quorum parameter: it applies only to classes with replicas above 1.
+  miroir.home-operations.com/allowRemoteVolumeAccess: "false"
   miroir.home-operations.com/pool: default
   csi.storage.k8s.io/fstype: ext4
 reclaimPolicy: Delete
