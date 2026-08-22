@@ -20,22 +20,29 @@ spec:
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
         # Two independent conditions, ANDed by multiplication:
-        #  1. the server is reachable at all (blackbox + nfs-canary), and
-        #  2. THIS app's own kernel mounts are not stale (nfs-stale-exporter).
+        #  1. elizabeth is reachable at all, and
+        #  2. THIS app's own kernel mounts are not stale.
         #
-        # The second factor is what the canary could never see: staleness is
-        # per-export and per-pod, and a stale mount passes readiness, so an app
-        # can sit Running 1/1 on a dead filesystem indefinitely.
+        # Both come from nfs-stale-exporter, which probes from every node. It
+        # replaced nfs-canary (a single replica that segfaulted 41 times in 22h)
+        # on 2026-08-22.
         #
-        # `or vector(0)` is load-bearing. Scaling to 0 removes the pod, its mount
-        # and therefore the series; with ignoreNullValues: "0" the absence would
-        # otherwise be read as stale and the app would never come back. Verified
-        # 2026-08-22 against a non-existent app name: the factor returns 1.
+        # ⚠️ The two terms default in OPPOSITE directions, deliberately.
+        # Reachability fails OPEN (`or vector(1)`): an absent series means
+        # "unknown", and treating unknown as "server down" parks the apps,
+        # unmounts their volumes, removes the series cluster-wide and nothing can
+        # ever scale them back. Staleness fails CLOSED (`or vector(0)` = not
+        # stale) because absence there means the pod is already gone, which is
+        # exactly what recovery just did.
         #
-        # min_over_time is the grace period - the mount must be stale for the
-        # whole 5m window, so NfsMountStale reaches a human first.
+        # max() not min() on reachability: one node failing to reach elizabeth is
+        # a node fault, not a server outage, and must not park every app.
+        # Unscoped because this cluster has a single NFS server.
+        #
+        # min_over_time is the grace period - stale for the whole 5m window
+        # before anything acts, so NfsMountStale reaches a human first.
         query: >-
-          min(probe_success{instance=~".+:2049"}) * on() nfs_canary_health_overall
+          (max(nfs_server_reachable) or vector(1))
           * on() (1 - (max(min_over_time(nfs:mount_stale:app{app="${APP}"}[5m])) or vector(0)))
         threshold: "1"
         ignoreNullValues: "0"

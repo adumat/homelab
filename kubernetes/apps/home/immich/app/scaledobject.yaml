@@ -19,16 +19,15 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
-        # See components/nfs-scaler for why the second factor and `or vector(0)`
-        # are needed. immich is NOT scaled by that component, so the change has
-        # to be repeated here.
+        # See components/nfs-scaler for the fail-open / fail-closed asymmetry.
+        # immich is NOT scaled by that component, so the change is repeated here.
         #
         # ⚠️ The app label is `server`, not `immich` - that is the upstream
         # chart's own app.kubernetes.io/name. Querying app="immich" would match
         # nothing and silently never recover. Scoped by namespace because
         # `server` is a name another namespace could plausibly reuse.
         query: >-
-          min(probe_success{instance=~".+:2049"}) * on() nfs_canary_health_overall
+          (max(nfs_server_reachable) or vector(1))
           * on() (1 - (max(min_over_time(nfs:mount_stale:app{namespace="home",app="server"}[5m])) or vector(0)))
         threshold: "1"
         ignoreNullValues: "0"
