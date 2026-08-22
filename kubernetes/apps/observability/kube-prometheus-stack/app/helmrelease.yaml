@@ -152,12 +152,34 @@ spec:
             # everything else, so /metrics looks healthy and only the missing series shows it.
             resources: ["backups", "clusters"]
             verbs: ["list", "watch"]
+          - apiGroups: ["keda.sh"]
+            resources: ["scaledobjects"]
+            verbs: ["list", "watch"]
       customResourceState:
         enabled: true
         config:
           kind: CustomResourceStateMetrics
           spec:
             resources:
+              # One series per ScaledObject, so an app that mounts NFS but has no
+              # recovery configured can be found with `unless on (namespace, app)`.
+              # This is what turns coverage drift from silent into loud: the
+              # August 2026 incident hit metube and pyload-ng precisely because
+              # they were NFS consumers nobody had opted into the scaler.
+              - groupVersionKind:
+                  group: keda.sh
+                  version: v1alpha1
+                  kind: ScaledObject
+                metricNamePrefix: keda_scaledobject
+                labelsFromPath:
+                  namespace: [metadata, namespace]
+                  scaledobject: [metadata, name]
+                metrics:
+                  - name: info
+                    help: A KEDA ScaledObject exists for this workload
+                    each:
+                      type: Info
+                      info: {}
               - groupVersionKind:
                   group: postgresql.cnpg.io
                   version: v1
