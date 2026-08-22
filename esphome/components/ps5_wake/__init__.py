@@ -2,6 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import text, text_sensor
+from esphome.components.esp32 import add_idf_sdkconfig_option, request_bluetooth
 from esphome.const import CONF_ID
 
 CODEOWNERS = ["@adumat"]
@@ -39,6 +40,13 @@ CONFIG_SCHEMA = cv.Schema(
 
 
 async def to_code(config):
+    # Classic (BR/EDR) Bluedroid: BT_ENABLED is off by default, and even once
+    # on, BT_CLASSIC_ENABLED itself still defaults to n (only BLE defaults on).
+    # This is the only DualSense-over-Bluetooth-Classic user in the codebase,
+    # so nothing else can be relied on to have requested it already.
+    request_bluetooth()
+    add_idf_sdkconfig_option("CONFIG_BT_CLASSIC_ENABLED", True)
+
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
 
