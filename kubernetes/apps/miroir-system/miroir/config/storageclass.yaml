@@ -22,15 +22,32 @@ metadata:
   name: miroir-replicated
 provisioner: miroir.home-operations.com
 parameters:
-  # Two, not three: only the three workers carry a pool, and a 2-replica volume
-  # is what has to survive losing the node holding its primary leg.
+  # Two, not three. Upstream validates 1..3 but its intended topology is two
+  # diskful legs plus a diskless tie-breaker, and three diskful copies would put
+  # every write on the QLC Crucial P3 as well.
   miroir.home-operations.com/replicas: "2"
-  # Not the default `freeze`. With two replicas, freeze blocks I/O the moment
-  # quorum is lost, so losing one node hangs the volume until it returns.
-  # last-man-standing keeps the survivor serving instead, accepting the risk of
-  # divergence if the peer later comes back with its own writes. Chosen
-  # deliberately after two power cuts in a week: availability over strictness.
-  miroir.home-operations.com/quorum: last-man-standing
+  # `freeze` since 2026-08-22, replacing `last-man-standing`.
+  #
+  # Two data replicas are only 2 votes and a majority of 2 is 2, so with `freeze`
+  # ANY disconnect halts writes on both sides - which is why last-man-standing
+  # was correct while the topology effectively had two storage nodes.
+  #
+  # With a THIRD storage node the controller automatically adds a diskless
+  # tie-breaker: a DRBD peer with `disk none` that votes but stores nothing, no
+  # capacity and no backing device. That makes 3 votes, so losing any single node
+  # still leaves a majority of 2 and the volume keeps serving - while a partition
+  # freezes the minority instead of letting both sides write.
+  #
+  # ⚠️ last-man-standing volumes NEVER get a tie-breaker (upstream: "Volumes with
+  # this policy never get a tie-breaker"), so staying on it would mean permanent
+  # split-brain exposure: on reconnect DRBD deliberately stays disconnected and an
+  # operator has to inspect both legs and pick a loser by hand.
+  #
+  # Cost of the swap: with two of three nodes down the volume returns I/O errors
+  # instead of serving, and a workload usually needs a restart once quorum
+  # returns. The two power cuts that motivated last-man-standing were whole-house
+  # events, where both policies behave identically.
+  miroir.home-operations.com/quorum: freeze
   miroir.home-operations.com/pool: default
   csi.storage.k8s.io/fstype: ext4
 reclaimPolicy: Delete
