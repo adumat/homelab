@@ -61,9 +61,12 @@ void PS5Wake::setup() {
 
 void PS5Wake::dump_config() {
   ESP_LOGCONFIG(TAG, "PS5 Wake:");
-  ESP_LOGCONFIG(TAG, "  bt_mode: %s", this->bt_mode_ == BT_MODE_ALWAYS_ON ? "always_on" : "on_demand");
+  ESP_LOGCONFIG(TAG, "  bt_mode configured: %s",
+                this->bt_mode_ == BT_MODE_ALWAYS_ON ? "always_on" : "on_demand");
+  ESP_LOGCONFIG(TAG, "  bluetooth currently up: %s", YESNO(this->bt_ready_));
   ESP_LOGCONFIG(TAG, "  retries: %u", this->retries_);
   ESP_LOGCONFIG(TAG, "  min_heap_for_always_on: %u", (unsigned) this->min_heap_);
+  ESP_LOGCONFIG(TAG, "  free heap now: %u", (unsigned) esp_get_free_heap_size());
 }
 
 void PS5Wake::publish_result_(const std::string &msg) {
