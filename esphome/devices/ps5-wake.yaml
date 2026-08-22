@@ -1,0 +1,115 @@
+# PS5 wake over Bluetooth. Impersonates a paired DualSense to wake the console,
+# which the network WAKEUP datagram cannot do once the console is fully off — that
+# path requires Rest Mode, and a UPS output cut leaves the PS5 fully off.
+#
+# Hardware: ORIGINAL ESP32 only (variant: esp32). Bluetooth Classic (BR/EDR) does
+# not exist on S2/S3/C3/C6/H2, and this technique needs BR/EDR L2CAP.
+#
+# Power this from a NON-UPS outlet, so a UPS cycle cannot take out the device whose
+# whole purpose is recovering from a UPS cycle.
+#
+# The two MAC addresses are runtime values, set from the web page at
+# http://<device>/ and persisted in flash — deliberately NOT compile-time, so the
+# console or the pad can be replaced without a rebuild.
+
+esphome:
+  name: ps5-wake
+  friendly_name: ps5-wake
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/adumat/homelab
+      ref: main
+    components: [ps5_wake]
+    refresh: 0s
+
+logger:
+  level: INFO
+  baud_rate: 0   # no serial logging; saves flash and RAM
+
+# NO api: component, per design §3.4. This device is standalone by requirement and
+# must not depend on Home Assistant, and dropping api: frees the RAM the heap gate
+# needs. Consequence: `esphome logs` cannot attach (it uses the API), and
+# baud_rate: 0 disables serial too — read logs from the web_server page instead.
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+    id: ps5_wake_ota
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  domain: ".lan"
+  ap:
+    ssid: "${fallback_ssid}"
+    password: ${fallback_password}
+
+captive_portal:
+
+# Boot-loop insurance. Cannot protect the OTA that installs it, but every OTA
+# after that becomes recoverable over the air rather than over USB.
+safe_mode:
+
+# The config page. local: true inlines assets so there is no CDN dependency.
+web_server:
+  port: 80
+  version: 3
+  local: true
+  auth:
+    username: ${web_user}
+    password: ${web_password}
+
+text:
+  - platform: template
+    name: pad_mac
+    id: pad_mac
+    optimistic: true
+    restore_value: true
+    max_length: 17
+    mode: text
+  - platform: template
+    name: ps5_mac
+    id: ps5_mac
+    optimistic: true
+    restore_value: true
+    max_length: 17
+    mode: text
+
+text_sensor:
+  - platform: template
+    name: last_result
+    id: last_result
+
+sensor:
+  - platform: template
+    name: free_heap
+    id: free_heap
+    lambda: 'return esp_get_free_heap_size();'
+    unit_of_measurement: B
+    accuracy_decimals: 0
+    update_interval: 60s
+
+ps5_wake:
+  id: waker
+  pad_mac: pad_mac
+  ps5_mac: ps5_mac
+  last_result: last_result
+  bt_mode: always_on
+  retries: 5
+  # PROVISIONAL. Calibrate from what free_heap actually reports on the assembled
+  # board with web_server running, then change this. The component degrades to
+  # on-demand rather than OOM-looping if the gate is not met.
+  min_heap_for_always_on: 120000
+
+button:
+  - platform: template
+    name: wake        # -> POST /button/wake/press
+    on_press:
+      - ps5_wake.wake: waker
