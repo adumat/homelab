@@ -20,9 +20,11 @@ spec:
       # Cluster NFS mounts are soft,timeo=50,retrans=3, so a dead server errors
       # out rather than hanging; 5s is comfortably above a healthy statfs.
       mountTimeout: 5s
-      # nfs-canary already probes the server, and its metric is what the existing
-      # nfs-scaler trigger consumes. Leave that division of labour alone for now.
-      serverProbe: false
+      # Replaces nfs-canary's server-reachability signal. Probed from every node
+      # rather than from a single replica, so a one-node network fault is
+      # distinguishable from elizabeth actually being down.
+      serverProbe: true
+      serverProbeTimeout: 3s
 
     prometheusRule:
       enabled: true
