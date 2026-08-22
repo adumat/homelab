@@ -1,0 +1,208 @@
+esphome:
+  name: intercom-controller
+  friendly_name: intercom-controller
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${api_key}
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+    id: intercom_controller_ota
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  domain: ".lan"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Hvac-Controller Fallback Hotspot"
+    password: ${fallback_password}
+
+web_server:
+  port: 80
+
+uart:
+  - id: rs485
+    tx_pin: GPIO27
+    rx_pin: GPIO14
+    baud_rate: 9600
+  - id: rs232
+    tx_pin: GPIO17
+    rx_pin: GPIO16
+    baud_rate: 9600
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+  # cs pin: GPIO5
+
+i2c:
+  sda: GPIO4
+  id: bus_a
+  scl:
+    number: GPIO15
+    ignore_strapping_warning: true
+
+sensor:
+  - platform: bme280_i2c
+    i2c_id: bus_a
+    address: 0x76
+    temperature:
+      name: "RACK Temperature"
+      id: rack_temperature
+    pressure:
+      name: "RACK Pressure"
+      id: rack_pressure
+    humidity:
+      name: "RACK Humidity"
+      id: rack_humidity
+
+pcf8574:
+  - id: inputs
+    address: 0x22
+  - id: outputs
+    address: 0x24
+
+time:
+  - platform: ds1307
+    id: rtc_time
+
+binary_sensor:
+  - platform: gpio
+    name: "Campanello"
+    id: campanello
+    pin:
+      pcf8574: inputs
+      number: 0
+      mode: INPUT
+      inverted: true
+    filters:
+      - delayed_off: 2s        # evita flicker se il segnale AC tremola
+    on_press:
+      - homeassistant.event:
+          event: esphome.campanello
+          data:
+            message: "Campanello suonato"
+
+  - platform: gpio
+    name: "KC868-A6-IN-2"
+    pin:
+      pcf8574: inputs
+      number: 1
+      mode: INPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-IN-3"
+    pin:
+      pcf8574: inputs
+      number: 2
+      mode: INPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-IN-4"
+    pin:
+      pcf8574: inputs
+      number: 3
+      mode: INPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-IN-5"
+    pin:
+      pcf8574: inputs
+      number: 4
+      mode: INPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-IN-6"
+    pin:
+      pcf8574: inputs
+      number: 5
+      mode: INPUT
+      inverted: true
+
+switch:
+  - platform: gpio
+    name: "Serratura Piccola"
+    id: serratura_piccola
+    pin:
+      pcf8574: outputs
+      number: 0
+      mode: OUTPUT
+      inverted: true
+    restore_mode: ALWAYS_OFF   # mai aprire al boot
+  - platform: gpio
+    name: "Serratura Grande"
+    id: serratura_grande
+    pin:
+      pcf8574: outputs
+      number: 1
+      mode: OUTPUT
+      inverted: true
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "KC868-A6-RELAY-3"
+    id: relay_3
+    pin:
+      pcf8574: outputs
+      number: 2
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-4"
+    id: relay_4
+    pin:
+      pcf8574: outputs
+      number: 3
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-5"
+    id: relay_5
+    pin:
+      pcf8574: outputs
+      number: 4
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "KC868-A6-RELAY-6"
+    id: relay_6
+    pin:
+      pcf8574: outputs
+      number: 5
+      mode: OUTPUT
+      inverted: true
+
+button:
+  - platform: template
+    name: "Apri Serratura Piccola"
+    on_press:
+      - switch.turn_on: serratura_piccola
+      - delay: 500ms
+      - switch.turn_off: serratura_piccola
+
+  - platform: template
+    name: "Apri Serratura Grande"
+    on_press:
+      - switch.turn_on: serratura_grande
+      - delay: 500ms
+      - switch.turn_off: serratura_grande
+# Boot-loop insurance. Without this, a device that boot-loops after an OTA needs
+# USB recovery; with it the device counts rapid reboots and comes up with wifi +
+# OTA so it can be re-flashed remotely. It cannot protect the OTA that installs it.
+safe_mode:
