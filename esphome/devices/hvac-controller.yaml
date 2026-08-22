@@ -1,0 +1,515 @@
+esphome:
+  name: hvac-controller
+  friendly_name: hvac-controller
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 8MB
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${api_key}
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+    id: hvac_controller_ota
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  domain: ".lan"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Hvac-Controller Fallback Hotspot"
+    password: ${fallback_password}
+
+captive_portal:
+
+# Boot-loop insurance. Without this, a device that boot-loops after an OTA needs
+# USB recovery; with it the device counts rapid reboots and comes up with wifi +
+# OTA so it can be re-flashed remotely. It cannot protect the OTA that installs it.
+safe_mode:
+
+web_server:
+  port: 80
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+
+  - platform: gpio
+    name: "Boot Button"
+    pin:
+      number: 0
+      ignore_strapping_warning: true
+      mode:
+        input: true
+      inverted: true
+    disabled_by_default: true
+    on_press:
+      then:
+        - button.press: restart_button
+
+
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO46 # PCB relay 6
+      ignore_strapping_warning: true
+    id: commandHeatCool
+    name: Command HeatCool
+  - platform: gpio
+    pin:
+      number: GPIO45 # PCB relay 5
+      ignore_strapping_warning: true
+    id: fancoilGF
+    name: Fancoil GF
+  - platform: gpio
+    pin: GPIO42 # PCB relay 4
+    id: fancoil1F
+    name: Fancoil 1F
+  - platform: gpio
+    pin: GPIO41 # PCB relay 3
+    id: pumpRadiator # quadro relay 1
+    name: Pump Radiator
+  - platform: gpio
+    pin: GPIO2 # PCB relay 2
+    id: pumpGF # quadro relay 2
+    name: Pump GF
+  - platform: gpio
+    pin: GPIO1 # PCB relay 1
+    id: pump1F # quadro relay 3
+    name: Pump 1F
+
+select:
+  - platform: template
+    id: hvac_mode
+    name: Pdc modalita stagione
+    optimistic: true
+    options:
+      - heat
+      - cool
+    initial_option: heat
+
+uart:
+  id: modbus_uart
+  tx_pin: GPIO17
+  rx_pin: GPIO18
+  baud_rate: 9600
+  stop_bits: 1
+  parity: EVEN
+  data_bits: 8
+
+modbus:
+  - uart_id: modbus_uart
+    id: modbus_client
+
+modbus_controller:
+  - id: modbus_hvac
+    modbus_id: modbus_client
+    address: 0x1
+    update_interval: 15s
+
+# buzzer
+output:
+  - platform: ledc
+    pin: GPIO21
+    id: buzzer
+
+rtttl:
+  output: buzzer
+  id: rtttl_buzzer
+  gain: 30%
+
+light:
+  - platform: esp32_rmt_led_strip
+    chipset: ws2812
+    pin: GPIO38
+    num_leds: 1
+    rgb_order: RGB
+    name: "RGB LED"
+    id: rgb_led
+
+button:
+  - platform: restart
+    name: "Restart"
+    id: restart_button
+    entity_category: config
+
+  - platform: factory_reset
+    name: "Factory Reset"
+    id: reset
+    entity_category: config
+
+  - platform: safe_mode
+    name: "Safe Mode"
+    internal: false
+    entity_category: config
+
+  # Switch per avviare la lettura manualmente
+  # - platform: template
+  #   name: "Trigger lettura registro"
+  #   id: trigger_read_registry
+  #   entity_category: diagnostic
+  #   on_press:
+  #     - lambda: |-
+  #         uint16_t reg = (uint16_t) id(modbus_register_number).state;
+  #         auto *controller = id(modbus_hvac);
+  #         auto modbus_value_target = id(modbus_value);
+  #         auto handler =
+  #           [modbus_value_target](
+  #             esphome::modbus::ModbusRegisterType register_type,
+  #             uint16_t start_address,
+  #             const std::vector<uint8_t> &data) {
+  #             if (data.size() >= 2) {
+  #               uint16_t value = ((uint16_t)data[0] << 8) | data[1];
+  #               modbus_value_target->publish_state(value);
+  #             }
+  #           };
+  #         auto read_registry_command =
+  #           esphome::modbus_controller::ModbusCommandItem::create_read_command(
+  #             controller,
+  #             esphome::modbus::ModbusRegisterType::HOLDING,
+  #             reg,
+  #             1,
+  #             handler
+  #           );
+  #         controller->queue_command(read_registry_command);
+
+sensor:
+  # Sensore per mostrare il risultato della lettura
+  # - platform: template
+  #   name: "Valore registro Modbus"
+  #   id: modbus_value
+  #   unit_of_measurement: ""
+  #   update_interval: never
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t01_temp_in
+    name: "T01 Temperatura acqua in ingresso"
+    register_type: holding
+    address: 100
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t02_temp_out
+    name: "T02 Temperatura acqua in uscita"
+    register_type: holding
+    address: 101
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t03_temp_suction
+    name: "T03 Temperatura aspirazione compressore"
+    register_type: holding
+    address: 102
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t04_temp_discharge
+    name: "T04 Temperatura scarico compressore"
+    register_type: holding
+    address: 103
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t05_temp_outdoor
+    name: "T05 Temperatura aria esterna"
+    register_type: holding
+    address: 104
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t06_temp_dhw
+    name: "T06 Temperatura sonda sanitaria"
+    register_type: holding
+    address: 105
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t07_temp_remote
+    name: "T07 Temperatura sonda remota impianto"
+    register_type: holding
+    address: 106
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t08_temp_aux
+    name: "T08 Temperatura ambiente/aux"
+    register_type: holding
+    address: 107
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Pressioni: tipicamente non negative -> U_WORD + scala 0.1
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t09_press_low
+    name: "T09 Pressione di bassa"
+    register_type: holding
+    address: 108
+    value_type: U_WORD
+    unit_of_measurement: "bar"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t10_press_high
+    name: "T10 Pressione di alta"
+    register_type: holding
+    address: 109
+    value_type: U_WORD
+    unit_of_measurement: "bar"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Portata: non negativa -> U_WORD + scala 0.1 (se l'unità è l/min in decimi)
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: t11_flow
+    name: "T11 Portata acqua"
+    register_type: holding
+    address: 110
+    value_type: U_WORD
+    unit_of_measurement: "l/min"
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+# Input per scegliere il registro da leggere
+number:
+  # - platform: template
+  #   name: "Registro Modbus da leggere"
+  #   id: modbus_register_number
+  #   mode: BOX
+  #   optimistic: true
+  #   min_value: 1
+  #   max_value: 9999
+  #   step: 1
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r08
+    name: "r08 fascia solo cal"
+    register_type: holding
+    address: 1507
+    value_type: S_WORD
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r22
+    name: "r22 fascia solo pdc"
+    register_type: holding
+    address: 1521
+    value_type: S_WORD
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r28
+    name: "r28 METTI = R08"
+    register_type: holding
+    address: 1527
+    value_type: S_WORD
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r10
+    name: "r10 caldaia supporto heat"
+    register_type: holding
+    address: 1509
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 1
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r12
+    name: "r12 ritardo r10"
+    register_type: holding
+    address: 1511
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 60
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r15
+    name: "r15 caldaia supporto sanitary"
+    register_type: holding
+    address: 1514
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 1
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r16
+    name: "r16 ritardo r15"
+    register_type: holding
+    address: 1515
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 60
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r23
+    name: "r23 caldaia a supporto heat(4)/sanitary(6)"
+    register_type: holding
+    address: 1522
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 6
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: r37
+    name: "r37"
+    register_type: holding
+    address: 1536
+    value_type: U_WORD
+    # min_value: 0
+    # max_value: 2
+    step: 1
+    skip_updates: 3600
+    mode: BOX
+  - platform: modbus_controller
+    id: cool_temp_target
+    modbus_controller_id: modbus_hvac
+    name: "Cool temperature target"
+    register_type: holding
+    address: 1001
+    device_class: temperature
+    value_type: U_WORD
+    multiply: 10
+    step: 0.1
+    unit_of_measurement: "°C"
+    mode: BOX
+    # accuracy_decimals: 1
+    # filters:
+    #   - multiply: 0.1
+    skip_updates: 3600
+  - platform: modbus_controller
+    id: heat_temp_target
+    modbus_controller_id: modbus_hvac
+    name: "Heat temperature target"
+    register_type: holding
+    address: 1002
+    device_class: temperature
+    value_type: U_WORD
+    multiply: 10
+    step: 0.1
+    unit_of_measurement: "°C"
+    mode: BOX
+    # accuracy_decimals: 1
+    # filters:
+    #   - multiply: 0.1
+    skip_updates: 3600
+  - platform: modbus_controller
+    id: san_temp_target
+    modbus_controller_id: modbus_hvac
+    name: "Sanitary temperature target"
+    register_type: holding
+    address: 1003
+    device_class: temperature
+    value_type: U_WORD
+    unit_of_measurement: "°C"
+    multiply: 10
+    step: 0.1
+    mode: BOX
+    # accuracy_decimals: 1
+    # filters:
+    #   - multiply: 0.1
+    skip_updates: 3600
