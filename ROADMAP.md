@@ -1700,6 +1700,55 @@ Hardware already in the house, metrics absent.
       false-signal trap as `vpn.${DOMAIN}` after an outage. Push, with the timeout owned
       externally. Full rationale and the dependency-inversion caveat in §8.1 of
       `docs/superpowers/specs/2026-08-18-power-monitoring-and-emergency-access-design.md`.
+- [x] **ESPHome config moved into git — done 2026-08-22.** All four live devices now pull their
+      configuration from `esphome/` in this repo via ESPHome's official **remote packages**; the
+      `esp-home` PVC keeps only thin stubs plus `secrets.yaml`. The dashboard still compiles, flashes
+      and streams logs — it is simply no longer the author of record. Design and plan under
+      `docs/superpowers/`.
+      Chosen over three homegrown alternatives (ConfigMap read-only mounts, an initContainer copy, a
+      CronJob pushing the PVC to GitHub) because it is the **supported** mechanism and it keeps the
+      dashboard fully working.
+  - Secrets **cannot** leak by accident: ESPHome forbids `!secret` inside a remote package, so stubs
+    read `!secret` and pass substitutions in, and `/config` is never committed. That also disarmed
+    the three dead configs holding **inline** credentials without having to touch them.
+  - `power-outlet` 127→32 lines, `iron-outlet` 173→69, `hvac-controller` 510→15,
+    `intercom-controller` 203→15. All four on ESPHome 2026.7.3 (from 2026.5.3).
+  - **The two 1 MB plugs are no longer near the OTA ceiling**: `web_server` removed took them
+    501,520→482,480 and 503,472→484,400, about **−19 KiB each**. They had ~16 KiB of headroom and a
+    version bump could have exhausted it — a too-large image builds fine then fails to upload,
+    costing USB access to a wall socket.
+  - **`safe_mode` added to every device** (none had it): a boot-looping device is now recoverable
+    over the air instead of over USB. It cannot protect the OTA that *installs* it, so each device's
+    first flash was the only genuine physical-access risk. On the plugs it made the image ~50 bytes
+    **smaller**.
+  - ⚠️ **The one rule that matters: a stub must never duplicate a key its package defines.** Local
+    values win **permanently and silently** — you edit the repo, compile, and see no change with no
+    warning anywhere. Recorded in `AGENTS.md` and `esphome/README.md`.
+  - Deliberately left alone: the five dead YAMLs in `/config` (three of which hold inline
+    credentials, harmless now that the directory is never committed), and CI validation via
+    `esphome/build-action` — it cannot see the stubs or secrets, and the dashboard compile catches
+    the same errors immediately.
+  - ⚠️ **Do NOT adopt the official "publish firmware to GitHub Pages" pattern.** It is for public
+    projects where each user supplies their own secrets; personal firmware has the **WiFi PSK and
+    API key compiled into the binary**, so publishing artefacts from a public repo would leak them
+    in a downloadable `.bin`.
+
+      **Five traps found by executing it, each of which made a healthy system look broken:**
+  - `esphome config` prints resolved secrets in **plaintext** when output is not a TTY — the ANSI
+    conceal escapes only hide them interactively. Never redirect a full dump anywhere, and never use
+    `grep -B/-A/-C` on it.
+  - `.device-builder-devices.json` is **dashboard-managed**; the CLI never updates it, so it reports
+    the old version forever after a CLI flash. Read the device's boot banner instead.
+  - ESPHome resolves `!secret` relative to the **config file's own directory**, so validating a copy
+    in `/tmp` fails looking for `/tmp/secrets.yaml` — and surfaces as a YAML parse error.
+  - A long foreground `kubectl exec -- esphome compile` **deadlocks**: the remote process outlives
+    the client, blocked writing to a dead pipe. Run detached and poll.
+  - **`ps` does not exist in the esp-home container**, so `ps aux | grep -c` greps empty input and
+    returns `0` — a false "build finished" signal. Scan `/proc/[0-9]*/cmdline` instead.
+
+      Unlocks the **PS5 wake device**, which can now be built this way from the start: config in
+      `esphome/devices/`, custom BR/EDR component in `esphome/components/` via `external_components`
+      from a git source. Separate plan, own hardware prerequisites.
 - [ ] **Rotate every ESPHome per-device credential.** Each device has its own
       `<device>_api_encryption` key and `<device>_ota_password` in `secrets.yaml` on the `esp-home`
       PVC, plus the shared `wifi_password` and `fallback_hotspot_password`. **None has ever been
