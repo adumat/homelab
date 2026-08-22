@@ -1,0 +1,124 @@
+# Houzetek smart plug — Tuya-based 16A plug with HLW8012 energy monitoring,
+# reflashed with ESPHome. Shared by power-outlet and iron-outlet, which are the
+# same hardware: verified identical pinout and calibration.
+#
+# The original config comments reference "BW-SHP6" (BlitzWolf), the reference
+# design these plugs are rebranded from. Kept as a lineage note.
+#
+# 1 MB esp8285, no filesystem (eagle.flash.1m.ld). web_server is deliberately
+# ABSENT: with it the image sat ~16 KiB below the ESP8266 OTA ceiling, and a
+# too-large image builds fine then fails to upload, costing USB recovery on a
+# wall plug. captive_portal is kept as the wifi-recovery path.
+#
+# NOT here, by design — each stub supplies its own:
+#   - device_name and the !secret lookups
+#   - the button binary_sensor and its automation (the two plugs differ)
+#   - iron-outlet's `globals` timer state
+# See esphome/README.md for the stub contract.
+
+substitutions:
+  current_res: '0.00290'   # higher value gives a lower watt readout
+  voltage_div: '940'       # lower value gives a lower voltage readout
+  max_power: '3450'        # 3450W for 15A, 2300W for 10A — over-power cutoff
+  cf1_pin: GPIO14          # the 2020 hardware revision uses GPIO4 instead
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${device_name}
+
+esp8266:
+  board: esp8285
+
+logger:
+
+api:
+  encryption:
+    key: ${api_key}
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+    id: ${device_name_id}_ota
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_password}
+  domain: ".lan"
+  ap:
+    ssid: "${fallback_ssid}"
+    password: ${fallback_password}
+
+captive_portal:
+
+# Boot-loop insurance. Without this, a device that boot-loops after an OTA needs
+# USB recovery; with it the device counts rapid reboots and comes up with wifi +
+# OTA so it can be re-flashed remotely. It cannot protect the OTA that installs
+# it, so each device's FIRST flash still carries that risk.
+safe_mode:
+
+# LED that mirrors relay state
+output:
+  - platform: gpio
+    pin: GPIO0
+    inverted: true
+    id: led
+
+switch:
+  - platform: gpio
+    pin: GPIO15
+    restore_mode: RESTORE_DEFAULT_OFF
+    id: relay
+    name: '${device_name} Relay'
+    on_turn_on:
+      - output.turn_on: led
+    on_turn_off:
+      - output.turn_off: led
+
+# Connection status LED
+status_led:
+  pin:
+    number: GPIO2
+    inverted: true
+
+sensor:
+  - platform: hlw8012
+    sel_pin:
+      number: GPIO12
+      inverted: true
+    cf_pin: GPIO5
+    cf1_pin: ${cf1_pin}
+    current_resistor: ${current_res}
+    voltage_divider: ${voltage_div}
+    current:
+      name: '${device_name} Current'
+      unit_of_measurement: 'A'
+      accuracy_decimals: 3
+      icon: mdi:flash-outline
+    voltage:
+      name: '${device_name} Voltage'
+      unit_of_measurement: 'V'
+      icon: mdi:flash-outline
+    power:
+      name: '${device_name} Power'
+      unit_of_measurement: 'W'
+      id: power
+      icon: mdi:flash-outline
+      # Safety cutoff — do not drop this. Above max_power the relay opens.
+      on_value_range:
+        - above: ${max_power}
+          then:
+            - output.turn_off: led
+            - switch.turn_off: relay
+    change_mode_every: 4
+    update_interval: 10s
+  - platform: total_daily_energy
+    name: '${device_name} daily energy'
+    power_id: power
+    unit_of_measurement: 'kWh'
+    accuracy_decimals: 5
+    filters:
+      - multiply: 0.001
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
