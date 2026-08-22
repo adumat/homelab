@@ -1,0 +1,58 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: nfs-scaler-coverage
+  namespace: observability
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: nfs-scaler-coverage.rules
+      rules:
+        # Keyed on DEPLOYMENT, not on the app label, deliberately.
+        #
+        # The obvious join - app label against ScaledObject name - is wrong for
+        # immich: its pods carry app.kubernetes.io/name=server (the upstream
+        # chart's own label) while its ScaledObject is immich-server, so immich
+        # would be reported as permanently uncovered. Deriving the Deployment
+        # name from kube_pod_info's created_by_name matches the ScaledObject
+        # name for every app including immich.
+        #
+        # The `-[^-]+$` strip removes the ReplicaSet hash. Verified 2026-08-22
+        # that all 14 NFS pods are ReplicaSet-owned; a StatefulSet-owned pod
+        # would have no hash and this would strip a real name segment.
+        - record: nfs:mount_present:deploy
+          expr: |-
+            max by (namespace, deployment) (
+              label_replace(
+                  label_replace(nfs_mount_stale, "uid", "$1", "pod_uid", "(.+)")
+                * on (uid) group_left (namespace, created_by_name) kube_pod_info,
+                "deployment", "$1", "created_by_name", "(.+)-[^-]+$")
+            ) >= bool 0
+        # The August 2026 incident hit metube and pyload-ng because they mounted
+        # NFS but nobody had opted them into nfs-scaler. Opt-in is fine; silent
+        # opt-in is not. This makes a new uncovered NFS consumer loud.
+        #
+        # ⚠️ An `unless on (...)` that cannot match returns empty, which looks
+        # exactly like full coverage. Verified 2026-08-22 with a deliberately
+        # non-matching right-hand side: the control returned all 14 apps, the
+        # real expression returned 0. Re-run that control after any edit here.
+        - alert: NfsScalerCoverageGap
+          annotations:
+            summary: >-
+              {{ $labels.namespace }}/{{ $labels.deployment }} mounts NFS but has no
+              KEDA ScaledObject
+            description: >-
+              It will not be recovered automatically when its mount goes stale, and a
+              stale mount still reports Ready - so the failure is silent. Add
+              ../../../../components/nfs-scaler to the app's ks.yaml components.
+          expr: |-
+            nfs:mount_present:deploy
+              unless on (namespace, deployment)
+            label_replace(keda_scaledobject_info, "deployment", "$1", "scaledobject", "(.+)")
+          for: 1h
+          labels:
+            severity: warning
