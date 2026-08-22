@@ -19,6 +19,23 @@ spec:
     - type: prometheus
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
-        query: min(probe_success{instance=~".+:2049"}) * on() nfs_canary_health_overall
+        # Two independent conditions, ANDed by multiplication:
+        #  1. the server is reachable at all (blackbox + nfs-canary), and
+        #  2. THIS app's own kernel mounts are not stale (nfs-stale-exporter).
+        #
+        # The second factor is what the canary could never see: staleness is
+        # per-export and per-pod, and a stale mount passes readiness, so an app
+        # can sit Running 1/1 on a dead filesystem indefinitely.
+        #
+        # `or vector(0)` is load-bearing. Scaling to 0 removes the pod, its mount
+        # and therefore the series; with ignoreNullValues: "0" the absence would
+        # otherwise be read as stale and the app would never come back. Verified
+        # 2026-08-22 against a non-existent app name: the factor returns 1.
+        #
+        # min_over_time is the grace period - the mount must be stale for the
+        # whole 5m window, so NfsMountStale reaches a human first.
+        query: >-
+          min(probe_success{instance=~".+:2049"}) * on() nfs_canary_health_overall
+          * on() (1 - (max(min_over_time(nfs:mount_stale:app{app="${APP}"}[5m])) or vector(0)))
         threshold: "1"
         ignoreNullValues: "0"
