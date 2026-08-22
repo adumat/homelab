@@ -29,70 +29,64 @@ uses `os:operator`; and Talos gates API access from pods behind two allow-lists 
 an ARC race binding the listener to an `EphemeralRunnerSet` it then deleted, and a
 `CiliumNetworkPolicy` whose selector matched no pods while reporting healthy.
 
-### Phase 1.5 — NFS stale handles — ⏸ deferred, waiting for the next occurrence
+### Phase 1.5 — NFS stale handles — ✅ done 2026-08-22
 
-**Deliberately parked.** The failure is intermittent and triggered by elizabeth's mover or
-parity check, so it cannot be investigated on demand — and provoking it means breaking
-pods on a live cluster on purpose. Picked up the next time it happens.
+Detection and automatic recovery are live. The **root cause is still unidentified** and is
+not preventable from the cluster side, which is precisely why the answer is detect + recover
+rather than fix.
 
-**Capture this before touching anything**, or the incident yields annoyance instead of
-evidence:
+**What ships:** [`adumat/nfs-stale-exporter`](https://github.com/adumat/nfs-stale-exporter) —
+a standalone public Go project (scratch image, 13.6 MB) with its own Helm chart, both on GHCR.
+A DaemonSet in `observability` statfs's every kubelet NFS **volume root** and exports per-pod
+metrics. It holds no RBAC and never contacts the API; identity is resolved in Prometheus and
+recovery is done by the existing KEDA `nfs-scaler`.
 
-```bash
-mise exec -- kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
-mise exec -- talosctl -n <node-running-the-stuck-pod> dmesg | grep -i 'nfs\|stale'
-mise exec -- talosctl -n <node> mounts | grep nfs
-mise exec -- kubectl describe pod <pod> -n <ns> | grep -iA3 'mount\|stale'
+```
+nfs_mount_stale{pod_uid}  ->  kube_pod_info (uid)  ->  kube_pod_labels
+  ->  nfs:mount_stale:app  ->  min_over_time(...[5m])  ->  ScaledObject scales 0 -> 1
 ```
 
-Plus the value of `nfs_canary_health_overall` at that moment, and whether elizabeth's
-mover or parity check was running.
+Alerts: `NfsMountStale` (2m, expected to self-resolve once the pod is bounced),
+`NfsMountStaleUnrecovered` (20m, the one that pages), `NfsExporterSeesNoMounts`,
+`NfsScalerCoverageGap`.
 
-The recognition and manual recovery procedure is in [AGENTS.md](AGENTS.md), traps section.
+**Coverage closed.** The roadmap previously said "nine apps mount NFS inline". That undercounted:
+there are **two** classes — inline `type: nfs` **and** NFS-backed static PVs — totalling 14
+consumers, of which only 9 had a ScaledObject. The 2026-08-21 incident hit metube and pyload-ng,
+both in the uncovered PV class. All 14 are now covered, and `NfsScalerCoverageGap` makes a new
+uncovered consumer loud instead of silent.
 
-The most annoying recurring failure in the cluster. Unraid drops NFS connections when the
-mover or the parity check runs; the file handle goes invalid and **does not heal on its
-own**, leaving pods stuck in `Terminating` or applications that cannot see their files.
-Today there is only mitigation: `nfs-scaler` scales apps to zero when the canary reports
-the failure, and the fix is recreating the pod by hand.
+**Verified end-to-end 2026-08-22** on a throwaway export: forcing ESTALE via an `fsid` change
+flipped the metric to `1 reason="stale file handle"` while the pod stayed `1/1 Running` with no
+kubelet event; the alert fired; deleting the pod resolved it. The coverage alert was proven with
+a deliberately-true control (14 vs 0), since an empty `unless on(...)` looks identical to full
+coverage.
 
-Nine apps mount NFS inline with `type: nfs` and are the exposed ones: frigate,
-home-assistant, kopia, qbittorrent, radarr, sonarr, filebrowser, jellyfin, romm.
+**Two hypotheses refuted, so they are not retried:**
 
-- [ ] Understand **why** the mount never recovers: `soft` should make I/O fail and allow a
-      remount, yet the handle stays poisoned. Check whether `nconnect=8` is involved — it
-      opens several TCP connections whose state could diverge
-- [ ] Evaluate moving from inline `type: nfs` volumes to **PVs with explicit
-      `mountOptions`**: they already survive the "Unraid stops serving NFSv4.0" case, so
-      they may behave better here too
-- [ ] Evaluate an automatic remount, or a DaemonSet that detects `ESTALE` and forces the
-      remount on the node, instead of waiting for manual intervention
-- [ ] Make recovery automatic: if the pod cannot heal, at least have it recreated instead
-      of sitting in `Terminating`
-- [ ] Reduce the upstream cause: check whether elizabeth's mover can be configured not to
-      interrupt active NFS sessions
-- [ ] Improve `nfs-canary` (see Follow-ups): today it detects, but does not distinguish the
-      mover from the parity check, nor report which share died
-- [ ] ⚠️ **A stale mount does not fail readiness — add a probe that actually touches the mount.**
-      Observed concretely on 2026-08-21 after the phase 2.6 reboots: on `kube-hp`, both mounts of
-      `elizabeth.lan:/mnt/user/media` (metube and pyload-ng) went `ESTALE` **on mounts only ~30 min
-      old**, while the three mounts of *other* exports on the same node stayed healthy — so
-      staleness is **per-export, not per-node**, and the canary watching one share proves nothing
-      about the others. `metube` sat `Running`, `ready=1/1`, serving a dead filesystem; nothing
-      alerted. The only reason it surfaced at all is that `pyload-ng` happens to use a `subPath`,
-      and kubelet lstats the mount **root** to prepare a subPath bind — which is what threw
-      `CreateContainerConfigError: failed to prepare subPath`. Without that accident it would have
-      stayed silent.
-      Sharp diagnostic detail worth keeping: the **child handle stayed valid while the parent root
-      went stale** — `ls <mount>/downloads` listed fine while `ls <mount>` returned
-      `stale file handle`. So a probe that reads a known subdirectory **passes on a broken mount**.
-      The probe must stat the mount root.
-      Recovery that worked, and is cheap: `kubectl delete pod` on the affected pods. kubelet
-      unmounts on teardown and remounts clean (they rescheduled onto ceph-03 and came up healthy);
-      the two stale mounts on kube-hp were gone afterwards. No node reboot, no remount by hand.
+- **`fuse_remember` / idle-forgetting.** elizabeth runs `shfs -o remember=330` and Unraid's own
+  help text advertises the tunable as the cure. It is not the mechanism: after `drop_caches`
+  evicted 837k dentries, shfs RSS fell 124.7 → 69.4 MB — proving the timer fired and freed
+  nodeids en masse — yet the exported mount stayed healthy, root and child. `exportfs` pins the
+  export root in the kernel export table where `drop_caches` cannot reach it. It is also read
+  only at **array start**, so changing it needs a stop/start, which invalidates every handle anyway.
+- **The mover.** It changes which disk backs a *file*; it never touches the export root.
 
-Until this is solved, the recognition and recovery procedure lives in
-[AGENTS.md](AGENTS.md), traps section.
+Leading remaining candidates: shfs restart after an unclean shutdown, or Unraid regenerating
+`/etc/exports` on a share or array event.
+
+**Still open:**
+
+- [ ] Observe a *real* stale mount end-to-end. The rehearsal used a synthetic export; the
+      genuine article has not recurred since the exporter went in.
+- [ ] `nfs-canary` is still a single-replica Deployment with a restart problem (28 restarts in
+      8h), and the ScaledObject trigger still depends on it for the server-reachability half.
+      Retiring or fixing it is deferred, but it now has one more consumer.
+- [ ] The exporter re-probes nothing that is already blocked, but a genuinely *hung* mount still
+      pins one OS thread until the kernel gives up. Bounded here by `soft,timeo=50,retrans=3`.
+
+The recognition and manual recovery procedure stays in [AGENTS.md](AGENTS.md), traps section —
+`kubectl delete pod` remains the fix when recovery has to be done by hand.
 
 ### Phase 2 — storage validation: prove kopiur and miroir, migrate nothing
 
@@ -372,8 +366,8 @@ apply.
 above. miroir does the same job for **204 Mi across 6**. The caveats that remain are in the
 verdict item.
 
-**Risk:** backups run over NFS to elizabeth, the host whose stale handles are parked as
-phase 1.5. Dual-running roughly doubles backup I/O to it, which is why the existing
+**Risk:** backups run over NFS to elizabeth, whose stale handles are now detected and
+auto-recovered (phase 1.5) but whose root cause is still unidentified. Dual-running roughly doubles backup I/O to it, which is why the existing
 00:00–01:30 UTC schedule stagger must be preserved.
 
 ### Phase 2.5 — the actual migration
@@ -1138,8 +1132,8 @@ endpoint. eleboucher/homelab runs it with `garage-operator`, so there is a worki
 
 **Why it is worth doing.** CNPG's barman backups are the one recovery path kopiur cannot cover
 — phase 3's G2 gate exists for exactly that — and today they target **MinIO on elizabeth**, the
-host whose stale NFS handles are parked as phase 1.5 and whose parity checks saturate it for a
-day at a time. The most critical backup in the cluster depends on the least reliable machine.
+host whose stale NFS handles are auto-recovered but not root-caused (phase 1.5), and whose
+parity checks saturate it for a day at a time. The most critical backup in the cluster depends on the least reliable machine.
 
 ⚠️ **The trap to settle before any of this: do not put the cluster's disaster-recovery backup
 inside the cluster it protects.** If garage runs on miroir and the cluster is gone, barman
@@ -1629,7 +1623,8 @@ Not gates, but known before the day:
   `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
   It should only log warnings, but the escape hatch is to **comment the OIDC flags out of
   `cluster.yaml` for the bootstrap and add them back once Authelia is up**
-- Every restore streams from elizabeth over NFS, and **phase 1.5 is still unexplained**. The
+- Every restore streams from elizabeth over NFS, and **phase 1.5's root cause is still
+    unexplained** — detection and recovery are live, prevention is not. The
   recovery path runs through the least trusted component — accepted knowingly, not overlooked
 
 #### Execution
