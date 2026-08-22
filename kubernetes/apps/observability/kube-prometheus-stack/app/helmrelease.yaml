@@ -179,7 +179,14 @@ spec:
                     help: A KEDA ScaledObject exists for this workload
                     each:
                       type: Info
-                      info: {}
+                      # `info: {}` declares the metric family but emits ZERO
+                      # samples - the endpoint shows only HELP/TYPE lines and any
+                      # rule joining against it silently matches nothing. Info
+                      # needs at least one labelsFromPath entry to produce a
+                      # series. Verified against the live /metrics endpoint.
+                      info:
+                        labelsFromPath:
+                          target: [spec, scaleTargetRef, name]
               - groupVersionKind:
                   group: postgresql.cnpg.io
                   version: v1
