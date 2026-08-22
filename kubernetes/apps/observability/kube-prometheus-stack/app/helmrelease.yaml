@@ -175,18 +175,18 @@ spec:
                   namespace: [metadata, namespace]
                   scaledobject: [metadata, name]
                 metrics:
+                  # Gauge, not Info. `type: Info` registered the family but emitted
+                  # zero samples here - /metrics showed only the HELP and TYPE
+                  # lines, which any joining rule reads as "no ScaledObjects
+                  # exist". metadata.generation is used purely because it is
+                  # numeric and present on every object; the VALUE is meaningless,
+                  # only the existence of the series matters.
                   - name: info
                     help: A KEDA ScaledObject exists for this workload
                     each:
-                      type: Info
-                      # `info: {}` declares the metric family but emits ZERO
-                      # samples - the endpoint shows only HELP/TYPE lines and any
-                      # rule joining against it silently matches nothing. Info
-                      # needs at least one labelsFromPath entry to produce a
-                      # series. Verified against the live /metrics endpoint.
-                      info:
-                        labelsFromPath:
-                          target: [spec, scaleTargetRef, name]
+                      type: Gauge
+                      gauge:
+                        path: [metadata, generation]
               - groupVersionKind:
                   group: postgresql.cnpg.io
                   version: v1
