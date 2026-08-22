@@ -1749,6 +1749,42 @@ Hardware already in the house, metrics absent.
       Unlocks the **PS5 wake device**, which can now be built this way from the start: config in
       `esphome/devices/`, custom BR/EDR component in `esphome/components/` via `external_components`
       from a git source. Separate plan, own hardware prerequisites.
+- [ ] **PS5 wake device — code complete, blocked on hardware (2026-08-22).** A dedicated ESP32 that
+      wakes the PS5 by impersonating a paired DualSense over Bluetooth Classic, because a UPS output
+      cut leaves the console **fully off** and Sony's network wake needs Rest Mode. Design and plan
+      under `docs/superpowers/`; component at `esphome/components/ps5_wake/`, device at
+      `esphome/devices/ps5-wake.yaml`.
+      **Compiles clean from the git source with nothing local** — flash 76.6%, static RAM 67.0%.
+      Built the new GitOps way from the start: stub on the PVC, device config as a remote package,
+      and the custom C++ component pulled via `external_components` from this repo.
+  - ⚠️ **Two ESP-IDF Kconfig gates that are not obvious and cost a cycle each.** Bluetooth Classic
+    ships **disabled**: `CONFIG_BT_ENABLED` defaults `n`, and even with it on
+    `CONFIG_BT_CLASSIC_ENABLED` **also** defaults `n` (only BLE defaults on). Then L2CAP needs a
+    **third** opt-in, `CONFIG_BT_L2CAP_ENABLED`, which `depends on BT_CLASSIC_ENABLED` and is *still*
+    `default n`. Both are now set from the component's `to_code()` via `add_idf_sdkconfig_option`.
+    The two failures look completely different and that is the useful tell: a **missing header**
+    (`esp_bt.h: No such file or directory`) means Bluetooth is off, because ESP-IDF's `bt` component
+    only publishes its `INCLUDE_DIRS` under `if(CONFIG_BT_ENABLED)`; an **undefined reference at
+    link** means the API is declared but its implementation was compiled out.
+  - ⚠️ **The premise is unverified by choice.** The whole device rests on a physical DualSense being
+    able to wake this console from fully off, not merely from Rest Mode. The go/no-go test was
+    skipped. The ESP32 can do exactly what the pad can do and no more.
+  - ⚠️ **And a sharper risk than "will it connect".** A real DualSense presents a HID descriptor and
+    exchanges reports; this device only opens L2CAP on PSM 0x11 and 0x13. If `last_result` says
+    `no l2cap open after 5 attempts` the connect is refused; if it says `wake sent` and the console
+    stays asleep, the link opened but the console wanted a HID session — and emulating that is well
+    beyond current scope.
+  - Remaining, all needing the board on site: flash it over USB; **calibrate
+    `min_heap_for_always_on`** from what `free_heap` actually reports (the `120000` in the config is a
+    guess, and static RAM is already at 67% before Bluedroid allocates its 60–100 KB); add a DHCP
+    reservation at **`10.1.20.32`** on clients VLAN 20 once the MAC is known — verified free, and
+    deliberately outside the guest zone's `10.1.20.16/28` range so guests cannot wake the console,
+    while `servers → clients` is already `full` so donkey and PNO can reach it, **no firewall change
+    needed**; and enter both MACs on the web config page.
+    ⚠️ Read the PS5's **Bluetooth** MAC from Settings → System → System Information, *not* its LAN
+    MAC. And **do not pair the DualSense to a computer to find its address** — a DualSense remembers
+    only one host, so pairing it elsewhere unpairs it from the PS5 and destroys the very bond this
+    device rides. Read it over USB via HID feature report `0x09`.
 - [ ] **Rotate every ESPHome per-device credential.** Each device has its own
       `<device>_api_encryption` key and `<device>_ota_password` in `secrets.yaml` on the `esp-home`
       PVC, plus the shared `wifi_password` and `fallback_hotspot_password`. **None has ever been
