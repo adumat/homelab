@@ -79,9 +79,13 @@ Leading remaining candidates: shfs restart after an unclean shutdown, or Unraid 
 
 - [ ] Observe a *real* stale mount end-to-end. The rehearsal used a synthetic export; the
       genuine article has not recurred since the exporter went in.
-- [ ] `nfs-canary` is still a single-replica Deployment with a restart problem (28 restarts in
-      8h), and the ScaledObject trigger still depends on it for the server-reachability half.
-      Retiring or fixing it is deferred, but it now has one more consumer.
+- [x] **`nfs-canary` retired 2026-08-22.** It was segfaulting (exit 139, 41 restarts in 22h — a
+      use-after-free: the timeout path destroys the libnfs context while the orphaned probe
+      thread is still inside it), watched a retired export, and probed from a single replica.
+      Its server-reachability job is now `nfs_server_reachable` from the exporter on all 5
+      nodes. Its fresh-session probe is gone with it; that only detected the Unraid
+      version-drop case, which is not actionable by a scaler and shows up as pod mount
+      failures anyway.
 - [ ] The exporter re-probes nothing that is already blocked, but a genuinely *hung* mount still
       pins one OS thread until the kernel gives up. Bounded here by `soft,timeo=50,retrans=3`.
 

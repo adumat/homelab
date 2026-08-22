@@ -1094,10 +1094,15 @@ mise exec -- kubectl describe pod <pod> -n <ns> | grep -iA3 'mount\|stale'
 mise exec -- kubectl logs <pod> -n <ns> --previous | grep -i 'stale\|input/output error'
 ```
 
-NFS health as seen from the cluster is the `nfs_canary_health_overall` metric, exported by
-`observability/nfs-canary` (home-built image, `ghcr.io/adumat/nfs-canary`). It exists
-because a TCP probe on port 2049 **does not** see stale handles: the server answers, it is
-the handle that is dead.
+NFS health as seen from the cluster comes from **`nfs-stale-exporter`**
+(`observability/nfs-stale-exporter`, own public repo + Helm chart). A DaemonSet statfs's every
+kubelet NFS **volume root** on each node and exports `nfs_mount_stale{pod_uid,...}` plus
+`nfs_server_reachable{server}`. A TCP probe on port 2049 is not enough on its own: the server
+answers while the handle is dead, which is the whole failure mode. It replaced `nfs-canary` on
+2026-08-22 (single replica, segfaulted 41 times in 22h, and blind to per-pod staleness).
+
+Prometheus joins the pod UID to an app (`nfs:mount_stale:app`) and alerts with
+`NfsMountStale` (2m, expected to self-resolve) and `NfsMountStaleUnrecovered` (20m, pages).
 
 **How to recover today.** Recreate the pod so the kubelet remounts:
 
@@ -1107,9 +1112,18 @@ mise exec -- kubectl delete pod <pod> -n <ns>
 mise exec -- kubectl delete pod <pod> -n <ns> --force --grace-period=0
 ```
 
-**Defences already in place.** The `nfs-scaler` component (8 consumers) scales
-NFS-dependent apps to zero when `nfs_canary_health_overall` drops, so they stop hammering a
-dead mount. It does not prevent the failure, it limits the damage.
+**Recovery is automatic.** The `nfs-scaler` component — now on **all 14** NFS consumers, not
+8 — scales an app to zero when either elizabeth is unreachable or that app's own mount has been
+stale for 5 minutes, then back up, which is what forces a clean remount. Scaling to zero *is*
+the pod deletion above, so no controller holds delete permissions.
+
+⚠️ The trigger's two terms default in opposite directions on purpose: reachability fails
+**open** (`or vector(1)`), staleness fails **closed** (`or vector(0)`). Treating absent
+reachability as "server down" would park the apps, unmount their volumes, remove the series
+cluster-wide, and nothing could scale them back.
+
+`NfsScalerCoverageGap` fires when an app mounts NFS but has no ScaledObject — the August 2026
+incident hit metube and pyload-ng precisely because nobody had opted them in.
 
 **Mount configuration.** `/etc/nfsmount.conf` is globally overwritten by
 `kubernetes/talos/patches/global/machine-files.yaml`: `nfsvers=4.2`, `soft`, `timeo=50`,
