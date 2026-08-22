@@ -12,6 +12,7 @@ spec:
   components:
     - ../../../../components/kopiur
     - ../../../../components/oidc-auth
+    - ../../../../components/nfs-scaler
   interval: 1h
   path: ./kubernetes/apps/downloads/metube/app
   dependsOn:
