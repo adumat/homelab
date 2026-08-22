@@ -46,6 +46,9 @@ async def to_code(config):
     # so nothing else can be relied on to have requested it already.
     request_bluetooth()
     add_idf_sdkconfig_option("CONFIG_BT_CLASSIC_ENABLED", True)
+    # L2CAP itself is a second, separate opt-in on top of BT_CLASSIC_ENABLED
+    # (defaults to n even once classic BT is on) - this is what wake() links against.
+    add_idf_sdkconfig_option("CONFIG_BT_L2CAP_ENABLED", True)
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
