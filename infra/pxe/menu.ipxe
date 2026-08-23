@@ -4,6 +4,19 @@ set menu-timeout 10000
 set matchbox-url http://navi.lan:8085
 set matchbox-args uuid=${uuid}&mac=${mac:hexhyp}&domain=${domain}&hostname=${hostname}&serial=${serial}&arch=${buildarch:uristring}
 
+# Bring iPXE's OWN network stack up before any HTTP.
+#
+# ⚠️ Without this the chain below silently times out on some firmware. Most
+# machines hand iPXE a cached DHCP lease from the UEFI PXE handoff, so it works
+# by accident; the HP EliteDesk (charmander) does not, and phase 3 lost hours to
+# it. The giveaway is TFTP succeeding while HTTP times out - TFTP runs on the
+# firmware's stack, the chain runs on iPXE's.
+:netup
+dhcp && goto start
+echo DHCP failed - retrying in 3s
+sleep 3
+goto netup
+
 :start
 menu Loading... Please insert boot disk
 item --gap --           --- Provisioning ---
