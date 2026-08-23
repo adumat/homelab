@@ -7,9 +7,12 @@ components:
   - ../../components/common
 resources:
   - ./flaresolverr/ks.yaml
+  - ./kapowarr/ks.yaml
   - ./metube/ks.yaml
+  - ./mylar3/ks.yaml
   - ./prowlarr/ks.yaml
   - ./pyload-ng/ks.yaml
   - ./qbittorrent/ks.yaml
   - ./radarr/ks.yaml
   - ./sonarr/ks.yaml
+  - ./suwayomi/ks.yaml
