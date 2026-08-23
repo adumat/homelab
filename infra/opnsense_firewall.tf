@@ -335,6 +335,38 @@ resource "opnsense_firewall_filter" "self_bgp" {
   }
 }
 
+# ── PXE: k8s nodes → firewall TFTP ──────────────────────
+# A wiped node has nothing on disk to boot: it DHCPs, TFTPs ipxe.efi from the
+# firewall, then chains to matchbox on navi. Only the first hop crosses pf.
+#
+# ⚠️ This is the SAME bug as self_bgp above, found the hard way on 2026-08-23:
+# the blanket 'established' rule removed in f304ac4 was carrying TFTP too, and
+# nothing noticed because PXE is only exercised when a disk is wiped. Phase 3
+# wiped all five at once and they sat in a DHCP→TFTP-fail→retry loop, with
+# matchbox logging zero requests. DHCP survived the hardening only because
+# bootps was explicitly re-added; udp/69 was not.
+resource "opnsense_firewall_filter" "self_tftp" {
+  sequence    = 8
+  description = "servers (k8s nodes) -> firewall TFTP (PXE boot)"
+  enabled     = true
+  interface   = { interface = [local.zone_interface["servers"]] }
+
+  filter = {
+    action      = "pass"
+    direction   = "in"
+    ip_protocol = "inet"
+    protocol    = "UDP"
+
+    source = {
+      net = local.zones["servers"].subnet
+    }
+    destination = {
+      net  = "(self)"
+      port = "69"
+    }
+  }
+}
+
 # ── Management access to OPNsense itself (SSH + Web UI) ──
 # The built-in anti-lockout rule only covers the LAN (vtnet0/untrusted). Admin
 # zones connect from elsewhere, so SSH/Web-UI to the firewall relied on the blanket
