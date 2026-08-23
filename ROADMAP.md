@@ -1515,147 +1515,111 @@ garage migration; both need a decision.
       and clients keep using the old type internally for two to three hours after a rotation.
 
 
-### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes
+### Phase 3 — the rebuild: destroy the cluster, drop Ceph, rename the nodes — ✅ done 2026-08-23
 
-One planned outage that fixes four things at once, none of which can be fixed in place:
-Ceph goes away, the nodes get honest names, etcd gets a third member, and the disk layout
-stops being backwards.
+One planned outage that fixed four things at once. Ceph is gone, the nodes have honest names,
+etcd has a third member, and the 50 GiB `/var` cap that bit three times is gone.
 
-**Approach: big bang.** Reset all five nodes and rebuild from git. The alternative — moving
-data onto miroir loopfiles first, deleting Ceph, then rebuilding node by node — avoids the
-outage but costs a second data hop, and it cannot fix the partition layout without wiping
-every system disk anyway. Chosen deliberately: **once the disks are wiped there is no
-rollback except restore**, which is exactly why phase 2.5's exit condition is what it is.
+**Verified at completion:** 5/5 nodes Ready on Talos v1.13.8 / Kubernetes v1.36.3, **etcd at
+3 members**, 90/90 Kustomizations, 74/74 HelmReleases, 163/163 pods, **21/21 kopiur restores
+`Completed`**, both CNPG clusters healthy at 2/2, 41 miroir volumes, 633 snapshots. **No PVC
+came up silently empty** — the `onMissingSnapshot: Continue` risk did not materialise.
 
-**The framing that makes this worth doing:** you do not currently know that this cluster can
-be rebuilt — you have the hope of it. Better to find the gaps at a chosen hour than during a
-real failure. And **phase 2.5 is the rehearsal**: migrating an app to kopiur *is* recreating
-its PVC and repopulating it from backup, so by the end every app's restore has been proven
-individually. Phase 3 is doing all of them at once.
+#### The hardware, as built
 
-#### Why the disks force the design
+| node | IP | role | model | system disk | miroir pool |
+|---|---|---|---|---|---|
+| `bulbasaur` | 10.1.10.10 | control plane | NUC10i5FNH, 8 / 32 | Samsung 970 EVO+ 500GB | loopfile, 263 GiB |
+| `charmander` | 10.1.10.11 | control plane | HP EliteDesk 800 G4 DM, 6 / 16 | WDC SN720 256GB | loopfile, 136 GiB |
+| `squirtle` | 10.1.10.12 | **control plane (new)** | M720q, 6 / 16 | SanDisk SD9TB8W2 256GB | `lvmthin` on WD_BLACK SN850X, 929 GiB |
+| `magikarp` | 10.1.10.21 | worker | M720q, 6 / 16 | KINGSTON SA400S3 120GB | `lvmthin` on Crucial P3, 929 GiB |
+| `snorlax` | 10.1.10.23 | worker | M720q, 6 / 16 | SanDisk SD9TB8W2 256GB | `lvmthin` on WD_BLACK SN850X, 929 GiB |
 
-miroir needs the disks Ceph is sitting on, so the two cannot coexist on final hardware.
-Hardware, measured 2026-08-14:
+EPHEMERAL: 200 GiB on bulbasaur, squirtle and snorlax; 100 on charmander; 90 on magikarp.
 
-| node | new name | model | system disk | data disk |
-|---|---|---|---|---|
-| 10.1.10.10 | `kube-nuc` | Intel NUC10i5FNH, 8 cpu / 32 GB | 500GB Samsung 970 EVO+ | — single disk |
-| 10.1.10.11 | `kube-hp` | HP EliteDesk 800 G4 DM, 6 / 16 | 256GB WDC SN720 | — single disk |
-| 10.1.10.21 | `kube-m720-01` | ThinkCentre M720q, 6 / 16 | 120GB KINGSTON SA400S3 | 1TB Crucial P3 |
-| 10.1.10.22 | `kube-m720-02` **(new CP)** | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
-| 10.1.10.23 | `kube-m720-03` | ThinkCentre M720q, 6 / 16 | 256GB SanDisk SD9TB8W2 | 1TB WD_BLACK SN850X |
+**Three deliberate changes from the design.**
 
-**Third control plane is `kube-m720-02`, not -01.** All three M720q are identical on CPU and
-RAM, so the disks decide: etcd is fsync-latency-bound and the **KINGSTON SA400S3 is DRAM-less
-consumer SATA**, the worst disk here for that. The Crucial P3 is also QLC with lower endurance
-than the SN850X. Names map by IP so the addresses stay put — DHCP, DNS and every
-`instance`-keyed Prometheus series stay continuous; only `node`-labelled series break.
+- **The third control plane is at `.12`, not `.22`.** Control planes live in the `.1x` range,
+  so the machine moved address as well as name. The disk rationale held: it is a SanDisk
+  system disk, not magikarp's DRAM-less KINGSTON SA400S3, which stayed a worker.
+- **`miroir-replicated` is replicas 2 with `quorum: freeze`, not replicas 3.** Upstream's
+  intended topology is two diskful legs plus an automatic **diskless tie-breaker**, which
+  gives 3 votes without putting every write on the QLC Crucial P3. `last-man-standing` was
+  rejected because such volumes *never* get a tie-breaker, leaving permanent split-brain
+  exposure.
+- **Node names are Pokémon.** `magikarp` is the KINGSTON-disk worker; the three starters are
+  the control planes.
 
-**Target layout — `/var` on the SATA disk, the whole NVMe to miroir:**
+#### Gates
 
-- EPHEMERAL ≈200GB on the SanDisks, ≈90GB on the KINGSTON. **The 50 GiB `/var` cap that bit
-  three times simply disappears**, and on the CP etcd stops competing with storage I/O
-- The entire 1TB NVMe becomes a miroir `lvmthin` pool — its production backend, no loopfile
-  and no reflink requirement (the upstream example points `device` at a partition label, so
-  either whole-disk or partition works)
-- `kube-nuc` and `kube-hp` keep a small `local` pool. Its real job is **topology membership**:
-  proven 2026-08-13, a pod on a node outside the topology is refused with
-  `cannot be consumed remotely … the node is not in the storage topology`
-- `miroir-replicated` at **replicas 3**, one per M720q — this restores the 3× durability Ceph
-  had, which phase 2 flagged as a downgrade, and costs nothing at 45 GiB on 3 TB raw
-- ⚠️ The Crucial P3 is QLC; at replicas 3 every write lands on all three, so it gates write
-  latency. Worth benchmarking early — this is also the **performance test phase 2 could not
-  do**, since a loopfile on shared XFS proves nothing about real disks
+- [x] **G1** — phase 2.5 complete
+- [x] **G2** — accepted on its earlier rehearsal rather than re-run, by explicit decision
+- [ ] **G3** — VolSync's old repository on elizabeth is **still to delete**, kept as the cold
+      second copy until confidence settles
+- [x] **G4** — recovered essentially unassisted. Flux was never suspended and no restore was
+      hand-ordered. Everything that needed a hand is below
 
-#### Gates — all must pass before anything is destroyed
+#### What needed hand-holding (G4)
 
-- [ ] **G1 — phase 2.5 complete**, at its stated exit condition
-- [ ] **G2 — a barman restore, rehearsed again, against garage.** The one path kopiur cannot
-      cover. It has been tested before; test it again close to the date, because Authelia,
-      paperless, atuin and immich metadata all live in CNPG. Phase 2.7 moves the backend to
-      garage precisely so this gate is earned against a target that has not just silently failed
-      for two days — if 2.7 has not cut over by then, this gate is against MinIO and the
-      2026-08-19 incident says that is worth distrusting
-- [ ] **G3 — keep VolSync's old repository** as a cold second copy on elizabeth. Delete it only
-      after phase 3 succeeds
-- [ ] **G4 — let it recover unassisted, and treat every intervention as a bug.** No suspending
-      Kustomizations and no hand-ordered restore. The cluster is already built to self-recover:
-      both CNPG clusters use `bootstrap: recovery` with `externalClusters: source`, so a fresh
-      cluster restores from barman rather than running `initdb`, and `components/kopiur` ships a
-      populator that refills each PVC from its own last snapshot. Orchestrating by hand would
-      hide exactly the defect this rehearsal exists to find. **Write down everything that
-      needed hand-holding and fix it in git**, so the next recovery is unattended
+Five faults during the outage, **none of which were in the plan**, all now fixed in git:
 
-Three things to watch rather than orchestrate:
+| fault | cause | fix |
+|---|---|---|
+| PXE dead, all five nodes stranded | firewall hardening `f304ac4` dropped the blanket `established` rule; udp/69 was never allow-listed | `self_tftp` rule in `infra/opnsense_firewall.tf` |
+| `pvcreate` refused the NVMe | Ceph BlueStore signature **survived `--wipe-mode all`** | `talosctl -n <ip> wipe disk nvme0n1 --insecure` |
+| miroir `lvmthin` pools would not create | module name is `dm-thin-pool`, not `dm_thin_pool` — the underscore form applies cleanly, loads nothing, and survives a reboot doing nothing | hyphenated name in `patches/global/machine-kernel.yaml` |
+| three miroir agents hung on a read-only `/var/mnt/local-hostpath` | EPHEMERAL sized in **GiB against GB** disks, leaving less than the 50 GiB user-volume floor | floor lowered to 10 GiB |
+| charmander would not netboot | iPXE's **native** NIC driver cannot bring up link on the HP; the firmware's own PXE stack had just TFTP'd the binary over that same NIC | build `snponly.efi`, which uses the firmware's SNP driver |
 
-- ⚠️ `onMissingSnapshot: Continue` means a PVC with **no** snapshot comes up empty *and
-  healthy-looking*. There is no error to catch — which is the whole reason phase 2.5's exit
-  condition is "every PVC protected or explicitly disposable"
-- `bootstrap: recovery` makes Postgres **depend on elizabeth being reachable at bootstrap**. If
-  the NAS is down or mid-parity, CNPG cannot bootstrap at all
-- The first reconcile is a thundering herd: every HelmRelease and image pull at once. Harmless,
-  and a useful stress test of the new `/var` sizing
+Three interventions after Flux took over, all self-inflicted by cold start rather than by the
+design:
 
-Not gates, but known before the day:
+- **`letsencrypt-production` cached a failure** from before its ExternalSecret existed and
+  never retried. An annotation forced re-evaluation. The ESO/cert-manager cycle itself is
+  correctly broken by the selfsigned `bitwarden-bootstrap-issuer` — this was ordering, not
+  deadlock
+- **Six HelmReleases hit `context deadline exceeded`**, purely because frigate's 1.8 GB image
+  took **24 minutes** to pull. `flux reconcile hr --force` cleared all six
+- **unifi `ImagePullBackOff`** resolved itself once Spegel's empty cold-start mirror fell back
+  upstream
 
-- The **sops age key and BWS token** are exercised by the bootstrap itself, so the phase tests
-  them rather than needing them pre-verified.
+#### The reset mode matters more than it looks
 
-  ✅ **Resolved 2026-08-16 — and the earlier "only copy on an unbacked laptop" claim here was
-  simply wrong.** A second copy was already in BWS as `age-key`
-  (`c26e9d84-2735-4317-9564-b3df011ffd26`). Verified: it derives the same public key as
-  `./age.key` and as the recipient in `.sops.yaml`
-  (`age175fpp0mqvuhmfddz9f5gcvxaxv9x70mgrd0nfcnl2ypq2whckcsqtjds5v`), and sops decrypts with it.
+`--wipe-mode all` was needed here **only** to clear the Ceph BlueStore signatures. It also
+destroys the ESP, and that has a consequence worth knowing before the next reset:
 
-  `just setup` fetches it into `./age.key` on a fresh clone, and refuses to overwrite an
-  existing one. BWS stores the bare `AGE-SECRET-KEY-…` line, so the file it writes is 75 bytes
-  against the local 189 — age-keygen's two comment lines are the only difference, and the
-  secret line is identical.
+**Talos ≥ v1.11.0 writes a `Talos Linux UKI` EFI boot entry on install and never removes it on
+reset.** Verified in the source — `CreateBootEntry` is called from `setup()` on both Install
+and Upgrade, `DeleteBootEntry` is called only from inside `CreateBootEntry`, and nothing in the
+reset sequencer touches EFI variables. The feature landed in commit `378fe4f`, an ancestor of
+`v1.11.0` and absent from `v1.10.0` — which is why resets on older Talos used to fall through
+to PXE cleanly. There is no config knob, no reset flag, and efivarfs is mounted `ro`, so the
+entry cannot be removed from a running node.
 
-  **The circularity argument in the old note applied to the wrong direction.** It is real for
-  the *cluster*, which reaches BWS only via the sops-encrypted `bitwarden-access-token`. It
-  does not apply to a *workstation*, which authenticates with its own `BWS_ACCESS_TOKEN` from
-  `.env`. The recovery path therefore does not depend on this laptop: log in to the Bitwarden
-  web vault, mint a fresh access token, run `just setup`.
+After a full wipe the entry dangles at a partition UUID that no longer exists, and HP's
+firmware halts at `3F0` rather than falling through — the failure that cost charmander hours.
+It self-heals on reinstall, since `CreateBootEntry` reuses the lowest-indexed Talos entry and
+deletes duplicates.
 
-  The key still decrypts four files — `cluster-secrets`, **`bitwarden-access-token`**,
-  cert-manager's and flux-instance's — so it remains the thing to guard; it just is not
-  single-copy.
-- `talosctl kubeconfig` mints a cert-based `admin@kubernetes` from the cluster CA, so admin
-  access never depends on Authelia. The narrow footnote: kube-apiserver carries
-  `--oidc-issuer-url` for `https://${AUTH_DOMAIN}`, which is unreachable on a fresh cluster.
-  It should only log warnings, but the escape hatch is to **comment the OIDC flags out of
-  `cluster.yaml` for the bootstrap and add them back once Authelia is up**
-- Every restore streams from elizabeth over NFS, and **phase 1.5's root cause is still
-    unexplained** — detection and recovery are live, prevention is not. The
-  recovery path runs through the least trusted component — accepted knowingly, not overlooked
+**So: prefer `--system-labels-to-wipe EPHEMERAL,STATE`** — what `just talos reset-all-nodes`
+already does. It keeps other partitions intact, so the bootloader survives, the entry stays
+valid, and the node boots from its own disk into maintenance mode with **no PXE involved at
+all**. Reach for `--wipe-mode all` only when disk signatures or partition sizes must change,
+and expect a manual boot-menu press on the HP.
 
-#### Execution
+Secure Boot was ruled out as a contributor: `SecureBoot=00` on all five, and the firmware
+loaded our unsigned iPXE binaries without complaint. Note that charmander is the only node
+with `SetupMode=00` — the HP factory reset enrolled a Platform Key — so it is the one machine
+where enabling Secure Boot in BIOS would immediately refuse both the unsigned Talos UKI and
+unsigned iPXE, and strand it.
 
-- [ ] Freeze: suspend Flux, scale apps to zero, take final kopiur snapshots and a CNPG backup
-- [ ] Record the node → IP → disk map and the schematic ID before wiping anything
-- [ ] Rename and re-lay-out in git: `talconfig.yaml` hostnames, the three
-      `patches/nodes/kube-ceph-0*-ethernet.yaml` files, three control planes, EPHEMERAL sizing,
-      miroir pools and classes. Also outside the cluster: `infra/data/networks.yaml` and
-      `services.yaml` carry the OPNsense DHCP/DNS entries, and
-      `docker/donkey/power-nap-over/config.yaml` references the nodes
-- [ ] Delete the `rook-ceph` app tree and the `openebs-hostpath` PVCs it no longer needs
-- [ ] `talosctl reset` all five, wiping disks
-- [ ] Bootstrap: apply config, `talosctl bootstrap` one CP, wait for **etcd at 3 members**
-- [ ] Point Flux at the repo and **let it reconcile unassisted** — miroir pools come up, the
-      kopiur populator refills each PVC, CNPG recovers from barman. Watch, do not orchestrate;
-      log every intervention as a bug to fix in git
-- [ ] Verify: Ceph gone, `/var` sized right, `drbd` on all five, replicas 3, no PVC silently
-      empty, alerts clean
-- [ ] Benchmark the NVMe pools and **record the numbers phase 2 could not measure**
+#### Still open
 
-#### When
-
-Gated, not scheduled: after G1–G4. Budget **half a day**, not two hours — ~45 PVCs plus
-verification. Never on the **1st of the month**, when elizabeth's parity check runs
-(`0 5 1 * *`). Household services all go dark for the duration — Home Assistant automations,
-frigate, the baby monitor, jellyfin — so it needs buy-in, not just a quiet morning.
+- [ ] **Benchmark the NVMe pools** and record the numbers phase 2 could not measure. The
+      Crucial P3 is QLC and at replicas 2 still takes a share of every write it hosts
+- [ ] **G3** — delete VolSync's old repository on elizabeth
+- [ ] Delete `downloads/prowlarr-rescue`
+- [ ] The runbook still documents the old reset; fold in the two-mode guidance above
 
 ### Phase 4 — `just merge` and the gpu component
 
@@ -1674,13 +1638,10 @@ Hardware already in the house, metrics absent.
 - [ ] `kromgo` — PromQL-driven badges on `envoy-external`, with the badges in the README.
       The domain is not treated as a secret: manifests still use `${DOMAIN}`, but for a
       single source in `cluster-secrets`, not for confidentiality
-- [ ] **Ceph mgr module crashes hold `HEALTH_WARN` permanently — consider v20.2.4.** The
-      v20.2.3 pin did its job: mgr memory is stable at **427Mi** with no restarts, where it
-      used to grow until OOM. But the `rook` mgr module raises `NotImplementedError` in
-      `node_proxy_fullreport` **4 times a minute** — ~5,700 crash reports a day — which keeps
-      the cluster in `HEALTH_WARN` and so masks real problems. **Not** a regression: the same
-      crash goes back to 2026-05-11. `ceph crash archive-all` clears it until it
-      re-accumulates. v20.2.4 exists and is a one-line change to the `cephImage.tag` pin.
+- [x] ~~**Ceph mgr module crashes hold `HEALTH_WARN` permanently — consider v20.2.4.**~~
+      **Moot since phase 3 (2026-08-23): Ceph is gone.** The `rook` mgr module's
+      `NotImplementedError` in `node_proxy_fullreport`, ~5,700 crash reports a day holding the
+      cluster in `HEALTH_WARN`, disappeared with the storage layer it belonged to.
 - [ ] ⚠️ **External dead-man for the alerting pipeline — implement §8.1 of the blackout-monitor
       design.** *Low priority, and deliberately deferred to that project rather than done here:
       it only works from a host that does not share the cluster's fate, which is donkey.*
