@@ -34,9 +34,9 @@ Five nodes, all amd64.
 
 | Node | IP | Role |
 |---|---|---|
-| kube-nuc | 10.1.10.10 | control plane |
-| kube-hp | 10.1.10.11 | control plane |
-| kube-ceph-01/02/03 | 10.1.10.21/.22/.23 | worker |
+| bulbasaur | 10.1.10.10 | control plane |
+| charmander | 10.1.10.11 | control plane |
+| magikarp/02/03 | 10.1.10.21/.22/.23 | worker |
 
 Pod CIDR `10.42.0.0/16`, service CIDR `10.43.0.0/16`.
 
@@ -698,7 +698,7 @@ Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails 
 
 ### etcd has two members
 
-Verified: `kube-hp` and `kube-nuc`. Never restart them together — quorum is lost.
+Verified: `charmander` and `bulbasaur`. Never restart them together — quorum is lost.
 
 ### Migrating a PVC: three things that will bite
 

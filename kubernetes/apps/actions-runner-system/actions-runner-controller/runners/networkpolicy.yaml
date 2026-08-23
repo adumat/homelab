@@ -34,11 +34,11 @@ spec:
           except:
             - 10.42.0.0/16 # pods
             - 10.43.0.0/16 # services
-            - 10.1.10.10/32 # kube-nuc
-            - 10.1.10.11/32 # kube-hp
-            - 10.1.10.21/32 # kube-ceph-01
-            - 10.1.10.22/32 # kube-ceph-02
-            - 10.1.10.23/32 # kube-ceph-03
+            - 10.1.10.10/32 # bulbasaur
+            - 10.1.10.11/32 # charmander
+            - 10.1.10.21/32 # magikarp
+            - 10.1.10.12/32 # squirtle
+            - 10.1.10.23/32 # snorlax
             - 10.1.10.40/32 # control-plane VIP (talconfig "Cluster LB")
     - toCIDR:
         - 172.16.0.0/12

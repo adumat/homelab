@@ -28,7 +28,7 @@ Follow [bootstrap.md](bootstrap.md) steps 1-10.
 Nodes are wiped (ephemeral reset). Apply fresh configs:
 
 ```bash
-for ip in 10.1.10.10 10.1.10.11 10.1.10.21 10.1.10.22 10.1.10.23; do
+for ip in 10.1.10.10 10.1.10.11 10.1.10.21 10.1.10.12 10.1.10.23; do
   just talos apply-node $ip
 done
 just bootstrap

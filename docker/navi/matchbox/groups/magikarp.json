@@ -1,13 +1,13 @@
 {
-  "id": "kube-ceph-03",
-  "name": "kube-ceph-03",
+  "id": "magikarp",
+  "name": "magikarp",
   "profile": "talos-amd64",
   "selector": {
-    "mac": "e8:6a:64:76:2a:18"
+    "mac": "e8:6a:64:a4:89:ca"
   },
   "metadata": {
     "arch": "amd64",
-    "address": "10.1.10.23",
+    "address": "10.1.10.21",
     "install_disk_device": "/dev/sda"
   }
 }

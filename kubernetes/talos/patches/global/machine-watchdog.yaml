@@ -2,7 +2,7 @@
 # Turns an indefinite hang into a reboot. If the kernel stops petting /dev/watchdog0 the
 # iTCO_wdt hardware resets the board - no network, no kubelet, no human required.
 #
-# This is what kube-ceph-03 needed on 2026-08-19. It hung with a dead NIC (no ICMP, no Talos
+# This is what snorlax (then kube-ceph-03) needed on 2026-08-19. It hung with a dead NIC (no ICMP, no Talos
 # API, no ARP) and would not answer WOL, so recovery meant cutting UPS output to the ENTIRE
 # rack - the Ellipse ECO 650 has no switchable outlets and shutdown.return is its only cycle
 # primitive. Cost: ~10h of Ceph at 33% degraded plus a full-cluster shutdown.

@@ -1,7 +1,2 @@
-kubernetes-kube-nuc.yaml
-kubernetes-kube-dell.yaml
-kubernetes-kube-hp.yaml
+kubernetes-*.yaml
 talosconfig
-kubernetes-kube-ceph-01.yaml
-kubernetes-kube-ceph-02.yaml
-kubernetes-kube-ceph-03.yaml

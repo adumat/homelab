@@ -33,11 +33,11 @@ ELIZ_STATE=unknown
 
 # name=ip=mac, in wake order. elizabeth first: NFS must serve before its consumers boot.
 WAKE_LIST="elizabeth=10.1.10.2=14:da:e9:4d:e7:65
-kube-nuc=10.1.10.10=1c:69:7a:a5:93:fc
-kube-hp=10.1.10.11=f8:b4:6a:a5:87:ed
-kube-ceph-01=10.1.10.21=e8:6a:64:a4:89:ca
-kube-ceph-02=10.1.10.22=e8:6a:64:f6:ff:af
-kube-ceph-03=10.1.10.23=e8:6a:64:76:2a:18"
+bulbasaur=10.1.10.10=1c:69:7a:a5:93:fc
+charmander=10.1.10.11=f8:b4:6a:a5:87:ed
+magikarp=10.1.10.21=e8:6a:64:a4:89:ca
+squirtle=10.1.10.12=e8:6a:64:f6:ff:af
+snorlax=10.1.10.23=e8:6a:64:76:2a:18"
 
 SSH_D="ssh -n -i $DONKEY_KEY -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 root@$DONKEY_IP"
 SSH_E="ssh -n -i $ELIZ_KEY  -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 root@$ELIZ_IP"
