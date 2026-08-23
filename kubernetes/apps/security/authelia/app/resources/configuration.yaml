@@ -661,6 +661,72 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
+      # Komga drives OIDC itself rather than sitting behind Envoy, so this block
+      # differs from the acquirers below: no PKCE (Komga sends no code_challenge)
+      # and client_secret_basic, per Authelia's own Komga integration guide.
+      # claims_policy is required - Komga links an OIDC identity to a local
+      # account BY EMAIL, so the email claim has to be present.
+      - client_id: 'komga'
+        client_name: 'Komga'
+        client_secret: '{{ secret "/secrets/oidc/komga" }}'
+        public: false
+        authorization_policy: 'household'
+        claims_policy: 'standard'
+        require_pkce: false
+        token_endpoint_auth_method: 'client_secret_basic'
+        grant_types: ['authorization_code']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://komga.${DOMAIN}/login/oauth2/code/authelia'
+        scopes: ['openid', 'email', 'profile']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'mylar3'
+        client_name: 'Mylar3'
+        client_secret: '{{ secret "/secrets/oidc/mylar3" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://mylar3.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'kapowarr'
+        client_name: 'Kapowarr'
+        client_secret: '{{ secret "/secrets/oidc/kapowarr" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://kapowarr.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
+      - client_id: 'suwayomi'
+        client_name: 'Suwayomi'
+        client_secret: '{{ secret "/secrets/oidc/suwayomi" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        redirect_uris:
+          - 'https://suwayomi.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
       # The temporary 'rehearsal' client was REMOVED here before cutover. It was a
       # public, passwordless client bound to the admin policy - acceptable on the
       # internal-only auth2 host during rehearsal, unacceptable on a public
