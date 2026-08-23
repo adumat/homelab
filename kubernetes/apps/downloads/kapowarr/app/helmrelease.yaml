@@ -24,6 +24,15 @@ spec:
               tag: v1.3.1@sha256:d455797e4f2c5b1a8ccc5ce05c427f1af2179451bb1af195ca3fa8c3e928623b
             env:
               TZ: Europe/Rome
+              # Kapowarr is a PUID/PGID image, not a plain non-root one: its
+              # entrypoint must START as root to groupmod/usermod/chown
+              # /app/db, /app/logs and /app/temp_downloads, then drops to this
+              # user. With PUID unset it takes the "stay as root" branch, and a
+              # pod-level runAsUser:1000 then makes it run as 1000 believing it
+              # is root - it crashes on PermissionError writing
+              # /app/logs/Kapowarr.log.
+              PUID: "1000"
+              PGID: "1000"
             probes:
               liveness: &probes
                 enabled: true
@@ -50,11 +59,10 @@ spec:
                 memory: 1Gi
     defaultPodOptions:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
+        # No runAsUser: the entrypoint needs to start as root and drop to
+        # PUID/PGID itself. Only fsGroup here, matching pyload-ng and mylar3.
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
-        seccompProfile: { type: RuntimeDefault }
     service:
       app:
         ports:
