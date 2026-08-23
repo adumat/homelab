@@ -1,0 +1,44 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app mylar3
+  namespace: &namespace downloads
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  components:
+    - ../../../../components/nfs-scaler
+    - ../../../../components/kopiur
+    - ../../../../components/oidc-auth
+  interval: 1h
+  path: ./kubernetes/apps/downloads/mylar3/app
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: authelia
+      namespace: security
+    - name: miroir-config
+      namespace: miroir-system
+    - name: kopiur-repository
+      namespace: volsync-system
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+    substitute:
+      APP: *app
+      OIDC_ROUTE: *app
+      KOPIUR_CAPACITY: 1Gi
+      CRON_EXPRESSION: '55 1 * * *'
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: false
