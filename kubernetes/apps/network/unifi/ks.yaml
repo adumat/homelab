@@ -16,8 +16,8 @@ spec:
   dependsOn:
     - name: external-secrets-store
       namespace: security
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   postBuild:
@@ -77,8 +77,8 @@ spec:
       namespace: network
     - name: external-secrets-store
       namespace: security
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   postBuild:

@@ -38,8 +38,8 @@ spec:
     - name: authelia
       namespace: security
     - name: grafana
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   healthChecks:

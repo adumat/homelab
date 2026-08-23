@@ -17,10 +17,8 @@ spec:
       namespace: database
     - name: dragonfly-cluster
       namespace: database
-    - name: openebs
-      namespace: openebs-system
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
   postBuild:
     substitute:
       APP: *app

@@ -11,8 +11,8 @@ spec:
     - ../../../../components/kopiur-external
   path: ./kubernetes/apps/database/mosquitto/app
   dependsOn:
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   sourceRef:

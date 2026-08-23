@@ -77,8 +77,8 @@ spec:
       namespace: database
     - name: cloudnative-pg-barman-cloud
       namespace: database
-    - name: openebs
-      namespace: openebs-system
+    - name: miroir-config
+      namespace: miroir-system
   interval: 1h
   path: ./kubernetes/apps/database/cloudnative-pg/cluster
   prune: true
@@ -115,8 +115,8 @@ spec:
       namespace: database
     - name: cloudnative-pg-barman-cloud
       namespace: database
-    - name: openebs
-      namespace: openebs-system
+    - name: miroir-config
+      namespace: miroir-system
   interval: 1h
   path: ./kubernetes/apps/database/cloudnative-pg/immich-db
   prune: true

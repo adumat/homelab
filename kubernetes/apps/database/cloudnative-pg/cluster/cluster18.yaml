@@ -23,10 +23,10 @@ spec:
     limits:
       memory: 2Gi
   storage:
-    storageClass: openebs-hostpath
+    storageClass: miroir-local
     size: 5Gi
   walStorage:
-    storageClass: openebs-hostpath
+    storageClass: miroir-local
     size: 5Gi
 
   monitoring:

@@ -21,8 +21,8 @@ spec:
       namespace: kube-system
     - name: node-feature-discovery-rules
       namespace: kube-system
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   prune: true
