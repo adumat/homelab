@@ -14,3 +14,18 @@ machine:
           - usermode_helper=disabled
       # The TCP transport for replication between nodes.
       - name: drbd_transport_tcp
+      # dm_thin_pool for miroir's lvmthin backend on the M720q NVMe disks.
+      #
+      # ⚠️ Phase 2 validated miroir on the LOOPFILE backend, which needs no
+      # thin-pool target, so this gap only appeared in phase 3 on real disks:
+      # pvcreate and vgcreate both succeeded, then lvcreate died with
+      # "modprobe: ERROR: could not insert 'dm_thin_pool': Operation not
+      # permitted / Required device-mapper target(s) not detected in your
+      # kernel". Same shape as the DRBD miss above - the capability exists but
+      # nothing loads the module.
+      # HYPHENS, not underscores: the shipped module is
+      # /lib/modules/<ver>/kernel/drivers/md/dm-thin-pool.ko and Talos wants the
+      # literal filename form. `dm_thin_pool` applied cleanly and silently did
+      # nothing - /proc/modules stayed empty and lvcreate kept reporting
+      # "Required device-mapper target(s) not detected in your kernel".
+      - name: dm-thin-pool

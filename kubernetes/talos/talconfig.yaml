@@ -50,7 +50,20 @@ nodes:
         provisioning:
           diskSelector:
             match: system_disk
-          minSize: 50GiB
+          # 10GiB, not 50. `grow: true` means it still claims everything left
+          # after EPHEMERAL, so the only thing minSize controls is whether the
+          # volume can be created at all.
+          #
+          # ⚠️ At 50GiB it could not: phase 3 sized EPHEMERAL in GiB against GB
+          # disk capacities, leaving 38GiB free on the 256GB SanDisks and 21GiB
+          # on the 120GB KINGSTON. Three of four miroir agents then hung in
+          # ContainerCreating on `mkdir /var/mnt/local-hostpath: read-only file
+          # system`, which blocks every PVC in the cluster. Only bulbasaur's
+          # 500GB disk had room.
+          #
+          # Every node needs this path to exist even where miroir uses lvmthin
+          # on a separate NVMe, because agent.loopfileBaseDirs is cluster-wide.
+          minSize: 10GiB
           grow: true
     schematic: &schematic
       customization:
