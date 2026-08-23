@@ -1,29 +1,69 @@
 ---
+# Two groups because the backends differ, not the intent. Both create a pool
+# named `default`: pool names are cluster-wide identities and a StorageClass
+# selects a pool by name, so every node that should be able to hold a replica
+# must carry a pool with the same name.
+#
+# ⚠️ All five nodes carry a pool, not just the three with NVMe. A node without a
+# MiroirNode cannot even *consume* a replicated volume remotely - upstream:
+# "staging refuses with a clear FailedPrecondition and the pod stays in
+# ContainerCreating". Phase 2 hit exactly that. It also matters for miroir-local,
+# which is pinned: immich-db-1 runs on bulbasaur and needs its 20Gi there.
+#
+# Placement is capacity-ranked, so replicated volumes naturally prefer the NVMe
+# pools over the much smaller system-disk loopfiles.
 apiVersion: miroir.home-operations.com/v1alpha1
 kind: MiroirNodeGroup
 metadata:
-  name: default
+  name: nvme
 spec:
-  # Only the three workers. The control planes have no spare capacity, and this
-  # is an evaluation rather than a production layout. Agents still run there and
-  # serve client-only mounts; a node without a MiroirNode simply carries no pool.
+  # The three M720q, each with a dedicated 1TB NVMe that Ceph used to own.
   nodeSelector:
     matchExpressions:
       - key: kubernetes.io/hostname
         operator: In
         values:
-          - kube-ceph-01
-          - kube-ceph-02
-          - kube-ceph-03
+          - magikarp
+          - squirtle
+          - snorlax
   template:
     pools:
-      # A loopfile on the existing XFS user volume: no repartitioning, no spare
-      # disk, and nothing taken from Ceph while both run side by side. The
-      # backend needs the directory to be reflink-capable or the agent refuses
-      # the pool - verified REFLINK_OK on all three workers.
+      # The whole device, not a loopfile: this is miroir's production backend and
+      # the reason phase 3 had to wait for Ceph to leave. Verified 2026-08-23 that
+      # /dev/nvme0n1 is the 1TB data disk on all three (Crucial P3 on magikarp,
+      # WD_BLACK SN850X on the other two) and /dev/sda is the SATA system disk.
       #
-      # Space is uneven: kube-ceph-01 has 61GB free here against 195GB on the
-      # other two, so it is the binding constraint for replica placement.
+      # ⚠️ magikarp's is a QLC Crucial P3. With replicas 2 every write lands on
+      # two of these three, so it can gate replicated write latency - benchmark
+      # it after the rebuild.
+      - name: default
+        lvmthin:
+          device: /dev/nvme0n1
+---
+apiVersion: miroir.home-operations.com/v1alpha1
+kind: MiroirNodeGroup
+metadata:
+  name: system
+spec:
+  # The two single-disk control planes. No spare device, so the pool is a
+  # loopfile on the existing XFS user volume.
+  nodeSelector:
+    matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: In
+        values:
+          - bulbasaur
+          - charmander
+  template:
+    pools:
+      # A loopfile pool has no size field - its capacity is whatever the
+      # filesystem has free. That is set in talconfig instead: EPHEMERAL is
+      # capped (200GiB on bulbasaur, 100GiB on charmander) and the local-hostpath
+      # user volume grows into the rest, leaving ~300GB and ~150GB respectively.
+      # Well clear of the 100Gi these need to hold a CNPG instance.
+      #
+      # The backend requires the directory to be reflink-capable or the agent
+      # refuses the pool - verified REFLINK_OK during phase 2.
       - name: default
         loopfile:
           baseDir: /var/mnt/local-hostpath/miroir

@@ -80,19 +80,19 @@ zones:
       - name: navi
         mac: 'bc:24:11:7d:21:95'
         ip: 10.1.10.5
-      - name: kube-nuc
+      - name: bulbasaur
         mac: '1c:69:7a:a5:93:fc'
         ip: 10.1.10.10
-      - name: kube-hp
+      - name: charmander
         mac: 'f8:b4:6a:a5:87:ed'
         ip: 10.1.10.11
-      - name: kube-ceph-01
+      - name: magikarp
         mac: 'e8:6a:64:a4:89:ca'
         ip: 10.1.10.21
-      - name: kube-ceph-02
+      - name: squirtle
         mac: 'e8:6a:64:f6:ff:af'
-        ip: 10.1.10.22
-      - name: kube-ceph-03
+        ip: 10.1.10.12
+      - name: snorlax
         mac: 'e8:6a:64:76:2a:18'
         ip: 10.1.10.23
       - name: u6-pt

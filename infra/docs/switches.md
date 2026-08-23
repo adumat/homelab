@@ -42,12 +42,12 @@
 | 16 | no | 5 | SolarEdge inverter | 30 | access |
 | 17 | no | 16 | elizabeth (NAS) | 10 | access |
 | 18 | no | — | donkey | 10 | access |
-| 19 | no | 17 | kube-hp | 10 | access |
+| 19 | no | 17 | charmander | 10 | access |
 | 20 | no | 18 | FritzBox | — | removed at cutover |
-| 21 | no | 19 | kube-nuc | 10 | access |
-| 22 | no | 20 | kube-ceph-01 | 10 | access |
-| 23 | no | 21 | kube-ceph-02 | 10 | access |
-| 24 | no | 22 | kube-ceph-03 | 10 | access |
+| 21 | no | 19 | bulbasaur | 10 | access |
+| 22 | no | 20 | magikarp | 10 | access |
+| 23 | no | 21 | squirtle | 10 | access |
+| 24 | no | 22 | snorlax | 10 | access |
 
 ### Patch Panel (C5e)
 
@@ -60,12 +60,12 @@
 | 5 | INV | SolarEdge inverter |
 | 6 | LV | Living room → switch-living |
 | 16 | — | elizabeth (NAS) |
-| 17 | — | kube-hp |
+| 17 | — | charmander |
 | 18 | — | glados LAN |
-| 19 | — | kube-nuc |
-| 20 | — | kube-ceph-01 |
-| 21 | — | kube-ceph-02 |
-| 22 | — | kube-ceph-03 |
+| 19 | — | bulbasaur |
+| 20 | — | magikarp |
+| 21 | — | squirtle |
+| 22 | — | snorlax |
 | 23 | — | glados WAN |
 
 ---

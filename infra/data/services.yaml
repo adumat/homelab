@@ -39,19 +39,19 @@ bgp:
   neighbors:
     - ip: 10.1.10.10
       remote_as: 64513
-      description: kube-nuc
+      description: bulbasaur
     - ip: 10.1.10.11
       remote_as: 64513
-      description: kube-hp
+      description: charmander
     - ip: 10.1.10.21
       remote_as: 64513
-      description: kube-ceph-01
-    - ip: 10.1.10.22
+      description: magikarp
+    - ip: 10.1.10.12
       remote_as: 64513
-      description: kube-ceph-02
+      description: squirtle
     - ip: 10.1.10.23
       remote_as: 64513
-      description: kube-ceph-03
+      description: snorlax
 
 # WireGuard VPN
 wireguard:

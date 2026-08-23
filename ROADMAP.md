@@ -1820,6 +1820,24 @@ Hardware already in the house, metrics absent.
 
 Torrent only, no usenet. `tqm` already runs as an hourly cronjob.
 
+- [ ] ⚠️ **Revise the Prowlarr indexers — half of them do not work.** Measured 2026-08-23 against
+      the Prowlarr API, not assumed. `IndexerNoDefinitionCheck` reports an **error**:
+      **HDT-LaFenice, MIRCrew and ilDraGoNeRo have no definition and will not work** — they must be
+      removed and re-added. Two had been failing for months unnoticed: HDT-LaFenice since
+      **2025-06-27** (14 months) and ilDraGoNeRo since 2026-02-17. Only **Girotorrent, Il Corsaro
+      Blu and ItaTorrents** actually function. Nzb.su is a disabled usenet leftover in a
+      torrent-only house.
+      Same pass: remove the dead **Readarr** application connection, unavailable >6h and pointing at
+      a project archived upstream; and Prowlarr is behind at v2.6.1.5509.
+  - ⚠️ **Nothing alerts on any of this.** Prowlarr's `/api/v1/health` knew for over a year and the
+    cluster does not scrape it, so a dead indexer is indistinguishable from a working one with
+    nothing to return — the same failure shape as the inert alert rules. Worth a gatus or
+    Prometheus check on that endpoint as part of the fix, otherwise the next silent death is found
+    the same way: by accident.
+  - Consequence for the comics library: only 3 working indexers map `7030:Books/Comics`
+    (Girotorrent, Il Corsaro Blu, ItaTorrents), all Italian, so the torrent path delivers fumetti.
+    See `docs/superpowers/specs/2026-08-23-comics-manga-library-design.md`.
+
 - [ ] `qui` (`ghcr.io/autobrr/qui`) — alternative WebUI for qbittorrent. Note: the built-in
       WebUI is the one currently protected by OIDC, so the protection has to move
 - [ ] `autobrr` — tracker IRC announces and RSS → automatic grabs into qbittorrent. It is

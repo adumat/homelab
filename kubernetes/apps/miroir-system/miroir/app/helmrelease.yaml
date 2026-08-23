@@ -26,7 +26,7 @@ spec:
     drbd:
       # NOT the 7000 default. The agent runs hostNetwork, Rook here is
       # `provider: host`, and Ceph's mgr dashboard already holds 7000 on
-      # kube-ceph-03. Ceph's msgr range on this cluster is ms_bind_port_min 6800
+      # snorlax (then kube-ceph-03). Ceph's msgr range on this cluster is ms_bind_port_min 6800
       # to ms_bind_port_max 7568, and DRBD takes one ascending port per
       # replicated volume, so this starts clear above the whole range.
       portBase: 7700

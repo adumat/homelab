@@ -31,7 +31,7 @@ spec:
       retentionDiskSpaceUsage: 16GiB
       persistentVolume:
         enabled: true
-        storageClassName: ceph-block
+        storageClassName: miroir-replicated
         size: 20Gi
       route:
         enabled: true

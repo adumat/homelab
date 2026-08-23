@@ -6,7 +6,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: ceph-block
+  storageClassName: miroir-replicated
   resources:
     requests:
       storage: 10Gi
@@ -18,7 +18,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: openebs-hostpath
+  storageClassName: miroir-local
   resources:
     requests:
       storage: 30Gi

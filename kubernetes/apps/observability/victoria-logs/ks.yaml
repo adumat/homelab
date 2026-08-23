@@ -8,8 +8,8 @@ spec:
   components:
     - ../../../../components/oidc-auth
   dependsOn:
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: authelia
       namespace: security
   interval: 1h

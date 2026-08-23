@@ -7,7 +7,7 @@ spec:
   groups:
     - name: node-health.rules
       rules:
-        # THE alert this phase exists for. On 2026-08-19 kube-ceph-03 hung with a dead NIC:
+        # THE alert this phase exists for. On 2026-08-19 snorlax (then kube-ceph-03) hung with a dead NIC:
         # no ICMP, no Talos API, no ARP, and it would not answer WOL. Recovery needed cutting
         # UPS output to the whole rack, because the Ellipse ECO 650 has no switchable outlets.
         #
@@ -33,7 +33,7 @@ spec:
         # Precursor signal. An e1000e hardware unit hang resets the NIC, which drops and
         # re-raises carrier - so this climbs BEFORE the interface dies for good.
         #
-        # This metric was already collected and nothing watched it. When kube-ceph-03 died it
+        # This metric was already collected and nothing watched it. When snorlax (then kube-ceph-03) died it
         # read 0 for the preceding 30 minutes, which is what argued AGAINST a driver-reset loop
         # and left the cause open. It earns its place as evidence either way.
         #

@@ -1,6 +1,6 @@
 # Rack power cycle — resetting a node that hangs and will not answer WOL
 
-Last exercised 2026-08-19 (`kube-ceph-03` hung with a dead NIC).
+Last exercised 2026-08-19 (`snorlax` hung with a dead NIC).
 
 ## When this is the right tool
 
@@ -64,7 +64,7 @@ network. That is a dark house until someone attends physically. Weigh this every
 Done by hand, not scripted, so you see each one.
 
 ```bash
-mise exec -- talosctl -n 10.1.10.10,10.1.10.11,10.1.10.21,10.1.10.22 shutdown --force
+mise exec -- talosctl -n 10.1.10.10,10.1.10.11,10.1.10.21,10.1.10.12 shutdown --force
 ```
 
 **Use `--force`.** It skips cordon/drain. A drain is pointless here (everything is going down)
@@ -77,7 +77,7 @@ outlast your patience. Detach it and judge by ping instead:
 ```bash
 ( nohup mise exec -- talosctl -n <ips> shutdown --force >/tmp/shut.log 2>&1 & )
 for i in $(seq 1 60); do
-  for ip in 10.1.10.10 10.1.10.11 10.1.10.21 10.1.10.22; do
+  for ip in 10.1.10.10 10.1.10.11 10.1.10.21 10.1.10.12; do
     ping -c1 -W2 $ip >/dev/null 2>&1 && echo "up $ip"
   done; echo "---"
 done
@@ -88,7 +88,7 @@ quorum, unmounting Ceph-backed volumes blocks in the kernel, so the sequence nev
 
 ```
 [talos] shutdown failed: failed to acquire lock: timeout
-libceph: mon0 (2)10.1.10.22:3300 socket error on write
+libceph: mon0 (2)10.1.10.12:3300 socket error on write
 ```
 
 Re-issuing `shutdown` does **not** help — the first attempt still holds the sequence lock. Leave
@@ -144,11 +144,11 @@ inline, and booting Talos before the NAS serves is the documented stale-handle f
 | Host | IP | MAC |
 |---|---|---|
 | elizabeth | 10.1.10.2 | `14:da:e9:4d:e7:65` |
-| kube-nuc | 10.1.10.10 | `1c:69:7a:a5:93:fc` |
-| kube-hp | 10.1.10.11 | `f8:b4:6a:a5:87:ed` |
-| kube-ceph-01 | 10.1.10.21 | `e8:6a:64:a4:89:ca` |
-| kube-ceph-02 | 10.1.10.22 | `e8:6a:64:f6:ff:af` |
-| kube-ceph-03 | 10.1.10.23 | `e8:6a:64:76:2a:18` |
+| bulbasaur | 10.1.10.10 | `1c:69:7a:a5:93:fc` |
+| charmander | 10.1.10.11 | `f8:b4:6a:a5:87:ed` |
+| magikarp | 10.1.10.21 | `e8:6a:64:a4:89:ca` |
+| squirtle | 10.1.10.12 | `e8:6a:64:f6:ff:af` |
+| snorlax | 10.1.10.23 | `e8:6a:64:76:2a:18` |
 
 ```bash
 ssh -i ~/.ssh/donkey root@10.1.10.3 'wakeonlan <mac>'

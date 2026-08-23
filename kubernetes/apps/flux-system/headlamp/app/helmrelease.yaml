@@ -59,9 +59,6 @@ spec:
           - name: cert-manager
             source: https://artifacthub.io/packages/headlamp/headlamp-plugins/headlamp_cert-manager
             version: 0.1.0
-          - name: rook-ceph
-            source: https://artifacthub.io/packages/headlamp/headlamp-rook/headlamp-rook-plugin
-            version: 0.2.6
           - name: envoy-gateway
             source: https://artifacthub.io/packages/headlamp/headlamp-envoy-gateway/envoy-gateway
             version: 0.3.0

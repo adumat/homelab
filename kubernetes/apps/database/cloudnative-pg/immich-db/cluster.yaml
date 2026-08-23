@@ -36,9 +36,9 @@ spec:
 
   storage:
     size: 10Gi
-    storageClass: openebs-hostpath
+    storageClass: miroir-local
   walStorage:
-    storageClass: openebs-hostpath
+    storageClass: miroir-local
     size: 10Gi
 
   monitoring:

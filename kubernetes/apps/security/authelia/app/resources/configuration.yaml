@@ -465,20 +465,6 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
-      - client_id: 'rook-ceph-dashboard'
-        client_name: 'Rook Ceph Dashboard'
-        client_secret: '{{ secret "/secrets/oidc/rook-ceph-dashboard" }}'
-        public: false
-        authorization_policy: 'admin'
-        require_pkce: true
-        pkce_challenge_method: 'S256'
-        grant_types: ['authorization_code', 'refresh_token']
-        response_types: ['code']
-        redirect_uris:
-          - 'https://rook.${DOMAIN}/oauth2/callback'
-        scopes: ['openid', 'email', 'profile', 'offline_access']
-        userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
 
       # hacs.${DOMAIN} is the VS Code editor for Home Assistant's config. Note
       # that ha.${DOMAIN} is served by the SAME HelmRelease and must stay

@@ -109,7 +109,7 @@ spec:
       resources:
         requests:
           storage: 10Gi
-      storageClassName: ceph-block
+      storageClassName: miroir-replicated
       # Closes the last of phase 3's G1. Without this a rebuilt cluster creates
       # grafana-pvc EMPTY and grafana starts on it reporting healthy, losing
       # grafana.db - users, preferences, annotations, starred dashboards. The

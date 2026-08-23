@@ -38,11 +38,11 @@ All nodes run Talos Linux on amd64 hardware.
 
 | Hostname     | IP          | Hardware                  | Role          | Disk                        |
 |--------------|-------------|---------------------------|---------------|-----------------------------|
-| kube-nuc     | 10.1.10.10  | Intel NUC 10              | Control plane | Samsung 970 EVO Plus 500GB  |
-| kube-hp      | 10.1.10.11  | HP 800 G4 Mini, i5-8500   | Control plane | WDC SN720 256GB             |
-| kube-ceph-01 | 10.1.10.21  | Lenovo M720Q Tiny, i5     | Worker        | Kingston SA400S3             |
-| kube-ceph-02 | 10.1.10.22  | Lenovo M720Q Tiny, i5     | Worker        | SanDisk SD9TB8W2            |
-| kube-ceph-03 | 10.1.10.23  | Lenovo M720Q Tiny, i5     | Worker        | SanDisk SD9TB8W2            |
+| bulbasaur     | 10.1.10.10  | Intel NUC 10              | Control plane | Samsung 970 EVO Plus 500GB  |
+| charmander      | 10.1.10.11  | HP 800 G4 Mini, i5-8500   | Control plane | WDC SN720 256GB             |
+| magikarp | 10.1.10.21  | Lenovo M720Q Tiny, i5     | Worker        | Kingston SA400S3             |
+| squirtle | 10.1.10.12  | Lenovo M720Q Tiny, i5     | Worker        | SanDisk SD9TB8W2            |
+| snorlax | 10.1.10.23  | Lenovo M720Q Tiny, i5     | Worker        | SanDisk SD9TB8W2            |
 
 ### Network Devices
 

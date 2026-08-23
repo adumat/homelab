@@ -15,8 +15,8 @@ spec:
   interval: 1h
   path: ./kubernetes/apps/services/filebrowser/app
   dependsOn:
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
     - name: kopiur-repository
       namespace: volsync-system
   postBuild:

@@ -1,13 +1,13 @@
 {
-  "id": "kube-nuc",
-  "name": "kube-nuc",
+  "id": "charmander",
+  "name": "charmander",
   "profile": "talos-amd64",
   "selector": {
-    "mac": "1c:69:7a:a5:93:fc"
+    "mac": "f8:b4:6a:a5:87:ed"
   },
   "metadata": {
     "arch": "amd64",
-    "address": "10.1.10.10",
+    "address": "10.1.10.11",
     "install_disk_device": "/dev/nvme0n1"
   }
 }

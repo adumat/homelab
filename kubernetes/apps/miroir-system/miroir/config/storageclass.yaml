@@ -1,6 +1,6 @@
 ---
 # Parameter keys are namespaced (miroir.home-operations.com/...), not bare.
-# Neither class is default: Ceph keeps that role until the evaluation decides.
+# miroir-replicated is the cluster default as of phase 3; ceph-block is gone.
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -30,6 +30,11 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: miroir-replicated
+  annotations:
+    # Default from phase 3, taking over from ceph-block. Being explicit matters:
+    # with no default class a PVC that omits storageClassName is created with none
+    # at all and stays Pending forever.
+    storageclass.kubernetes.io/is-default-class: "true"
 provisioner: miroir.home-operations.com
 parameters:
   # Two, not three. Upstream validates 1..3 but its intended topology is two
