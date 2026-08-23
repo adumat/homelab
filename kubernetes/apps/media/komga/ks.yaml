@@ -1,0 +1,47 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/kustomize.toolkit.fluxcd.io/kustomization_v1.json
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: &app komga
+  namespace: &namespace media
+spec:
+  commonMetadata:
+    labels:
+      app.kubernetes.io/name: *app
+  # No oidc-auth: Envoy OIDC needs a browser redirect and a native iPhone
+  # client cannot follow one, so attaching it would make the app permanently
+  # unusable from the phone. Komga authenticates itself instead - a local
+  # account plus API keys for clients, Authelia OIDC for the web UI. Same
+  # reason jellyfin, jellyseerr and romm skip the component.
+  components:
+    - ../../../../components/nfs-scaler
+    - ../../../../components/kopiur
+  interval: 1h
+  path: ./kubernetes/apps/media/komga/app
+  dependsOn:
+    - name: external-secrets-store
+      namespace: security
+    - name: authelia
+      namespace: security
+    - name: miroir-config
+      namespace: miroir-system
+    - name: kopiur-repository
+      namespace: volsync-system
+  postBuild:
+    substituteFrom:
+      - name: cluster-secrets
+        kind: Secret
+    substitute:
+      APP: *app
+      KOPIUR_CAPACITY: 5Gi
+      CRON_EXPRESSION: '50 1 * * *'
+  prune: true
+  retryInterval: 2m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  targetNamespace: *namespace
+  timeout: 5m
+  wait: false

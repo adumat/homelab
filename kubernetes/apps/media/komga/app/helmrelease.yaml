@@ -1,0 +1,101 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/refs/heads/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: &app komga
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      komga:
+        annotations:
+          reloader.stakater.com/auto: 'true'
+        containers:
+          app:
+            image:
+              repository: ghcr.io/gotson/komga
+              tag: 1.26.3@sha256:6c2a967bbe9acefd05933b2eb498f34afe96a83c6f7f8ab0acb512a1bb3ab50f
+            env:
+              TZ: Europe/Rome
+              SERVER_PORT: &port 25600
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /actuator/health
+                    port: *port
+                  initialDelaySeconds: 0
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+              readiness: *probes
+              startup:
+                enabled: true
+                spec:
+                  failureThreshold: 60
+                  periodSeconds: 5
+            resources:
+              requests:
+                cpu: 50m
+                memory: 512Mi
+              limits:
+                # JVM. Raise only if a large first scan gets OOMKilled; guessing
+                # higher up front just reserves memory nothing uses.
+                memory: 1Gi
+    defaultPodOptions:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        ports:
+          http:
+            port: *port
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: 'true'
+          gethomepage.dev/group: Media
+          gethomepage.dev/name: Komga
+          gethomepage.dev/icon: komga.png
+          gethomepage.dev/description: Comics and Manga
+          gethomepage.dev/widget.type: komga
+          gethomepage.dev/widget.url: http://komga.media.svc.cluster.local:25600
+          gethomepage.dev/widget.username: "{{ `{{HOMEPAGE_VAR_KOMGA_USERNAME}}` }}"
+          gethomepage.dev/widget.password: "{{ `{{HOMEPAGE_VAR_KOMGA_PASSWORD}}` }}"
+        hostnames:
+          - komga.${DOMAIN}
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: app
+                port: *port
+    persistence:
+      config:
+        existingClaim: *app
+      # Nested inside the config mount: Komga reads /config/application.yml.
+      config-file:
+        type: secret
+        name: komga-secrets
+        globalMounts:
+          - path: /config/application.yml
+            subPath: application.yml
+            readOnly: true
+      media:
+        type: nfs
+        server: elizabeth.lan
+        path: /mnt/user/media
+        globalMounts:
+          - path: /media
