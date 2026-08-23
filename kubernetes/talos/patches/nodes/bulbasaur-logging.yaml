@@ -1,7 +1,7 @@
 ---
 # Ships kernel and service logs off-node so a hang leaves evidence behind. Without this, a
 # hardware unit hang, a panic trace or an MCE all vanish on reboot - which is exactly why
-# kube-ceph-03's 2026-08-19 hang is still unexplained.
+# snorlax's (then kube-ceph-03) 2026-08-19 hang is still unexplained.
 #
 # Goes to fluent-bit, NOT to VictoriaLogs directly: Talos emits json_lines only (see
 # sender_jsonlines.go) while VictoriaLogs' syslog listener accepts RFC3164/RFC5424 only. Talos
@@ -22,4 +22,4 @@ machine:
       - endpoint: "tcp://127.0.0.1:5170"
         format: json_lines
         extraTags:
-          node: kube-ceph-03
+          node: bulbasaur

@@ -19,7 +19,7 @@ clusterPodNets: ["10.42.0.0/16"]
 clusterSvcNets: ["10.43.0.0/16"]
 
 nodes:
-  - hostname: "kube-nuc"
+  - hostname: "bulbasaur"
     ipAddress: "10.1.10.10"
     installDiskSelector:
       model: "Samsung SSD 970 EVO Plus 500GB"
@@ -37,12 +37,14 @@ nodes:
         mtu: 1500
         vip:
           ip: *vip
-    volumes: &volumes
+    volumes:
+      # Was a shared `&volumes` anchor pinned at 50GiB, which is why /var could never be
+      # sized per machine and filled three times. Now explicit per node.
       - name: EPHEMERAL
         provisioning:
           diskSelector:
             match: system_disk
-          maxSize: 50GiB
+          maxSize: 200GiB
     userVolumes: &uservolumes
       - name: local-hostpath
         provisioning:
@@ -86,8 +88,8 @@ nodes:
               DEADTIME 120
             mountPath: /usr/local/etc/nut/upsmon.conf
     patches:
-      - "@./patches/nodes/kube-nuc-ethernet.yaml"
-      - "@./patches/nodes/kube-nuc-logging.yaml"
+      - "@./patches/nodes/bulbasaur-ethernet.yaml"
+      - "@./patches/nodes/bulbasaur-logging.yaml"
     nodeLabels: &controlPlaneLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
   # - hostname: "kube-dell"
@@ -109,7 +111,7 @@ nodes:
   #   extensionServices: *extensionServices
   #   nodeLabels:
   #     intel.feature.node.kubernetes.io/gpu: 'true'
-  - hostname: "kube-hp"
+  - hostname: "charmander"
     ipAddress: "10.1.10.11"
     installDiskSelector:
       model: "WDC PC SN720 SDAPNTW-256G-1006"
@@ -123,16 +125,22 @@ nodes:
         mtu: 1500
         vip:
           ip: *vip
-    volumes: *volumes
+    volumes:
+      # charmander: sized for its own disk
+      - name: EPHEMERAL
+        provisioning:
+          diskSelector:
+            match: system_disk
+          maxSize: 100GiB
     userVolumes: *uservolumes
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
     patches:
-      - "@./patches/nodes/kube-hp-ethernet.yaml"
-      - "@./patches/nodes/kube-hp-logging.yaml"
+      - "@./patches/nodes/charmander-ethernet.yaml"
+      - "@./patches/nodes/charmander-logging.yaml"
     nodeLabels: *controlPlaneLabels
-  - hostname: "kube-ceph-01"
+  - hostname: "magikarp"
     ipAddress: "10.1.10.21"
     installDiskSelector:
       model: "KINGSTON SA400S3"
@@ -144,38 +152,52 @@ nodes:
           driver: e1000e
         dhcp: true
         mtu: 1500
-    volumes: *volumes
+    volumes:
+      # magikarp: sized for its own disk
+      - name: EPHEMERAL
+        provisioning:
+          diskSelector:
+            match: system_disk
+          maxSize: 90GiB
     userVolumes: *uservolumes
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
     patches:
-      - "@./patches/nodes/kube-ceph-01-ethernet.yaml"
-      - "@./patches/nodes/kube-ceph-01-logging.yaml"
-    nodeLabels: &cephNodeLabels
+      - "@./patches/nodes/magikarp-ethernet.yaml"
+      - "@./patches/nodes/magikarp-logging.yaml"
+    nodeLabels: &workerNodeLabels
       intel.feature.node.kubernetes.io/gpu: 'true'
-  - hostname: "kube-ceph-02"
-    ipAddress: "10.1.10.22"
+  - hostname: "squirtle"
+    ipAddress: "10.1.10.12"  # moved from .22 so all control planes sit in .1x
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
     machineSpec: *x64MachineSpec
-    controlPlane: false
+    controlPlane: true
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e8:6a:64:f6:ff:af"
           driver: e1000e
         dhcp: true
         mtu: 1500
-    volumes: *volumes
+        vip:
+          ip: *vip
+    volumes:
+      # squirtle: sized for its own disk
+      - name: EPHEMERAL
+        provisioning:
+          diskSelector:
+            match: system_disk
+          maxSize: 200GiB
     userVolumes: *uservolumes
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
     patches:
-      - "@./patches/nodes/kube-ceph-02-ethernet.yaml"
-      - "@./patches/nodes/kube-ceph-02-logging.yaml"
-    nodeLabels: *cephNodeLabels
-  - hostname: "kube-ceph-03"
+      - "@./patches/nodes/squirtle-ethernet.yaml"
+      - "@./patches/nodes/squirtle-logging.yaml"
+    nodeLabels: *controlPlaneLabels
+  - hostname: "snorlax"
     ipAddress: "10.1.10.23"
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
@@ -187,15 +209,21 @@ nodes:
           driver: e1000e
         dhcp: true
         mtu: 1500
-    volumes: *volumes
+    volumes:
+      # snorlax: sized for its own disk
+      - name: EPHEMERAL
+        provisioning:
+          diskSelector:
+            match: system_disk
+          maxSize: 200GiB
     userVolumes: *uservolumes
     schematic: *schematic
     certSANs: *sans
     extensionServices: *extensionServices
     patches:
-      - "@./patches/nodes/kube-ceph-03-ethernet.yaml"
-      - "@./patches/nodes/kube-ceph-03-logging.yaml"
-    nodeLabels: *cephNodeLabels
+      - "@./patches/nodes/snorlax-ethernet.yaml"
+      - "@./patches/nodes/snorlax-logging.yaml"
+    nodeLabels: *workerNodeLabels
 
 # Global patches
 patches:
