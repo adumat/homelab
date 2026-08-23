@@ -86,7 +86,7 @@ spec:
                 port: *port
     persistence:
       config:
-        storageClass: ceph-block
+        storageClass: miroir-replicated
         accessMode: ReadWriteOnce
         size: 5Gi
         # Closes phase 3's G1: without this a rebuilt cluster creates this volume

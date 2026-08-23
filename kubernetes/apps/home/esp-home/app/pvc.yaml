@@ -5,14 +5,14 @@ apiVersion: v1
 metadata:
   name: esp-home-cache
 spec:
-  storageClassName: ceph-block
+  storageClassName: miroir-replicated
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       # Raised from 10Gi on 2026-08-21: it had reached 100% (788K free) and had
       # been firing KubePersistentVolumeFillingUp as critical, which at 100% means
-      # ESPHome compiles fail. ceph-block allows online expansion.
+      # ESPHome compiles fail. miroir-replicated allows online expansion.
       #
       # This is a build cache mounted at /.local - it grows with every device
       # firmware build and is safe to delete wholesale if it fills again. Growing

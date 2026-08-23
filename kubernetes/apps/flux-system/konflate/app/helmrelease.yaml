@@ -37,7 +37,7 @@ spec:
         - konflate.${DOMAIN}
     persistence:
       enabled: true
-      storageClass: ceph-block
+      storageClass: miroir-replicated
       size: 5Gi
     monitoring:
       serviceMonitor:

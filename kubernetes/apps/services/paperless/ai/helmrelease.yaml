@@ -104,6 +104,6 @@ spec:
           apiGroup: kopiur.home-operations.com
           kind: Restore
           name: paperless-ai
-        storageClass: ceph-block
+        storageClass: miroir-replicated
         globalMounts:
           - path: /app/data
