@@ -16,12 +16,23 @@ the one backup kopiur cannot cover silently failing for two days on the least re
 Live faults. They belong to no phase because they should not wait for one; both were found on
 2026-08-24 while auditing the phase 3 renames, not by any alert.
 
-- [ ] **Reissue navi's Bitwarden Secrets Manager access token.** `doco-cd-navi` cannot start:
-      `failed to initialize secret provider: [400 Bad Request] {"error":"invalid_client"}`, with
-      **RestartCount 6416** — roughly 4.5 days of a 60-second crash-loop. **navi's GitOps is
-      therefore dead**: nothing there tracks git, including `matchbox`, so any PXE change would
-      silently not apply. matchbox itself is running and unaffected. The corrupted git refs that
-      also blocked it were cleared on 2026-08-24, so the token is the only thing left
+- [x] ✅ **navi's doco-cd token — fixed 2026-08-24.** The cause was not a revoked token: navi's
+      `.env` had **`BWS_ACCESS_TOKEN=` with an empty value**, so doco-cd authenticated with an
+      empty credential and BWS answered `invalid_client` (RestartCount had reached **6416**,
+      ~4.5 days). `infra/scripts/bootstrap-navi.sh:53` passes `--bws-token ${BWS_ACCESS_TOKEN}`
+      and `bootstrap.sh` falls back to the existing value rather than failing, so a bootstrap run
+      with that variable unset writes an empty token **and reports success**.
+      Fixed with a dedicated access token on the shared `doco-cd` machine account. navi
+      immediately polled and **force-recreated the `matchbox` stack** — closing 4.5 days of drift
+      on the PXE server. Verified after: `matchbox` serving `boot.ipxe` and the kernel asset at
+      HTTP 200, reachable from donkey.
+- [x] ✅ **elizabeth was running on the operator's personal token** — found while fixing navi
+      (same SHA as the workstation `.env`). Given its own token on the same machine account, so
+      rotating the operator credential can no longer silently kill a host's GitOps. Each host now
+      holds a distinct token and the operator token is on none of them.
+- [ ] **Make `bootstrap.sh` refuse an empty `BWS_ACCESS_TOKEN`.** This is the defect that cost
+      4.5 days: it accepted an empty value, wrote it, and exited 0. A guard that fails loudly
+      turns a silent multi-day outage into an obvious bootstrap error
 - [ ] **Watch charmander's 100 Mbit link — hardware.** `eno1` negotiates **100Mbit/Full** while
       the other four nodes are at `1000Mbit`. Nothing in `patches/` forces a speed and the link is
       clean (zero errs, drops, carrier events), so it is **cabling or the switch port**, not the
