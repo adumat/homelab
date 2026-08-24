@@ -42,6 +42,34 @@ Live faults. They belong to no phase because they should not wait for one; both 
       up during the rebuild. Reseat or replace the cable, try another port, then re-check with
       `talosctl -n 10.1.10.11 get links eno1`
 
+      🔥 **No longer theoretical — it flapped and took out storage on 2026-08-24.** The link
+      dropped for ~21 seconds and every warning alert in the cluster followed from it:
+
+      ```
+      05:55:34  e1000e eno1: NIC Link is Down
+      05:55:44  talos removed address 10.1.10.11/24, deleted the default route
+      05:55:52  EXT4-fs error (drbd1020): aborted journal -> Remounting filesystem read-only
+      05:55:55  e1000e eno1: NIC Link is Up 100 Mbps Full Duplex
+      05:56:00  address + route restored
+      ```
+
+      DRBD lost quorum on several volumes (`quorum( yes -> no )`), writes failed, and ext4
+      aborted its journal. **Only charmander was affected** — the other four nodes logged zero
+      read-only or aborted-journal events, which is what isolates this to the link rather than to
+      miroir or the network as a whole.
+
+      **The lasting damage is the part worth knowing: a filesystem that goes read-only stays
+      read-only after the link returns.** DRBD recovered by itself 14 seconds later, but
+      `victoria-logs` kept crash-looping for ~12 hours (152 restarts) on
+      `cannot create lock file … read-only file system`, and all five `fluent-bit` pods sat at
+      `0/1` because their sink was gone — so **log ingestion was dead cluster-wide and nothing
+      said so beyond the generic pod alerts**. Recovery needed a manual `kubectl delete pod`; the
+      CSI driver then ran `fsck.ext4` on reattach and remounted r/w cleanly.
+
+      This is the first real exercise of `quorum: freeze`. It did its job — froze rather than
+      allowing divergence — but **freeze protects the data and not the availability, and nothing
+      automatically remounts afterwards.** Worth considering a recovery path for it.
+
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
 - [x] Write `AGENTS.md` at the repo root
