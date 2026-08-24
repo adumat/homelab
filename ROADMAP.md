@@ -1639,7 +1639,7 @@ unsigned iPXE, and strand it.
       the commit — re-add the ClusterRepository and the archive is browsable again
 - Deleting those 35G from elizabeth is deferred to **phase 10**.
 - [ ] 🔴 **charmander's NIC is negotiating at 100 Mbit** — see below
-- [ ] 🔴 **power-nap-over is running on a pre-rename config** — see below
+- [x] ✅ **power-nap-over fixed 2026-08-24** — root cause was doco-cd, see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
 
@@ -1691,8 +1691,40 @@ Consequence on a real power event: PNO would ping a dead `.22`, wake squirtle in
 and report the old names. Worth weighing against [[project_pno_rewrite]] — PNO recovered nothing
 on 2026-08-17, and a config this stale is a candidate contributor.
 
-- [ ] Re-run the init container on donkey so the volume is regenerated, then restart
-      `power-nap-over` and verify the five names, `.12`, and squirtle in the control-plane group
+**Fixed 2026-08-24 — and the real cause was not PNO at all.**
+
+doco-cd on donkey had been **failing every 3-minute poll for six days**, since 2026-08-19 17:25:
+
+```
+failed to clone repository: failed to fetch repository: All attempts fail:
+#1: ref file is empty
+```
+
+Every one of the 32 files under `.git/refs/remotes/origin/` was **zero bytes**, all stamped with
+that same minute, and there was no `packed-refs` to fall back on. `refs/heads/main` was intact,
+which is why `git log` worked while go-git's fetch died. A truncated write — consistent with an
+unclean shutdown. Donkey's checkout was stuck at `72b7af2`, **152 commits behind**, so *every*
+docker service doco-cd manages there was frozen, not just PNO. PNO's stale config was a symptom.
+
+Fix: delete the empty remote refs (git recreates them on fetch — surgical, and it preserves the
+working tree that PNO bind-mounts its `logs` from), then restart doco-cd. It pulled straight to
+`ffdf240`, the init container regenerated the config, and after restarting `power-nap-over` it
+reports **1/1 NAS, 3/3 control plane, 2/2 workers, all online** — where before it logged
+`OFFLINE: kube-ceph-02 (10.1.10.22)` on every sweep.
+
+**Fleet check — the same corruption was on navi**, also 32 empty refs, also cleared. elizabeth was
+clean and already current. Two things remain:
+
+- [ ] 🔴 **navi's doco-cd is crash-looping** — `failed to initialize secret provider: [400 Bad
+      Request] {"error":"invalid_client"}`, its Bitwarden Secrets Manager access token is
+      rejected. **RestartCount 6416**, roughly 4.5 days. Its refs are now fixed, so repairing the
+      token should be enough. matchbox itself is running and unaffected — it is navi's *GitOps*
+      that is dead, which is why the PXE work earlier in phase 3 still functioned
+- [ ] ⚠️ **Nothing alerts on doco-cd health.** Donkey was silently frozen for six days and navi
+      for four and a half, and both were only found by reading logs by hand. Docker GitOps has no
+      equivalent of Flux's `Kustomization` readiness — worth a gatus check or a Prometheus scrape
+      of doco-cd's metrics endpoint (it already serves one)
+- [ ] doco-cd is v0.103.0, v0.111.0 is available; upgrade is manual per host
 
 ### Phase 4 — `just merge` and the gpu component
 
