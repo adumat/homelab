@@ -5,8 +5,12 @@ kind: Kustomization
 metadata:
   name: gatus
 spec:
+  components:
+    - ../../../../components/oidc-auth
   dependsOn:
     - name: external-secrets-store
+      namespace: security
+    - name: authelia
       namespace: security
   path: ./kubernetes/apps/observability/gatus/app
   sourceRef:
@@ -19,6 +23,9 @@ spec:
   retryInterval: 1m
   timeout: 5m
   postBuild:
+    substitute:
+      APP: gatus
+      OIDC_ROUTE: gatus
     substituteFrom:
       - name: cluster-secrets
         kind: Secret

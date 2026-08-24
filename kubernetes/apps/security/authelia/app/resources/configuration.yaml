@@ -563,6 +563,36 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
+      # gatus is an Envoy-OIDC client, not native, despite sitting with the
+      # native apps in the Plan B spec: its route name matches APP, so the
+      # component covers it and gatus itself needs no config change.
+      #
+      # WHY it is protected at all: status.${DOMAIN} is on the EXTERNAL gateway
+      # and gatus ships with security: null. Its public API was serving 46
+      # auto-discovered endpoints - including an 'internal' group naming lldap,
+      # headlamp, pgadmin and 24 more - plus SECRET_NAS_NAME, which is a SOPS
+      # secret everywhere else in this repo. That is a public map of the
+      # homelab, so the leak is the reason, not "it is an ops tool".
+      #
+      # Accepted trade-off: gatus also monitors authelia, so if authelia is down
+      # the page that would say so is unreachable. Break-glass is Pushover,
+      # which gatus alerts through directly and which never traverses Authelia.
+      - client_id: 'gatus'
+        client_name: 'Gatus'
+        client_secret: '{{ secret "/secrets/oidc/gatus" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        lifespan: 'envoy_session'
+        redirect_uris:
+          - 'https://status.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
       # ---------- Native OIDC apps ----------
       - client_id: 'grafana'
         client_name: 'Grafana'
