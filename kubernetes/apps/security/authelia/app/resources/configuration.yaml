@@ -14,6 +14,48 @@ theme: auto
 
 server:
   address: 'tcp://0.0.0.0:9091'
+  endpoints:
+    # ⚠️ Authelia's rate limiter is anchored to the REMOTE IP, and that
+    # assumption breaks completely behind Envoy Gateway: every token request in
+    # the cluster arrives from one of the two envoy-internal pod IPs, so all 17
+    # OIDC apps and every device share a single bucket per replica. The
+    # defaults (30/1m, 40/2m, 50/10m, 100/1h) are sized for one user per IP.
+    #
+    # Diagnosed 2026-08-24: 794 token requests over ~7h from 10.42.0.70 and
+    # 10.42.1.14 - 620 rejected 429, 162 rejected 400, only 12 succeeded.
+    # Authelia logged "Rate Limit Exceeded" on bucket 4 with a delay of ~967s.
+    # The user-visible symptom is NOT a slow app: a fresh login completes at the
+    # portal, Envoy calls /oauth2/callback, and the code exchange is refused
+    # with 429, so the session is never established and the login prompt
+    # returns. It looks like "it asks me to approve every time".
+    #
+    # Raised ~10x rather than disabled: the limit still caps a genuine
+    # brute-force against the token endpoint, and these are confidential
+    # clients with 72-char secrets plus PKCE. userinfo is raised for the same
+    # topology reason before it bites too.
+    rate_limits:
+      openid_connect_token:
+        enable: true
+        buckets:
+          - period: '1 minute'
+            requests: 300
+          - period: '2 minutes'
+            requests: 400
+          - period: '10 minutes'
+            requests: 500
+          - period: '1 hour'
+            requests: 1000
+      openid_connect_userinfo:
+        enable: true
+        buckets:
+          - period: '1 minute'
+            requests: 300
+          - period: '2 minutes'
+            requests: 400
+          - period: '10 minutes'
+            requests: 500
+          - period: '1 hour'
+            requests: 1000
 
 log:
   level: 'info'
