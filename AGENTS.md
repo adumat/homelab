@@ -349,6 +349,32 @@ Available `just` recipes: `check-nodes`, `mount`/`unmount`/`mounts`, plus the `b
 
 All verified. These are things you cannot deduce by reading the code.
 
+### Envoy's refresh cookie must not outlive Authelia's refresh token
+
+`components/oidc-auth` sets `defaultRefreshTokenTTL: 168h`, so Envoy keeps a refresh cookie for a
+week and replays it until it expires. Authelia's **default** `refresh_token` lifespan is **1h30m**.
+When the token dies first, Envoy retries the refresh in a loop instead of restarting the login flow,
+and those retries trip Authelia's per-IP rate limiter on `/api/oidc/token`.
+
+**The symptom does not point at the cause.** One app's login fails while the gateway still returns a
+correct `302` with the right `client_id`, `redirect_uri` and PKCE challenge — because the break is in
+the *token exchange*, which the rate limiter is rejecting for every app behind that Envoy replica.
+The evidence is in Authelia's log, not Envoy's:
+
+```
+Refresh Token expired at '<time>'          # replayed for hours
+Rate Limit Exceeded  path=/api/oidc/token  # backoff grows past 500s
+```
+
+⚠️ **`rollout restart deploy/envoy-internal` does NOT fix this.** The stuck state is the *client's
+cookie*, so a fresh replica reads the same cookie and replays the same dead token. The cookie has to
+be cleared in the browser (a private window proves it immediately).
+
+Every Envoy-OIDC client therefore carries `lifespan: 'envoy_session'` (`refresh_token: '2 weeks'`),
+which clears the 168h TTL with margin. Keep that invariant when adding a client: a new
+`oidc-auth` consumer with no `lifespan` inherits 1h30m and reintroduces the loop. `peekaboo` uses
+`long_session` (3 months) instead, for a page left open for hours.
+
 ### Flux substitutes an unset variable with the empty string
 
 Not an error — a silently invalid resource. The live case is `oidc-auth`:
