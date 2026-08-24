@@ -759,7 +759,8 @@ kopiur at a Postgres data directory, so:
         needed the operator (the `volsync` hostname in its config JSON is kopia source
         metadata), and it is how the cold archive stays readable
       - **`home/immich`** — a stale `dependsOn`; its PVCs are cache/NFS so it just loses it
-- [ ] Keep the old repository as a cold fallback **through phase 3**, then delete it.
+- [x] Keep the old repository as a cold fallback **through phase 3**, then delete it.
+      **2026-08-24: the ClusterRepository is removed; the data on elizabeth is kept for now.**
       Active: the `volsync-repo` ClusterRepository and the data on elizabeth are both kept, and
       the `kopia` UI reads them. Its `KopiaMaintenance` went away with the operator, which is
       fine for a read-only archive — maintenance compacts indexes, it is not needed to read
@@ -1566,8 +1567,8 @@ EPHEMERAL: 200 GiB on bulbasaur, squirtle and snorlax; 100 on charmander; 90 on 
 
 - [x] **G1** — phase 2.5 complete
 - [x] **G2** — accepted on its earlier rehearsal rather than re-run, by explicit decision
-- [ ] **G3** — VolSync's old repository on elizabeth is **still to delete**, kept as the cold
-      second copy until confidence settles
+- [x] **G3** — the `nas-volsync` ClusterRepository was removed from git on 2026-08-24, but the
+      **data on elizabeth is deliberately kept** for now as the cold second copy
 - [x] **G4** — recovered essentially unassisted. Flux was never suspended and no restore was
       hand-ordered. Everything that needed a hand is below
 
@@ -1630,7 +1631,13 @@ unsigned iPXE, and strand it.
 - [x] **Benchmarked 2026-08-24** — numbers below
 - [x] Deleted `downloads/prowlarr-rescue` — no `*-rescue` PVC remains in any namespace
 - [x] Runbook updated with the two reset modes and the `wipe disk` step
-- [ ] **G3** — delete VolSync's old repository on elizabeth
+- [x] **G3 — repository removed, data kept (2026-08-24).** The `nas-volsync` ClusterRepository
+      and its `volsync-repo` ExternalSecret are gone from git, so Flux pruned them; nothing
+      referenced them (all 26 SnapshotPolicies write to `nas`). **The folders on elizabeth are
+      intentionally left in place**: `/mnt/user/backups/volsync` (18G, last write 2026-08-19) and
+      `/mnt/user/backups/volsync-preblackout-20260818` (17G). 35G total, recoverable by reverting
+      the commit — re-add the ClusterRepository and the archive is browsable again
+- [ ] Decide when to actually delete those 35G from elizabeth
 - [ ] 🔴 **charmander's NIC is negotiating at 100 Mbit** — see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
