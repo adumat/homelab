@@ -37,9 +37,21 @@ spec:
   # that is already a rolling window - Prometheus, victoria-logs - gains nothing
   # from 24 hourly copies of itself.
   retention:
+    # Snapshots run DAILY (`0 0 * * *`, staggered), so `keepHourly` does not mean 24
+    # hours: kopia keeps the newest snapshot per bucket that HAS one, and with one a
+    # day each day is its own hourly bucket. In practice this is ~24 dailies.
     keepHourly: ${KOPIUR_KEEP_HOURLY:=24}
     keepDaily: ${KOPIUR_KEEP_DAILY:=7}
     keepWeekly: ${KOPIUR_KEEP_WEEKLY:=5}
+    # Added 2026-08-24. Without it the policy guarantees only ~5 weeks; the older
+    # snapshots that exist today survive on kopia's own GFS tags, not on anything this
+    # policy asks for. Six monthly anchors make a few months of history intentional
+    # rather than incidental.
+    #
+    # Retention only ever keeps MORE, so this cannot delete anything. Cost is at most
+    # +6 snapshots per source, and kopia dedupes at content level — these are
+    # slow-changing config PVCs, so the marginal data is small.
+    keepMonthly: ${KOPIUR_KEEP_MONTHLY:=6}
   sources:
     - pvc:
         name: ${KOPIUR_CLAIM:=${APP}}
