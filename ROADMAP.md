@@ -92,7 +92,7 @@ Leading remaining candidates: shfs restart after an unclean shutdown, or Unraid 
 The recognition and manual recovery procedure stays in [AGENTS.md](AGENTS.md), traps section —
 `kubectl delete pod` remains the fix when recovery has to be done by hand.
 
-### Phase 2 — storage validation: prove kopiur and miroir, migrate nothing
+### Phase 2 — storage validation: prove kopiur and miroir, migrate nothing — ✅ done
 
 Design: [2026-08-08-phase2-storage-validation-design.md](docs/superpowers/specs/2026-08-08-phase2-storage-validation-design.md)
 
@@ -763,8 +763,9 @@ kopiur at a Postgres data directory, so:
       Active: the `volsync-repo` ClusterRepository and the data on elizabeth are both kept, and
       the `kopia` UI reads them. Its `KopiaMaintenance` went away with the operator, which is
       fine for a read-only archive — maintenance compacts indexes, it is not needed to read
-- [ ] Delete the leftover pre-migration rescue PVCs, `prowlarr-rescue` included — they are
-      deliberately kept through this phase as known-good references
+- [x] **Deleted — confirmed 2026-08-24.** The leftover pre-migration rescue PVCs, `prowlarr-rescue`
+      included, are gone; no `*-rescue` PVC remains in any namespace. They did not survive the
+      phase 3 rebuild, which only restored PVCs that had snapshots
 - [x] **The CNPG monitoring gap was worse than noted, and is fixed — 2026-08-20.** The note said
       "anything alerting on it is blind". There *was* such an alert, `DatabaseFailedBackup`, and
       it could **never fire**: it compared against `cnpg_collector_last_successful_backup_timestamp`,
@@ -838,7 +839,17 @@ Phase 2 produced the numbers this phase needs: snapshot 111 s and restore+bind 3
 volume, a 3.3 MB repository for prowlarr's 57 MB, and a scheduled run that fired unattended.
 What it did **not** produce is behaviour at 45 apps at once — so batches, not bulk.
 
-### Phase 2.6 — node self-recovery: hardware watchdog and kernel logs — ⚠️ priority, inserted 2026-08-18
+### Phase 2.6 — node self-recovery: hardware watchdog and kernel logs — ✅ done 2026-08-21
+
+*Inserted 2026-08-18 by a node that hung unreachable and had to be power-cycled by hand.*
+**Re-verified 2026-08-23 after the phase 3 rebuild**, since every node was wiped: the watchdog
+is armed on all five (`timeout=5m0s`, `feedInterval=1m40s`, squirtle included as a new control
+plane), `panic=10` is on the kernel cmdline, and fluent-bit is Running on all five. The
+controls are in git, so the rebuild restored them without intervention.
+
+The one unchecked box below is deliberate — it moved to phase 5 and to §8.1 of the
+blackout-monitor design, because it only works from a host that does not share the cluster's
+fate.
 
 **Independent of 2.5**: this touches only Talos machine config, so it does not wait for the
 kopiur migration to finish.
@@ -1499,12 +1510,13 @@ garage migration; both need a decision.
       are Ready. **#488 (Ceph v21.1.0, Renovate-flagged breaking) remains a separate decision and
       should not be merged casually.**
 
-- [ ] 🔴 **CVE-2025-30156 — cephx keys are the old insecure `aes` type, and the ERR is muted
+- [x] ~~🔴 **CVE-2025-30156 — cephx keys are the old insecure `aes` type, and the ERR is muted
       until 2026-08-28.** Ceph v20.2.4 exists largely to fix this CVE; it introduces the
       `aes256k` key type, and the new `AUTH_INSECURE_*` health checks are the intended signal
       that existing keys must be rotated. Ours are all `aes`: 8 client entities (`client.admin`,
       the four CSI identities, `client.crash`, `client.ceph-exporter`,
-      `client.rbd-mirror-peer`), 6 service entities, and 4 rotating service keys.
+      `client.rbd-mirror-peer`), 6 service entities, and 4 rotating service keys.~~
+      **Moot since phase 3 (2026-08-23): Ceph is gone**, and with it every cephx key.
 
       `AUTH_INSECURE_SERVICE_KEY_TYPE` is **ERR** level, which blocks Flux the same way the crash
       loop does, so it is muted with `ceph health mute ... 7d` — **deliberately time-boxed so it
@@ -1615,11 +1627,42 @@ unsigned iPXE, and strand it.
 
 #### Still open
 
-- [ ] **Benchmark the NVMe pools** and record the numbers phase 2 could not measure. The
-      Crucial P3 is QLC and at replicas 2 still takes a share of every write it hosts
+- [x] **Benchmarked 2026-08-24** — numbers below
+- [x] Deleted `downloads/prowlarr-rescue` — no `*-rescue` PVC remains in any namespace
+- [x] Runbook updated with the two reset modes and the `wipe disk` step
 - [ ] **G3** — delete VolSync's old repository on elizabeth
-- [ ] Delete `downloads/prowlarr-rescue`
-- [ ] The runbook still documents the old reset; fold in the two-mode guidance above
+- [ ] 🔴 **charmander's NIC is negotiating at 100 Mbit** — see below
+
+#### Benchmark — the write path is network-bound, not disk-bound
+
+fio on snorlax (WD_BLACK SN850X), `direct=1`, 30s per test, 2026-08-24:
+
+| test | `miroir-local` (1 copy) | `miroir-replicated` (2 copies) | penalty |
+|---|---|---|---|
+| randwrite 4k qd16 | 137,913 IOPS / 539 MiB/s | 20,599 IOPS / 80 MiB/s | **6.7× slower** |
+| seqwrite 1M qd8 | 3,107 MiB/s | 111 MiB/s | **28× slower** |
+| randread 4k qd16 | 150,090 IOPS / 586 MiB/s | 143,003 IOPS / 559 MiB/s | ~none |
+
+**Reads are essentially free** — DRBD serves them from the local leg, so replication costs
+nothing there. **Writes are capped by the network, not the QLC concern the design flagged.**
+111 MiB/s is 1 GbE line rate: every node is `1000Mbit`, so a replicated sequential write cannot
+exceed roughly that no matter which NVMe backs it. The Crucial P3's QLC endurance is still worth
+watching, but it is **not** what limits throughput today — the single biggest storage win
+available is a faster replication link, not a better disk.
+
+#### 🔴 charmander is on a 100 Mbit link
+
+Found while establishing the above. `eno1` on charmander negotiates **100Mbit/Full** while all
+four other nodes are at `1000Mbit`. Nothing in `patches/` forces a speed, so it is autonegotiated;
+the link is clean (zero errs, drops, carrier events on `/proc/net/dev`), which points at **cabling
+or the switch port**, not the `e1000e` driver.
+
+It matters more than a worker would: charmander is a **control plane running etcd**, and it also
+hosts a miroir loopfile pool. It may also be related to the phase 3 boot trouble — iPXE's native
+driver could not bring the link up on this machine at all.
+
+Next step: reseat/replace charmander's cable and check the switch port, then re-verify with
+`talosctl -n 10.1.10.11 get links eno1`.
 
 ### Phase 4 — `just merge` and the gpu component
 

@@ -27,7 +27,7 @@ OFF_DELAY="${OFF_DELAY:-60}"        # ups.delay.shutdown: grace before the cut, 
 DEAD_SECONDS="${DEAD_SECONDS:-60}"  # how long the load actually stays dead
 ON_DELAY=$(( OFF_DELAY + DEAD_SECONDS ))
 
-TALOS_NODES="10.1.10.10 10.1.10.11 10.1.10.21 10.1.10.22 10.1.10.23"
+TALOS_NODES="10.1.10.10 10.1.10.11 10.1.10.12 10.1.10.21 10.1.10.23"
 BOOTID_FILE="${TMPDIR:-/tmp}/ups-cycle-donkey-bootid"   # S5: proof the cut actually happened
 ELIZ_STATE=unknown
 

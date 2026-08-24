@@ -19,7 +19,7 @@ containers on three hosts, and a few home-grown applications.
 | GitOps | Flux v2 (flux-operator + flux-instance) |
 | CNI | Cilium — BGP, native routing, kube-proxy replacement, DSR + maglev |
 | Ingress | Envoy Gateway (Gateway API). **Never `Ingress`** |
-| Storage | Rook-Ceph (`ceph-block` default, `ceph-filesystem`) + OpenEBS (`openebs-hostpath`) |
+| Storage | miroir (DRBD9) — `miroir-replicated` default (replicas 2 + diskless tie-breaker), `miroir-local` node-pinned |
 | Backup | VolSync + Kopia |
 | Databases | CloudNative-PG, Dragonfly |
 | Auth | Authelia + LLDAP, OIDC through Envoy `SecurityPolicy` |
@@ -36,7 +36,9 @@ Five nodes, all amd64.
 |---|---|---|
 | bulbasaur | 10.1.10.10 | control plane |
 | charmander | 10.1.10.11 | control plane |
-| magikarp/02/03 | 10.1.10.21/.22/.23 | worker |
+| squirtle | 10.1.10.12 | control plane |
+| magikarp | 10.1.10.21 | worker |
+| snorlax | 10.1.10.23 | worker |
 
 Pod CIDR `10.42.0.0/16`, service CIDR `10.43.0.0/16`.
 
@@ -107,8 +109,8 @@ spec:
   components:                      # only the ones actually needed
     - ../../../../components/persistence
   dependsOn:
-    - name: rook-ceph-cluster
-      namespace: rook-ceph
+    - name: miroir-config
+      namespace: miroir-system
   interval: 1h
   path: ./kubernetes/apps/<namespace>/<app>/app
   postBuild:
@@ -356,7 +358,7 @@ and every consumer must set both `APP` and `OIDC_ROUTE`. Forget the second and y
 
 `APP` is the identity (client_id, Bitwarden item, policy name); `OIDC_ROUTE` is the
 HTTPRoute to attach to. They usually match, but not for chart-generated routes
-(`kube-prometheus-stack-alertmanager`, `victoria-logs-server`, `rook-ceph-dashboard`) nor
+(`kube-prometheus-stack-alertmanager`, `victoria-logs-server`) nor
 for `home-assistant-code`.
 
 ### `${VAR:=default}` cannot be used in pattern-validated fields
@@ -696,9 +698,10 @@ The minted config uses `talos.default` as its endpoint, a cluster-internal servi
 Correct from a pod; from a laptop it needs `--endpoints <node-ip>`, or it fails with
 `name resolver error: produced zero addresses`.
 
-### etcd has two members
+### etcd has three members
 
-Verified: `charmander` and `bulbasaur`. Never restart them together — quorum is lost.
+Verified: `bulbasaur`, `charmander` and `squirtle`, since phase 3 (2026-08-23). Quorum is 2,
+so **one** control plane may be lost or rebooted; never take two down together.
 
 ### Migrating a PVC: three things that will bite
 
@@ -985,23 +988,6 @@ documents:
 mise exec -- flate build ks 2>/dev/null > /tmp/ks.yaml
 python3 -c "import io,re;print([re.search(r'^  name: (\S+)',d,re.M).group(1) for d in io.open('/tmp/ks.yaml').read().split('\n---\n') if re.search(r'^kind: Namespace$',d,re.M) and 'privileged-movers' in d])"
 ```
-
-### rook-ceph: pin the daemon with `cephImage.tag`, never `cephClusterSpec.cephVersion`
-
-The chart builds `cephVersion` itself from `.Values.cephImage`, and its own `values.yaml` warns:
-*"If specifying these values, do not include the cephVersion section in the cephClusterSpec."*
-Set both and the rendered CephCluster gets **two** `cephVersion` keys, which makes the document
-unparseable — and the failure is silent. `flate` drops the CephCluster from its output with
-**nothing on stderr**, `pre-commit`/kubeconform passes, and `flate test all` still reports every
-resource green. The only signal is the document quietly missing:
-
-```sh
-mise exec -- flate build hr 2>/dev/null | grep -c 'kind: CephCluster'   # must be 1, not 0
-```
-
-Also note the daemon version does **not** follow the operator. `rook-ceph-cluster` v1.20.2 and
-v1.20.4 both default to `quay.io/ceph/ceph:v20.2.2`, so a Renovate bump of the rook chart
-leaves the Ceph daemon where it was.
 
 ### StorageClass parameters are immutable, and it blocks the whole Kustomization
 

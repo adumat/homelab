@@ -57,6 +57,30 @@ just talos reset-node <node-ip>
 > Resetting nodes multiple times in a short period could lead to rate limiting
 > by container registries or Let's Encrypt.
 
+### Two reset modes, and why the default is the safe one
+
+`reset-node` / `reset-all-nodes` use `--system-labels-to-wipe EPHEMERAL,STATE`, which **keeps
+other partitions intact** — including the ESP. That matters more than it looks:
+
+**Talos >= v1.11.0 writes a `Talos Linux UKI` EFI boot entry on install and never removes it on
+reset.** There is no config knob, no reset flag, and efivarfs is mounted `ro`, so the entry
+cannot be deleted from a running node.
+
+- **Default (`EPHEMERAL,STATE`)** — the bootloader survives, so the entry stays *valid*. The node
+  boots from its own disk into maintenance mode and you apply config with **no PXE involved**.
+  This is what you want almost always.
+- **`--wipe-mode all`** — destroys the ESP too, leaving the boot entry pointing at a partition
+  UUID that no longer exists. The node can then only come up over PXE, and **HP firmware halts at
+  `3F0` instead of falling through** to the network entry. Reach for this only when disk
+  signatures or partition sizes must change (phase 3 needed it to clear Ceph BlueStore
+  signatures). The entry self-heals on the next install.
+
+A leftover signature can still refuse `pvcreate` after a full wipe. Clear it per disk with:
+
+```sh
+talosctl -n <node-ip> wipe disk <device> --insecure   # e.g. nvme0n1; --insecure AFTER the subcommand
+```
+
 ## Kubernetes Utilities
 
 Apply a local Flux Kustomization:
