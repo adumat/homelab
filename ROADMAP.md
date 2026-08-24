@@ -1637,8 +1637,9 @@ unsigned iPXE, and strand it.
       intentionally left in place**: `/mnt/user/backups/volsync` (18G, last write 2026-08-19) and
       `/mnt/user/backups/volsync-preblackout-20260818` (17G). 35G total, recoverable by reverting
       the commit — re-add the ClusterRepository and the archive is browsable again
-- [ ] Decide when to actually delete those 35G from elizabeth
+- Deleting those 35G from elizabeth is deferred to **phase 10**.
 - [ ] 🔴 **charmander's NIC is negotiating at 100 Mbit** — see below
+- [ ] 🔴 **power-nap-over is running on a pre-rename config** — see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
 
@@ -1670,6 +1671,28 @@ driver could not bring the link up on this machine at all.
 
 Next step: reseat/replace charmander's cable and check the switch port, then re-verify with
 `talosctl -n 10.1.10.11 get links eno1`.
+
+#### 🔴 power-nap-over never picked up the renames
+
+The blackout recovery service on donkey is **still configured with the old node names and the
+old addresses**. Its live config — the named volume `power-nap-over-config`, which is what the
+container actually mounts at `/app/config` — lists `kube-nuc`, `kube-hp`, `kube-ceph-01/02/03`
+and still has **`kube-ceph-02` at `10.1.10.22`**, an address that no longer answers. That node
+is squirtle at `.12`, and it is now a **control plane** while the stale config still has it in
+the priority-3 *Workers* group.
+
+**The generator is not at fault.** `scripts/generate-config.sh` reads `.hostname`, `.ipAddress`
+and `.controlPlane` straight out of `talconfig.yaml`, plus elizabeth from `networks.yaml`, and
+writes `broadcast_ip: 10.1.10.255`. Run today it would produce a correct file. The problem is
+that it runs **only as an init container when the compose stack is deployed**, and the stack has
+not been redeployed since the renames — the container has been up 4 days.
+
+Consequence on a real power event: PNO would ping a dead `.22`, wake squirtle in the wrong group,
+and report the old names. Worth weighing against [[project_pno_rewrite]] — PNO recovered nothing
+on 2026-08-17, and a config this stale is a candidate contributor.
+
+- [ ] Re-run the init container on donkey so the volume is regenerated, then restart
+      `power-nap-over` and verify the five names, `.12`, and squirtle in the control-plane group
 
 ### Phase 4 — `just merge` and the gpu component
 
@@ -1932,7 +1955,45 @@ exist", not left open.
 
 ## Follow-ups
 
-- [ ] NFS canary reliability — Unraid disrupts NFS connections when the mover runs, canary doesn't handle it well
+- [x] ~~NFS canary reliability — Unraid disrupts NFS connections when the mover runs, canary doesn't handle it well~~
+      **Moot: nfs-canary was retired in phase 1.5.** Replaced by `nfs-stale-exporter`, running on all
+      five nodes, which probes the mount **root** and drives KEDA directly
 - [ ] Scrape MinIO metrics from elizabeth into Prometheus — currently zero MinIO metrics exist, so restarts, latency and S3 error rates are invisible from the cluster. This is what forced the weekly CNPG backup failures to be diagnosed by hand-querying VictoriaLogs for `IncompleteBody` instead of a single query
 - [ ] Enable syslog mirroring on elizabeth **to a share, not to flash** — the 5 parity sync errors of 2026-08-02 could not be investigated per-sector because syslog had already rotated and nothing is persisted. Without this, the next array incident is equally unexplainable
 - [ ] Plan replacement of the parity disk `sdf` (WD100EFAX) — 57,077 power-on hours (~6.5 years), 1 ATA error logged, recorded max temp 60 °C. SMART still PASSED and it was not implicated in the sync errors, but it is by far the oldest device in the array (the two data disks are at 12,009h)
+
+### Phase 10 — cleanup
+
+The bin for deferred cleanup: things that are safe to remove but not yet worth the risk, and
+leftovers that outlived whatever created them. Nothing here is urgent by construction — if an
+item becomes urgent it belongs in a real phase. Add to this list rather than leaving debris
+undocumented in another phase.
+
+**Storage to reclaim**
+
+- [ ] **Delete the old VolSync backup data on elizabeth — 35G.** `/mnt/user/backups/volsync`
+      (18G, last write 2026-08-19) and `/mnt/user/backups/volsync-preblackout-20260818` (17G).
+      The `nas-volsync` ClusterRepository was removed from git on 2026-08-24, so nothing in the
+      cluster reads them; they are kept only as a cold second copy of the pre-kopiur era.
+      **Deleting them is irreversible** — the phase 3 restores are the proof they are no longer
+      needed, so this is a confidence question, not a technical one
+- [ ] **Dispose of the 101 GB of MinIO data** once phase 2.7 actually retires MinIO. Tracked
+      there as a decision; the deletion itself belongs here
+
+**Repo leftovers**
+
+- [ ] **Delete `docker/donkey/power-nap-over/config.yaml`.** It is an auto-generated artifact
+      that was committed by mistake and is **not mounted by anything** — `docker-compose.yaml`
+      mounts the `power-nap-over-config` named volume, which the init container fills from
+      `infra/data/networks.yaml` and `kubernetes/talos/talconfig.yaml`. The committed copy still
+      carries `192.168.1.x` addresses from before the network migration, so it actively misleads
+      anyone who reads it as configuration
+- [ ] **Delete the orphan `/mnt/homelab/power-nap-over/config.yaml` on donkey** — same stale
+      `192.168.1.x` content, also not mounted by the container
+
+**Cluster objects**
+
+- [ ] **Delete the `authelia-ext-auth` ReferenceGrant** (`kubernetes/apps/security/authelia/app/referencegrant.yaml`).
+      Vestigial: it only authorised cross-namespace `backendRefs` to the authelia Service, which
+      the `oidc-auth` component no longer sets. Proven 2026-07-30 — kopia lives in
+      `volsync-system`, is not in the grant, and attaches fine
