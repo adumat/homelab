@@ -11,6 +11,26 @@ The half-numbered phases were inserted as work revealed them — 1.5 by a recurr
 restored, 2.6 by a node that hung unreachable and had to be power-cycled by hand, and 2.7 by
 the one backup kopiur cannot cover silently failing for two days on the least reliable host.
 
+## 🔴 Urgent — outside the phase order
+
+Live faults. They belong to no phase because they should not wait for one; both were found on
+2026-08-24 while auditing the phase 3 renames, not by any alert.
+
+- [ ] **Reissue navi's Bitwarden Secrets Manager access token.** `doco-cd-navi` cannot start:
+      `failed to initialize secret provider: [400 Bad Request] {"error":"invalid_client"}`, with
+      **RestartCount 6416** — roughly 4.5 days of a 60-second crash-loop. **navi's GitOps is
+      therefore dead**: nothing there tracks git, including `matchbox`, so any PXE change would
+      silently not apply. matchbox itself is running and unaffected. The corrupted git refs that
+      also blocked it were cleared on 2026-08-24, so the token is the only thing left
+- [ ] **Watch charmander's 100 Mbit link — hardware.** `eno1` negotiates **100Mbit/Full** while
+      the other four nodes are at `1000Mbit`. Nothing in `patches/` forces a speed and the link is
+      clean (zero errs, drops, carrier events), so it is **cabling or the switch port**, not the
+      `e1000e` driver. It matters because charmander is a **control plane running etcd** and hosts
+      a miroir loopfile pool, and replicated writes are already network-bound at 1 GbE — this node
+      is at a tenth of that. It may also explain why iPXE's native driver could not bring the link
+      up during the rebuild. Reseat or replace the cable, try another port, then re-check with
+      `talosctl -n 10.1.10.11 get links eno1`
+
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
 - [x] Write `AGENTS.md` at the repo root
@@ -1383,10 +1403,14 @@ not merely written to. Nothing is cut over on the strength of a successful write
       old** at the time of checking, well inside the legitimate range, which is why
       `DatabaseWALArchiveBacklog` was chosen over a WAL-age rule — an age rule would be pending
       right now for no reason.
-- [ ] Continue the **full week** watch with the backup alerting armed (through ~2026-08-28) before
-      touching MinIO. One good night proves the path works; it does not prove the *weekly* pattern
-      is gone, and the whole reason this phase exists is that the failure was weekly. Now backed by
-      `DatabaseNoRecentBackup` / `DatabaseNeverBackedUp`, so an absence is loud rather than silent
+- [x] ~~Continue the **full week** watch with the backup alerting armed (through ~2026-08-28)~~
+      **Stopped early 2026-08-24 — backups are working, called by decision rather than by the
+      calendar.** Verified at the time: both CNPG clusters backed up on their staggered schedule
+      (`cluster18` 23:30, `immich-db` 23:45), and all **26** kopiur SnapshotPolicies had a snapshot
+      within the preceding few hours with no failures. The backups also survived the phase 3
+      rebuild, which restored 21/21 PVCs from them — a stronger proof than another week of
+      watching. `DatabaseNoRecentBackup` / `DatabaseNeverBackedUp` stay armed, so a future absence
+      is still loud. **MinIO retirement is no longer gated**
 - [x] **A "no successful backup" dead-man now exists — done 2026-08-21, mimicking kopiur.**
       `DatabaseFailedBackup` only catches a *recorded failure* and **self-clears after 24h**, so a
       backup that stopped happening altogether went silent within a day and the silence read as
@@ -1638,7 +1662,7 @@ unsigned iPXE, and strand it.
       `/mnt/user/backups/volsync-preblackout-20260818` (17G). 35G total, recoverable by reverting
       the commit — re-add the ClusterRepository and the archive is browsable again
 - Deleting those 35G from elizabeth is deferred to **phase 10**.
-- [ ] 🔴 **charmander's NIC is negotiating at 100 Mbit** — see below
+- Tracked in **🔴 Urgent** at the top: charmander's 100 Mbit link. Detail below.
 - [x] ✅ **power-nap-over fixed 2026-08-24** — root cause was doco-cd, see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
@@ -1715,11 +1739,8 @@ reports **1/1 NAS, 3/3 control plane, 2/2 workers, all online** — where before
 **Fleet check — the same corruption was on navi**, also 32 empty refs, also cleared. elizabeth was
 clean and already current. Two things remain:
 
-- [ ] 🔴 **navi's doco-cd is crash-looping** — `failed to initialize secret provider: [400 Bad
-      Request] {"error":"invalid_client"}`, its Bitwarden Secrets Manager access token is
-      rejected. **RestartCount 6416**, roughly 4.5 days. Its refs are now fixed, so repairing the
-      token should be enough. matchbox itself is running and unaffected — it is navi's *GitOps*
-      that is dead, which is why the PXE work earlier in phase 3 still functioned
+- Tracked in **🔴 Urgent** at the top: navi's doco-cd crash-loop on a rejected Bitwarden token.
+  Its refs were fixed here; the token is the remaining blocker
 - [ ] ⚠️ **Nothing alerts on doco-cd health.** Donkey was silently frozen for six days and navi
       for four and a half, and both were only found by reading logs by hand. Docker GitOps has no
       equivalent of Flux's `Kustomization` readiness — worth a gatus check or a Prometheus scrape
