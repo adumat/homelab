@@ -1875,6 +1875,32 @@ Hardware already in the house, metrics absent.
       the exporter runs in the cluster
 - [ ] Pick up the MinIO metrics scrape from elizabeth (see Follow-ups): it is the same gap,
       and it is what forced the CNPG failures to be diagnosed by hand-querying VictoriaLogs
+
+#### The three Docker hosts are half-observed, and it already cost six days
+
+The cluster is well covered; the Docker side is not. Measured 2026-08-24, the `node-exporter`
+ScrapeConfig holds `donkey.lan:9100` and `elizabeth.lan:9100` (both `up=1`, alongside the five
+Talos nodes) — and that is the whole of it. **Everything below is host- or container-level state
+that no query can currently answer.**
+
+This is not theoretical. doco-cd froze on donkey for **six days** and crash-looped on navi
+**6,416 times**, and both were found only by reading container logs by hand during an unrelated
+audit. Every dashboard was green throughout, because nothing was looking.
+
+- [ ] **navi has no `node-exporter` at all** — it runs only `matchbox` and `doco-cd-navi`, so CPU,
+      memory, disk and uptime are invisible on the host that serves **PXE**. Nothing would report
+      it filling its disk until a rebuild failed. Install it and add `navi.lan:9100` to the
+      existing ScrapeConfig
+- [ ] **No container-level metrics on any of the three** — cAdvisor or equivalent. Container
+      up/down, restart counts and per-container resource use are all unobserved. A restart-rate
+      alert alone would have caught navi in minutes instead of 4.5 days
+- [ ] **Scrape doco-cd itself.** It logs `serving prometheus metrics` and serves an endpoint, but
+      `docker/doco-cd/docker-compose.yaml` publishes **no ports**, so nothing can reach it. Publish
+      it on all three hosts and scrape it
+- [ ] **Alert on GitOps staleness, not just process liveness.** doco-cd reported `Up (healthy)`
+      through the entire six-day freeze — the container was alive, the *sync* was dead. The useful
+      signal is time-since-successful-poll and the deployed commit falling behind `main`; Flux has
+      `Kustomization` readiness for exactly this and the Docker side has no equivalent
 - [x] **Alert on node disk headroom — done 2026-08-12**, and the root cause was fixed rather
       than just alerted on. `NodeVarSpaceLow` warns at 20% free on `/var`, ahead of kubelet's
       15% eviction line; the built-in `KubeNodePressure` only fires once `DiskPressure` is
