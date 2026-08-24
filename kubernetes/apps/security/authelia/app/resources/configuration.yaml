@@ -171,6 +171,29 @@ identity_providers:
           id_token: '1 hour'
           authorize_code: '1 minute'
           refresh_token: '3 months'
+        # ⚠️ INVARIANT: this refresh_token MUST exceed
+        # components/oidc-auth's defaultRefreshTokenTTL (168h / 1 week).
+        #
+        # Envoy keeps its refresh cookie for that TTL and replays it until it
+        # expires. With Authelia's DEFAULT 1h30m lifespan the token dies first,
+        # and Envoy then retries the refresh in a loop instead of restarting the
+        # login flow. Those retries trip Authelia's per-IP rate limiter on
+        # /api/oidc/token, which breaks FRESH logins for every app behind the
+        # same Envoy replica - the failure looks like one app's login being
+        # broken while the gateway still returns a correct 302.
+        #
+        # Diagnosed 2026-08-24: an expired token from 10:37:32 was replayed for
+        # hours, backoff reached ~500s, and kapowarr could not complete a login.
+        # Restarting envoy-internal does NOT fix it: the state is the client's
+        # cookie, so a fresh replica replays the same token.
+        #
+        # 2 weeks, not long_session's 3 months: it clears 168h with margin
+        # without handing admin-tier tools a quarter-long refresh token.
+        envoy_session:
+          access_token: '1 hour'
+          id_token: '1 hour'
+          authorize_code: '1 minute'
+          refresh_token: '2 weeks'
 
     # OCIS web is a browser SPA: it is a public PKCE client, so the token exchange
     # happens in JavaScript from https://files.${DOMAIN} against this issuer -
@@ -267,6 +290,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://sonarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -282,6 +306,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://radarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -297,6 +322,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://prowlarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -312,6 +338,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://qb.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -327,6 +354,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://pyload.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -344,6 +372,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://metube.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -381,6 +410,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://kopia.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -398,6 +428,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://it-tools.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -414,6 +445,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://esphome.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -429,6 +461,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://victoria-logs.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -444,6 +477,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://alertmanager.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -459,6 +493,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://prometheus.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -479,6 +514,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://hacs.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -691,6 +727,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://mylar3.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -706,6 +743,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://kapowarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
@@ -721,6 +759,7 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
+        lifespan: 'envoy_session'
         redirect_uris:
           - 'https://suwayomi.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
