@@ -30,6 +30,15 @@ spec:
               # PROWLARR__AUTH__METHOD: External. The oidc-auth SecurityPolicy is
               # the real control.
               AUTH_MODE: none
+              # ⚠️ Suwayomi ships with NO extension repository, and without one
+              # the source list is empty - there is nothing to install and no
+              # error explaining why. Tachiyomi's official repo shut down, so a
+              # third-party one is required; Keiyoushi is the de-facto successor.
+              #
+              # index.pb, not index.min.json: the latter is now a 765-byte
+              # version-gate stub holding two dummy "Update to Mihon" entries.
+              # keiyoushi's own repo.json names index.pb as `index_v2`.
+              EXTENSION_STORES: '["https://github.com/keiyoushi/extensions/raw/repo/index.pb"]'
               # flaresolverr already runs in this namespace.
               FLARESOLVERR_ENABLED: "true"
               FLARESOLVERR_URL: http://flaresolverr.downloads.svc.cluster.local:8191
