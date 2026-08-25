@@ -33,13 +33,18 @@ spec:
               - -c
               - |
                 set -eu
+                # $$ escapes Flux postBuild substitution. A bare ${VAR} here is
+                # replaced by envsubst BEFORE the shell ever sees it, and an
+                # undefined name becomes an EMPTY STRING with no error - which
+                # silently produced a passfile with blank user and password
+                # fields that libpq accepted and ignored.
                 SU_USER=$(cat /creds/su/username); SU_PASS=$(cat /creds/su/password)
                 IM_USER=$(cat /creds/immich/username); IM_PASS=$(cat /creds/immich/password)
                 umask 077
                 cat > /pgpass/pgpass <<EOF
-                cluster18-rw.database.svc.cluster.local:5432:*:${SU_USER}:${SU_PASS}
-                immich-db-rw.database.svc.cluster.local:5432:*:${SU_USER}:${SU_PASS}
-                immich-db-rw.database.svc.cluster.local:5432:*:${IM_USER}:${IM_PASS}
+                cluster18-rw.database.svc.cluster.local:5432:*:$${SU_USER}:$${SU_PASS}
+                immich-db-rw.database.svc.cluster.local:5432:*:$${SU_USER}:$${SU_PASS}
+                immich-db-rw.database.svc.cluster.local:5432:*:$${IM_USER}:$${IM_PASS}
                 EOF
                 chmod 600 /pgpass/pgpass
         containers:
