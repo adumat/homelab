@@ -1578,7 +1578,41 @@ not merely written to. Nothing is cut over on the strength of a successful write
     measured with `min by (job)` so only the primary counts, cluster18's worst gap was 9.5 min but
     immich-db's was **399 min**, because a low-write database can take hours to fill a 16 MB WAL
     segment. A threshold loose enough for immich detects nothing useful.
-- [ ] Only then retire MinIO, and write down what still points at elizabeth
+- [x] **MinIO retired 2026-08-25.** The `minio-postgresql` and `minio-immich` ObjectStores are
+      deleted from git and pruned from the cluster, leaving only the two garage ones; the container
+      is stopped and removed on elizabeth. It was an Unraid **dockerman** container, not doco-cd
+      managed, and it was listed in `/var/lib/docker/unraid-autostart` — so stopping alone would
+      have brought it back on the next array start. That entry is removed (it was the only one;
+      backup taken first). The Unraid template on `/boot` is deliberately left, so it can be
+      recreated from the UI if the old data is ever needed.
+
+      **Verified rather than assumed:** an on-demand backup of `cluster18` through the plugin
+      completed in 34s with MinIO gone. Note `kubectl cnpg backup` defaults to the *native*
+      `barmanObjectStore` method and fails with "cluster has no backup section" — these clusters
+      use the barman-cloud **plugin**, so it needs
+      `--method plugin --plugin-name barman-cloud.cloudnative-pg.io`.
+
+      Also worth knowing: `status.lastSuccessfulBackup` is **empty on both clusters** because the
+      plugin path does not populate that legacy field. The backup alerts do not depend on it —
+      they use `cnpg_backup_stopped_at_seconds{phase="completed"}`, verified with controls to
+      confirm the `unless on (cluster, namespace)` join in `DatabaseNeverBackedUp` can actually
+      match.
+
+#### What still points at elizabeth
+
+The single most load-bearing external host, by a distance. **18 live NFS mounts**, plus:
+
+| dependency | what |
+|---|---|
+| **S3 / garage** `:3900` | both CNPG ObjectStores — every Postgres backup and WAL |
+| **NFS** `:2049` | 17 apps: qbittorrent, radarr, sonarr, prowlarr-adjacent tools, metube, mylar3, pyload-ng, kapowarr, suwayomi, jellyfin, komga, romm, immich, frigate, home-assistant, filebrowser, ocis, paperless |
+| **kopiur repository** | the `nas` ClusterRepository — every PVC snapshot |
+| **kopia UI** | reads the old VolSync archive (kept, phase 10) |
+| **monitoring** | blackbox probes (host + `:2049`), node-exporter `:9100`, an alertmanager route and a silence-operator entry |
+| **homepage** | dashboard links |
+
+Nothing in the cluster still references MinIO. The practical consequence is unchanged and worth
+restating: **elizabeth down means backups, all media apps, and PVC snapshots stop together.**
 
 - [x] **MinIO frozen, not stopped — 2026-08-21.** Still `Up`, still serving reads, holding **100 GB**
       (immich 66 GB, postgresql 23 GB, plus 12 GB of dead `volsync` bucket). Nothing writes to it:
@@ -1593,9 +1627,18 @@ not merely written to. Nothing is cut over on the strength of a successful write
       Compose must be checked separately from Docker, `/usr` is RAM-backed so plugin binaries do
       not survive reboot, `external_secrets:` maps env names to Bitwarden UUIDs needing
       `# gitleaks:allow`, and a missing `working_dir` is an error rather than an empty result.
-- [ ] Decide what happens to the **101 GB of MinIO data** on retirement: the old barman history
-      is the pre-garage recovery path, so keep it read-only until garage has a restore rehearsal
-      *and* a week of clean scheduled backups behind it
+- [x] **Decided 2026-08-25: keep the data for now.** The ~**100 GB** stays at
+      `/mnt/disk2/atlantic_minio` on elizabeth, with its config at `/mnt/user/appdata/minio`.
+      Deletion is queued in **phase 10** rather than done here — stopping a container is
+      reversible, deleting 100 GB of backup history is not.
+
+      Both stated preconditions were in fact met, the first more strongly than the plan asked:
+      the phase 3 rebuild on 2026-08-23 **recovered both clusters from garage for real**
+      (`wal-restore`, `starting backup recovery with redo LSN 1C8/AC000028`), which beats a
+      rehearsal, and scheduled backups have completed cleanly since.
+
+      ⚠️ The recovery path through this data is no longer live: there is no MinIO endpoint, so
+      using it means recreating the container from its Unraid template first.
 - [x] Fix the monitoring gap while here — **done early, 2026-08-20**, because it was what hid the
       immich-db failure. `DatabaseFailedBackup` could never fire; rewritten onto
       `cnpg_collector_last_failed_backup_timestamp`. Details in phase 2.5
