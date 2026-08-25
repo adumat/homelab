@@ -1271,7 +1271,7 @@ the rent; the logging is for naming causes afterwards.
         donkey is battery-backed with its own LTE uplink. Tracked as low priority there; it is
         still the only mechanism that can detect the failure of everything else.
 
-### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy
+### Phase 2.7 — replace MinIO with garage, and make barman's target trustworthy — ✅ done 2026-08-25
 
 **Moved ahead of the rebuild on 2026-08-20**, after the MinIO incident. The original reasoning
 for putting this after phase 3 was that "the target only makes sense once the storage layer is
@@ -2278,8 +2278,13 @@ undocumented in another phase.
       cluster reads them; they are kept only as a cold second copy of the pre-kopiur era.
       **Deleting them is irreversible** — the phase 3 restores are the proof they are no longer
       needed, so this is a confidence question, not a technical one
-- [ ] **Dispose of the 101 GB of MinIO data** once phase 2.7 actually retires MinIO. Tracked
-      there as a decision; the deletion itself belongs here
+- [ ] **Delete the ~100 GB of MinIO data** at `/mnt/disk2/atlantic_minio` on elizabeth (config at
+      `/mnt/user/appdata/minio`). Phase 2.7 retired MinIO on 2026-08-25 — ObjectStores pruned,
+      container stopped and removed, autostart entry gone — and deliberately kept the data.
+      Nothing reads it: there is no MinIO endpoint any more, so using it would mean recreating the
+      container from its Unraid template on `/boot`, which is left in place for exactly that.
+      Delete when the garage history is long enough that pre-garage backups are no longer worth
+      keeping
 
 **Repo leftovers**
 
