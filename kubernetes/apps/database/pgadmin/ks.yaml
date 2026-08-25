@@ -13,7 +13,6 @@ spec:
   # dataSourceRef is immutable, so it cannot be adopted in place.
   components:
     - ../../../../components/kopiur-external
-    - ../../../../components/oidc-auth
   dependsOn:
     - name: external-secrets-store
       namespace: security
@@ -38,7 +37,6 @@ spec:
   postBuild:
     substitute:
       APP: *app
-      OIDC_ROUTE: *app
       # 5050, verified not assumed: /var/lib/pgadmin is 5050:5050 with 10 files
       # at mode 0600. The default 1000 mover cannot read those, and a ROOT mover
       # would be no better - kopiur drops ALL capabilities, so uid 0 has no

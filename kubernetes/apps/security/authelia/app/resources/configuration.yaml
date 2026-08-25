@@ -563,11 +563,17 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
-      # pgadmin keeps its OWN login as well, so this is a second gate rather
-      # than SSO: Authelia first, then pgadmin's email/password. Deliberate -
-      # the Envoy component is the proven pattern here and needs no pgadmin
-      # config, whereas native OAUTH2_CONFIG would be ~10 env vars. If the
-      # double login becomes annoying, switch to pgadmin's own OAuth2 support.
+      # pgadmin uses its NATIVE OAuth2 support, not the Envoy component, so this
+      # is real SSO rather than two gates.
+      #
+      # ⚠️ The callback is /oauth2/authorize, NOT the /oauth2/callback that every
+      # Envoy-component client uses. Getting this wrong fails at the redirect
+      # with an invalid_redirect_uri that looks like a pgadmin bug.
+      #
+      # pgadmin keeps 'internal' in AUTHENTICATION_SOURCES as a fallback: the
+      # OIDC identity is matteo's LLDAP email, which does NOT match the internal
+      # pgadmin@ account that owns the preconfigured servers, so auto-created
+      # OIDC users start with an empty server list.
       - client_id: 'pgadmin'
         client_name: 'pgAdmin'
         client_secret: '{{ secret "/secrets/oidc/pgadmin" }}'
@@ -577,9 +583,11 @@ identity_providers:
         pkce_challenge_method: 'S256'
         grant_types: ['authorization_code', 'refresh_token']
         response_types: ['code']
-        lifespan: 'envoy_session'
+        # No 'envoy_session' lifespan: that profile exists to outlive Envoy's
+        # 168h refresh cookie, and pgadmin is not an Envoy client - it keeps its
+        # own Flask session. The 1h30m default is correct here.
         redirect_uris:
-          - 'https://pgadmin.${DOMAIN}/oauth2/callback'
+          - 'https://pgadmin.${DOMAIN}/oauth2/authorize'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'

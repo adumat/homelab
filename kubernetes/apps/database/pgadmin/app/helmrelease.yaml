@@ -22,6 +22,13 @@ spec:
             env:
               TZ: Europe/Rome
               PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
+              # 'internal' is kept deliberately. The OIDC identity is matteo's
+              # LLDAP email, which does not match the internal pgadmin@ account
+              # that owns the preconfigured servers from servers.json, so an
+              # auto-created OIDC user starts empty. Removing 'internal' would
+              # strand those servers behind an account you could no longer reach.
+              PGADMIN_CONFIG_AUTHENTICATION_SOURCES: "['oauth2', 'internal']"
+              PGADMIN_CONFIG_OAUTH2_AUTO_CREATE_USER: "True"
             envFrom:
               - secretRef:
                   name: pgadmin-secret
