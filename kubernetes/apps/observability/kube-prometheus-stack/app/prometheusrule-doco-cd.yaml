@@ -51,8 +51,14 @@ spec:
             summary: >-
               doco-cd on {{ $labels.instance }} restarted
               {{ $value | printf "%.0f" }} time(s) in 30m
+          #
+          # `> 1`, not `> 0`: a single reset is a planned upgrade (the image pin
+          # is bumped by hand per host), and alerting on that means every
+          # maintenance window raises a warning for 30 minutes. A crash-loop is
+          # not subtle - navi restarted every 60s, which is ~30 resets in this
+          # window - so the signal survives the higher threshold intact.
           expr: |
-            resets(doco_cd_polls_total[30m]) > 0
+            resets(doco_cd_polls_total[30m]) > 1
           for: 5m
           labels:
             severity: warning
