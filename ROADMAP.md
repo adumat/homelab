@@ -172,10 +172,48 @@ Leading remaining candidates: shfs restart after an unclean shutdown, or Unraid 
       has been reporting healthy for the precise failure it exists to catch since 2026-08-22, and
       the KEDA scaler gated on it never fired.
 
-- [ ] **Fix the probe to use `stat`/`lstat`, not `statfs`** (own repo, `adumat/nfs-stale-exporter`).
-      Keep the timeout and `inflight` guard — a hung mount must still not pin goroutines — but the
-      syscall has to be one that resolves a handle. Re-verify against a real ESTALE, not a
-      synthetic export, since the synthetic rehearsal is exactly what gave false confidence.
+- [x] **Fixed and released as v0.1.1, deployed 2026-08-25.** `probe.go` now calls `unix.Lstat`;
+      `probe.Statfs` renamed to `probe.Stat`. `lstat` rather than `stat` so a mount root replaced
+      by a symlink fails instead of silently following the link off the mount. Timeout and
+      `inflight` guard unchanged. `TestStatUsesLstatNotStatfsOrStat` pins the syscall via a
+      dangling symlink — `lstat` succeeds on one, `stat` and `statfs` both return ENOENT — and the
+      guard was verified to fail when the syscall is reverted.
+
+#### What the fix immediately revealed: this was never rare
+
+Within minutes of rolling out v0.1.1 the exporter flagged **11 of 21 mounts stale** — jellyfin,
+komga, immich-server, filebrowser, qbittorrent, radarr, sonarr, metube, mylar3, pyload-ng,
+kapowarr. Confirmed independently with `talosctl list` (an lstat) on each pod's own node, so not
+an artefact: every one returned `stale file handle`. All eleven pods were `Running` and `ready` on
+dead filesystems.
+
+**The old probe reported zero, which made the problem look occasional. It is closer to half the
+mounts, continuously.** One kapowarr pod was only **25 minutes old** and already stale, so mounts
+re-stale quickly — the root cause remains the unexplained Unraid/fuse behaviour, and detection
+still is not prevention.
+
+#### The KEDA self-heal loop fired for the first time, and it works
+
+The scaler had never once fired, because the metric it reads was always 0. Its first real
+exercise, unassisted end to end:
+
+```
+t+90s   11 apps scaled 1 -> 0   (min_over_time(...[5m]) == 1 satisfied)
+t+405s  scaled 0 -> 1           (pod gone -> mount gone -> metric cleared -> fresh mount)
+t+495s  filebrowser -> 0 again  (its new mount went stale within ~90s)
+t+720s  filebrowser -> 1        settled
+```
+
+Final state: 17 mounts discovered, **0 stale**, every app back at 1/1, no manual intervention.
+Scaling to zero removes the pod and therefore the stale mount, which clears the metric and lets it
+scale back up onto a fresh one — the recovery is a side effect of the protection, and it holds.
+
+Two things this exposes, worth their own thought rather than being buried here:
+- **A flapping app is now possible.** filebrowser cycled twice because its replacement mount went
+  stale almost immediately. If re-staling ever outpaces the 5-minute window an app could sit in a
+  scale loop, which is noisier than being down.
+- **The apps were silently broken before today.** Nothing alerted for however long those eleven
+  had been stale, because the detector said healthy. The alert history starts now.
 - [x] **`nfs-canary` retired 2026-08-22.** It was segfaulting (exit 139, 41 restarts in 22h — a
       use-after-free: the timeout path destroys the libnfs context while the orphaned probe
       thread is still inside it), watched a retired export, and probed from a single replica.
