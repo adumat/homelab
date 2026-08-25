@@ -4,6 +4,19 @@ kind: ConfigMap
 metadata:
   name: pgadmin-servers
 data:
+  # "Shared": true is what makes these visible to the OIDC user. pgAdmin keys
+  # users by (username, auth_source), so signing in through Authelia creates a
+  # SEPARATE account from the internal pgadmin@ one that owns these servers -
+  # matteo.a91@ / oauth2 vs pgadmin@ / internal. A shared server is visible to
+  # every authenticated user, so it survives that split and any future user.
+  #
+  # Only an Administrator may own a shared server (pgadmin/utils/__init__.py
+  # refuses otherwise), which the internal pgadmin@ account is.
+  #
+  # NOTE: pgAdmin imports this only when its DB is fresh. After changing it,
+  # re-import explicitly:
+  #   kubectl exec -n database <pod> -- /venv/bin/python3 /pgadmin4/setup.py \
+  #     load-servers /pgadmin4/servers.json --user <admin> --auth-source internal --replace
   servers.json: |
     {
       "Servers": {
@@ -15,7 +28,8 @@ data:
           "Username": "postgres",
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
-          "Comment": "General purpose PostgreSQL cluster"
+          "Comment": "General purpose PostgreSQL cluster",
+          "Shared": true
         },
         "2": {
           "Name": "immich-db (superuser)",
@@ -25,7 +39,8 @@ data:
           "Username": "postgres",
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
-          "Comment": "Immich PostgreSQL with VectorChord - Superuser access"
+          "Comment": "Immich PostgreSQL with VectorChord - Superuser access",
+          "Shared": true
         },
         "3": {
           "Name": "immich-db (app user)",
@@ -35,7 +50,8 @@ data:
           "Username": "immich",
           "MaintenanceDB": "immich",
           "SSLMode": "prefer",
-          "Comment": "Immich database - Application user access"
+          "Comment": "Immich database - Application user access",
+          "Shared": true
         }
       }
     }
