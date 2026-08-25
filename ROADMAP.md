@@ -1894,7 +1894,37 @@ clean and already current. Two things remain:
         the `== 0` form *did* match — the counter sits at 1 with nothing to diff — and it cleared
         on each host's second poll, inside the `for: 15m` window. So the restart case is covered
         rather than merely unobserved.
-- [ ] doco-cd is v0.103.0, v0.111.0 is available; upgrade is manual per host
+- [x] **doco-cd upgraded 0.103.0 → 0.112.0 on all three hosts — done 2026-08-25.** Not v0.111.0:
+      v0.112.0 landed the same day and pinning a superseded version would reopen this immediately.
+      Checked the range for behavioural changes rather than bumping blind, since a doco-cd schema
+      change has bitten this repo before: **v0.107** flipped the `auto_discovery.delete` default to
+      `false` (all three configs set it explicitly, unaffected) and **v0.111** made `.env` files
+      expand `${...}` including bash-style operators (no `.env` is tracked, and the only one in the
+      deployed checkout is a `.env.example` with no placeholders).
+
+      **Rolled one host at a time, and the canary earned its keep.** donkey came up on 0.112.0 and
+      failed every poll with `failed to update submodules: services/peekaboo: upload-pack: not our
+      ref f8e55b7f…`. Rolling back to 0.103.0 did **not** fix it — which is what proved the agent
+      was innocent and the fault was in the committed tree.
+
+      Cause: a `git add -A` in commit `a93f1d5` moved the `services/peekaboo` submodule pointer
+      from `ddb6a34` to `f8e55b7`, a commit that does not exist in `adumat/peekaboo` (GitHub
+      returns 422). It broke GitOps on **all three** hosts, not just the one being upgraded,
+      because the bad pointer was in `main`. It stayed latent until a container recreate forced a
+      fresh clone — doco-cd's cached checkout kept working until then, which is why the earlier
+      monitoring work saw healthy polls.
+
+      Fixed by restoring `ddb6a34` and running `git submodule update` so the working tree matches
+      the index — the local submodule sitting at a different commit is how `add -A` picked up a
+      bogus gitlink at all. 0.112.0 then polled cleanly on all three.
+
+      **Lesson worth keeping: never `git add -A` in a repo with submodules.** Stage explicit paths.
+      A stale local submodule checkout is invisible in `git status` output that scrolls, and the
+      resulting breakage lands on every consumer of the branch.
+
+      Tuned while rolling out: `DocoCdRestarting` now needs **>1** reset in 30m. Every planned
+      upgrade is one reset, and alerting on that would raise a warning for each maintenance window;
+      a crash-loop is ~30 resets, so the signal is untouched.
 
 ### Phase 4 — `just merge` and the gpu component
 
