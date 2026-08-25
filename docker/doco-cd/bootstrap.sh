@@ -70,6 +70,20 @@ function detect_profile() {
     log error "Unknown hostname '${hostname}', expected one of: ${!HOST_PROFILES[*]}"
 }
 
+# Read one KEY=value from an env file.
+#
+# ⚠️ NOT `grep -oP`: navi is a BusyBox LXC and BusyBox grep has no -P, so the
+# pattern fails, `|| true` swallows the error, and the caller sees an empty
+# value for a key that is actually set. Combined with the old unguarded write
+# that is how navi ended up with BWS_ACCESS_TOKEN= and 4.5 days of doco-cd
+# crash-looping on `invalid_client`. sed with a basic regex works on BusyBox,
+# BSD and GNU alike.
+function env_value() {
+    local key="$1" file="$2"
+    [[ -f "${file}" ]] || return 0
+    sed -n "s/^${key}=//p" "${file}" | head -n1
+}
+
 function setup_env() {
     local target="${SCRIPT_DIR}/.env"
 
@@ -78,9 +92,19 @@ function setup_env() {
         local git_val="${GIT_TOKEN}" bws_val="${BWS_TOKEN}"
 
         if [[ -f "${target}" ]]; then
-            [[ -z "${git_val}" ]] && git_val=$(grep -oP '^GIT_ACCESS_TOKEN=\K.*' "${target}" 2>/dev/null || true)
-            [[ -z "${bws_val}" ]] && bws_val=$(grep -oP '^BWS_ACCESS_TOKEN=\K.*' "${target}" 2>/dev/null || true)
+            [[ -z "${git_val}" ]] && git_val=$(env_value GIT_ACCESS_TOKEN "${target}")
+            [[ -z "${bws_val}" ]] && bws_val=$(env_value BWS_ACCESS_TOKEN "${target}")
         fi
+
+        # Refuse to write a blank credential. Without this the fallback above
+        # silently resolves an unset --bws-token to "", writes
+        # BWS_ACCESS_TOKEN= and logs "Saved credentials" - and doco-cd then
+        # crash-loops on `invalid_client` because it authenticates with an empty
+        # secret. That cost navi 4.5 days of dead GitOps in 2026-08, found only
+        # by reading container logs by hand. A bootstrap that cannot produce a
+        # usable credential must fail loudly instead.
+        [[ -z "${git_val}" ]] && log error "Refusing to write ${target}: GIT_ACCESS_TOKEN resolved empty. Pass --token, or run where the existing .env already has it."
+        [[ -z "${bws_val}" ]] && log error "Refusing to write ${target}: BWS_ACCESS_TOKEN resolved empty. Pass --bws-token, or run where the existing .env already has it."
 
         cat >"${target}" <<EOF
 GIT_ACCESS_TOKEN=${git_val}
@@ -90,6 +114,14 @@ EOF
     elif [[ ! -f "${target}" ]]; then
         log error "Env file not found at ${target}, provide credentials with --token and --bws-token"
     else
+        # An existing file is not automatically a good one: this is the path a
+        # re-run takes, and it is how navi stayed broken. Validate rather than
+        # assume.
+        local have_git have_bws
+        have_git=$(env_value GIT_ACCESS_TOKEN "${target}")
+        have_bws=$(env_value BWS_ACCESS_TOKEN "${target}")
+        [[ -z "${have_git}" ]] && log error "${target} exists but GIT_ACCESS_TOKEN is empty. Re-run with --token."
+        [[ -z "${have_bws}" ]] && log error "${target} exists but BWS_ACCESS_TOKEN is empty. Re-run with --bws-token."
         log debug "Env file already exists" "path=${target}"
     fi
 }
