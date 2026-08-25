@@ -70,6 +70,22 @@ Live faults. They belong to no phase because they should not wait for one; both 
       allowing divergence — but **freeze protects the data and not the availability, and nothing
       automatically remounts afterwards.** Worth considering a recovery path for it.
 
+      **Mitigated 2026-08-25: charmander is drained and cordoned**, running the cluster on four
+      nodes until the cable is sorted. Four nodes carry it comfortably — 25.8 cores and ~67 GiB
+      allocatable against ~9.5 cores and ~28 GiB of total requests. The drain is the *correct*
+      mitigation, not just convenience: the read-only damage hits volumes whose **pods** sit on
+      charmander, whereas a volume that merely holds a *replica* there keeps quorum (2 of 3) when
+      it drops. `miroir-agent` is a DaemonSet and survives the drain, so storage redundancy is
+      unchanged and an empty charmander makes the next flap harmless.
+
+      Two things that surfaced doing it, worth knowing before the next drain:
+      - `cluster18-1` sat on **`miroir-local` PVs pinned to charmander** and could not be
+        rescheduled. Rebuilt with `kubectl cnpg destroy cluster18 1`; CNPG re-cloned it onto
+        squirtle in under 30s (283 MB). Any node-local CNPG instance has this property — check
+        before draining.
+      - **`tuppr` tolerates `node.kubernetes.io/unschedulable`**, so it rescheduled straight back
+        onto the cordoned node. Harmless, but cordon does not keep it off.
+
 ### Phase 1 — AGENTS.md and CI in cluster: konflate, runner, image-pull — ✅ done 2026-08-08
 
 - [x] Write `AGENTS.md` at the repo root
@@ -136,8 +152,30 @@ Leading remaining candidates: shfs restart after an unclean shutdown, or Unraid 
 
 **Still open:**
 
-- [ ] Observe a *real* stale mount end-to-end. The rehearsal used a synthetic export; the
-      genuine article has not recurred since the exporter went in.
+- [x] **Observed a real stale mount 2026-08-25 — and the exporter MISSED it.** 🔴 The rehearsal
+      used a synthetic export; the genuine article finally appeared on `kapowarr`, whose pod
+      failed 2,210 times over 8h with
+      `stat /var/lib/kubelet/pods/aded7795-…/volumes/kubernetes.io~nfs/media: stale file handle`.
+
+      **The exporter discovered that exact mount, probed it, and reported `nfs_mount_stale = 0`.**
+      Proven side by side on squirtle:
+
+      ```
+      lstat  <path>   -> stale file handle
+      statfs <path>   -> success            <- what the exporter calls
+      ```
+
+      **Root cause: `internal/probe/probe.go` uses `unix.Statfs`.** `statfs()` returns
+      filesystem-level information and can be answered from cached superblock data without
+      resolving a file handle, so it cannot see ESTALE. The design intent was always "stat the
+      **root**" — it was implemented with the one syscall that does not do that. So the detector
+      has been reporting healthy for the precise failure it exists to catch since 2026-08-22, and
+      the KEDA scaler gated on it never fired.
+
+- [ ] **Fix the probe to use `stat`/`lstat`, not `statfs`** (own repo, `adumat/nfs-stale-exporter`).
+      Keep the timeout and `inflight` guard — a hung mount must still not pin goroutines — but the
+      syscall has to be one that resolves a handle. Re-verify against a real ESTALE, not a
+      synthetic export, since the synthetic rehearsal is exactly what gave false confidence.
 - [x] **`nfs-canary` retired 2026-08-22.** It was segfaulting (exit 139, 41 restarts in 22h — a
       use-after-free: the timeout path destroys the libnfs context while the orphaned probe
       thread is still inside it), watched a retired export, and probed from a single replica.
