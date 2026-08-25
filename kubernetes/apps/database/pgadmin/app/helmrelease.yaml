@@ -73,6 +73,20 @@ spec:
               # through the libpq passfile, which pgadmin never reads or stores.
               # The trade-off is that "save password" is disabled in the UI.
               PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+              # ⚠️ In SERVER MODE pgadmin sandboxes every file path: PassFile is
+              # passed through get_complete_file_path(), which rewrites it to
+              # <STORAGE_DIR>/<per-user-dir>/<path> and returns None when that
+              # does not exist. An absolute /pgpass/pgpass is therefore silently
+              # DISCARDED and libpq connects with no password at all - the
+              # symptom is "fe_sendauth: no password supplied".
+              #
+              # SHARED_STORAGE registers a named location with an absolute path,
+              # addressed as "<name>:/<file>", which resolves for every user and
+              # keeps the passfile in the emptyDir instead of on the PVC (so it
+              # is never persisted or swept into a kopiur backup). It also avoids
+              # putting anyone's email address in this public repo, which the
+              # per-user storage directories would have required.
+              PGADMIN_CONFIG_SHARED_STORAGE: "[{'name': 'pgpass', 'path': '/pgpass', 'restricted_access': True}]"
             envFrom:
               - secretRef:
                   name: pgadmin-secret

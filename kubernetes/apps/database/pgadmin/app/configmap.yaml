@@ -35,7 +35,7 @@ data:
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
           "Comment": "General purpose PostgreSQL cluster",
-          "PassFile": "/pgpass/pgpass"
+          "PassFile": "pgpass:/pgpass"
         },
         "2": {
           "Name": "immich-db (superuser)",
@@ -46,7 +46,7 @@ data:
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
           "Comment": "Immich PostgreSQL with VectorChord - Superuser access",
-          "PassFile": "/pgpass/pgpass"
+          "PassFile": "pgpass:/pgpass"
         },
         "3": {
           "Name": "immich-db (app user)",
@@ -57,7 +57,7 @@ data:
           "MaintenanceDB": "immich",
           "SSLMode": "prefer",
           "Comment": "Immich database - Application user access",
-          "PassFile": "/pgpass/pgpass"
+          "PassFile": "pgpass:/pgpass"
         }
       }
     }
