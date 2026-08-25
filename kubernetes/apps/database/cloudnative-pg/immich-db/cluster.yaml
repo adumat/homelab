@@ -54,12 +54,16 @@ spec:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters: &barmanParameters
-        # MinIO is kept FROZEN as a fixed-point recovery source until after the
-        # rebuild - it still holds ~88 GB of history including a good backup from
-        # 2026-08-20. To roll back: comment garage-immich, uncomment minio-immich.
-        # Note the anchor is shared with externalClusters below, so this one line
+        # MinIO retired 2026-08-25: its ObjectStore is deleted and the container
+        # is stopped on elizabeth. The phase 3 rebuild recovered this cluster
+        # from garage for real on 2026-08-23.
+        #
+        # Its ~88 GB of history is deliberately KEPT on disk at
+        # /mnt/disk2/atlantic_minio and queued for deletion in phase 10.
+        # Recovering from it now would mean starting MinIO again first.
+        #
+        # The anchor is shared with externalClusters below, so this one line
         # moves both the backup target and the recovery source.
-        # barmanObjectName: minio-immich
         barmanObjectName: garage-immich
         serverName: immich-pg17-0
   externalClusters:

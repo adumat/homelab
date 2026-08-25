@@ -40,11 +40,17 @@ spec:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters: &barmanParameters
-        # MinIO is kept FROZEN as a fixed-point recovery source until after the
-        # rebuild. To roll back: comment garage-postgresql, uncomment
-        # minio-postgresql. Note the anchor is shared with externalClusters
-        # below, so this single line moves the recovery source too.
-        # barmanObjectName: minio-postgresql
+        # MinIO retired 2026-08-25: its ObjectStore is deleted and the container
+        # is stopped on elizabeth. The phase 3 rebuild recovered this cluster
+        # from garage for real on 2026-08-23, so the fallback was superseded by
+        # evidence rather than by schedule.
+        #
+        # The raw bucket data is deliberately KEPT at /mnt/disk2/atlantic_minio
+        # (~101 GB) and queued for deletion in phase 10. Recovering from it now
+        # would mean starting MinIO again first - there is no live endpoint.
+        #
+        # The anchor is shared with externalClusters below, so this single line
+        # moves both the backup target and the recovery source.
         barmanObjectName: garage-postgresql
         serverName: postgres18-0
   externalClusters:
