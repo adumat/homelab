@@ -1874,10 +1874,26 @@ clean and already current. Two things remain:
 
 - Tracked in **🔴 Urgent** at the top: navi's doco-cd crash-loop on a rejected Bitwarden token.
   Its refs were fixed here; the token is the remaining blocker
-- [ ] ⚠️ **Nothing alerts on doco-cd health.** Donkey was silently frozen for six days and navi
-      for four and a half, and both were only found by reading logs by hand. Docker GitOps has no
-      equivalent of Flux's `Kustomization` readiness — worth a gatus check or a Prometheus scrape
-      of doco-cd's metrics endpoint (it already serves one)
+- [x] ✅ **doco-cd is now scraped and alerted — done 2026-08-25.** The endpoint existed on 9120
+      all along; the compose published no ports, so nothing could reach it. Port published on all
+      three hosts (one profile per host, so no contention), `ScrapeConfig` added, four rules in
+      `prometheusrule-doco-cd.yaml`. All three targets `up=1`, all four rules `health=ok`.
+
+      The load-bearing one is **`DocoCdPollStalled`**: `doco_cd_polls_total` counts **successful**
+      polls, so a flat counter is exactly the signal `Up (healthy)` cannot give — process alive,
+      sync dead. Interval is 3m, so 30m should hold ~10 increments.
+
+      Two things worth recording because they are easy to get wrong:
+      - **`DocoCdRestarting` uses `resets()` on the counter, not `changes(doco_cd_info)`.** A
+        restart changes the `start_time` **label**, creating a new series rather than changing a
+        value, so `changes()` would never fire. It matters because `increase()` accounts for
+        counter resets, so a crash-looping instance could otherwise keep `DocoCdPollStalled` quiet.
+      - **Verified with deliberately-true controls**, per [[reference_alert_rule_verification]]:
+        `>= 0` returns rows for every host, proving the expressions and their joins can return
+        anything, while `== 0` is empty in steady state. Immediately after the container recreate
+        the `== 0` form *did* match — the counter sits at 1 with nothing to diff — and it cleared
+        on each host's second poll, inside the `for: 15m` window. So the restart case is covered
+        rather than merely unobserved.
 - [ ] doco-cd is v0.103.0, v0.111.0 is available; upgrade is manual per host
 
 ### Phase 4 — `just merge` and the gpu component
