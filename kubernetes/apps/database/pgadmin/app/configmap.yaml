@@ -4,19 +4,25 @@ kind: ConfigMap
 metadata:
   name: pgadmin-servers
 data:
-  # "Shared": true is what makes these visible to the OIDC user. pgAdmin keys
-  # users by (username, auth_source), so signing in through Authelia creates a
-  # SEPARATE account from the internal pgadmin@ one that owns these servers -
-  # matteo.a91@ / oauth2 vs pgadmin@ / internal. A shared server is visible to
-  # every authenticated user, so it survives that split and any future user.
+  # These are imported PER USER and owned by the importing user. Do NOT mark them
+  # "Shared": pgAdmin hands a non-owner a SharedServer copy instead, and that copy
+  # is broken twice over here:
+  #   1. its username comes from the owner's shared_username
+  #      (servers/__init__.py ~460), which servers.json leaves unset - the
+  #      symptom is "a username must be given"
+  #   2. 'passfile' is in SENSITIVE_CONN_KEYS and is deliberately STRIPPED from
+  #      the copy, so even with a username it would prompt for a password
+  # Sharing and PassFile are therefore mutually exclusive for a non-owner.
   #
-  # Only an Administrator may own a shared server (pgadmin/utils/__init__.py
-  # refuses otherwise), which the internal pgadmin@ account is.
+  # Each identity that needs these gets its own import instead. pgAdmin keys users
+  # by (username, auth_source), so the Authelia login is a different account from
+  # the internal pgadmin@ one:
+  #   setup.py load-servers /pgadmin4/servers.json --user <email> \
+  #     --auth-source oauth2 --replace
+  #   setup.py load-servers /pgadmin4/servers.json --user <admin> \
+  #     --auth-source internal --replace
   #
-  # NOTE: pgAdmin imports this only when its DB is fresh. After changing it,
-  # re-import explicitly:
-  #   kubectl exec -n database <pod> -- /venv/bin/python3 /pgadmin4/setup.py \
-  #     load-servers /pgadmin4/servers.json --user <admin> --auth-source internal --replace
+  # pgAdmin only auto-imports this when its DB is fresh, so re-run after editing.
   servers.json: |
     {
       "Servers": {
@@ -29,7 +35,6 @@ data:
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
           "Comment": "General purpose PostgreSQL cluster",
-          "Shared": true,
           "PassFile": "/pgpass/pgpass"
         },
         "2": {
@@ -41,7 +46,6 @@ data:
           "MaintenanceDB": "postgres",
           "SSLMode": "prefer",
           "Comment": "Immich PostgreSQL with VectorChord - Superuser access",
-          "Shared": true,
           "PassFile": "/pgpass/pgpass"
         },
         "3": {
@@ -53,7 +57,6 @@ data:
           "MaintenanceDB": "immich",
           "SSLMode": "prefer",
           "Comment": "Immich database - Application user access",
-          "Shared": true,
           "PassFile": "/pgpass/pgpass"
         }
       }
