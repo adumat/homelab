@@ -78,6 +78,24 @@ Live faults. They belong to no phase because they should not wait for one; both 
       it drops. `miroir-agent` is a DaemonSet and survives the drain, so storage redundancy is
       unchanged and an empty charmander makes the next flap harmless.
 
+      **`autoDiskfulAfter: 30m` set 2026-08-25.** Cordoning charmander did not move its data:
+      **8 of 11** affected volumes still had one of their two diskful copies stranded there,
+      leaving one reachable copy across four schedulable nodes, so most pods landed on a diskless
+      leg. That costs more than the benchmark suggested — a pod with a local leg gets free reads,
+      a diskless one pays network for reads *and* writes. Conversions ran within ~3 minutes of the
+      controller restarting (the legs were long past the threshold) and the 11
+      `MiroirVolumeRemoteConsumer` alerts went to 0; **10 volumes are now 3-diskful** and
+      bulbasaur's pool went 20 → 73 GiB. That is more than the 35 GiB the volume sizes sum to —
+      the full-sync appears to allocate the whole device rather than staying thin, worth
+      remembering when budgeting the next conversion. Still only 28% of a 263 GiB pool.
+
+      ⚠️ **These extra replicas do not go away when charmander returns** — upstream is explicit
+      that "evicting a replica is an operator decision". Once the cable is fixed, decide whether
+      to keep 3-diskful or trim back by hand. 30m rather than upstream's 10m example because
+      KEDA's nfs-stale scaler recreates pods on a ~5-minute cycle, and a threshold near that would
+      convert legs for pods about to move. `autoEvictAfter` deliberately left unset: charmander is
+      cordoned but healthy, and its replicas should stay.
+
       Two things that surfaced doing it, worth knowing before the next drain:
       - `cluster18-1` sat on **`miroir-local` PVs pinned to charmander** and could not be
         rescheduled. Rebuilt with `kubectl cnpg destroy cluster18 1`; CNPG re-cloned it onto
