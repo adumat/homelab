@@ -10,6 +10,31 @@ spec:
     name: miroir
   interval: 1h
   values:
+    # Convert a diskless leg (client or tie-breaker) that has held DRBD Primary
+    # this long into a real replica on its node, so a settled pod stops paying
+    # network I/O for every read AND write.
+    #
+    # Added 2026-08-25 because charmander is cordoned indefinitely (flapping
+    # 100Mbit NIC). Cordon stops pod scheduling but does NOT move data: 8 of 11
+    # affected volumes still had one of their two diskful copies stranded there,
+    # leaving a single reachable copy across four schedulable nodes, so most pods
+    # landed on a diskless leg.
+    #
+    # ⚠️ This turns a 2-diskful+tie-breaker volume into 3 diskful — the
+    # tie-breaker is replaced by the third data copy. Replicas are NOT
+    # auto-evicted afterwards ("evicting a replica is an operator decision"), so
+    # the extra copies persist once charmander returns and must be removed by
+    # hand if unwanted. Budget checked: 35GiB across the 11 volumes against
+    # 242GiB free on bulbasaur and 917GiB on snorlax, and `freeSpaceRatio: 20`
+    # still guards the ceiling.
+    #
+    # 30m, not upstream's 10m example: KEDA's nfs-stale scaler recreates pods on
+    # a ~5-minute cycle, and a threshold near that would convert legs for pods
+    # that are about to move, scattering permanent replicas.
+    #
+    # NOT setting autoEvictAfter: charmander is cordoned but healthy, its
+    # heartbeat is fine, and we do not want its replicas re-placed.
+    autoDiskfulAfter: 30m
     agent:
       resources:
         limits:
