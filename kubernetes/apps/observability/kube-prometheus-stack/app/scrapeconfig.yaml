@@ -49,3 +49,26 @@ spec:
     - action: replace
       targetLabel: job
       replacement: *name
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/scrapeconfig_v1alpha1.json
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: ScrapeConfig
+metadata:
+  name: &name doco-cd
+spec:
+  # Docker GitOps had no equivalent of Flux's Kustomization readiness, so a dead
+  # sync was invisible: donkey ran 6 days behind on a corrupted git cache and
+  # navi crash-looped 6416 times, both reporting `Up (healthy)`, and both were
+  # found by reading container logs by hand.
+  #
+  # `instance` is kept as the scrape target so the alerts can name the host.
+  staticConfigs:
+    - targets:
+        - donkey.lan:9120
+        - ${SECRET_NAS_NAME}:9120
+        - navi.lan:9120
+  metricsPath: /metrics
+  relabelings:
+    - action: replace
+      targetLabel: job
+      replacement: *name

@@ -4,6 +4,16 @@ services:
     container_name: doco-cd-donkey
     restart: unless-stopped
     profiles: [donkey]
+    # Publish the Prometheus endpoint so the cluster can scrape it. doco-cd
+    # served metrics from the start but nothing could reach them, which is why
+    # donkey sat frozen for six days and navi crash-looped 6416 times behind
+    # `Up (healthy)`. `doco_cd_polls_total` counts SUCCESSFUL polls, so a flat
+    # counter is the signal a health check cannot give: the process is alive,
+    # the sync is dead.
+    #
+    # One profile runs per host, so the three services never contend for 9120.
+    ports:
+      - "9120:9120"
     environment:
       TZ: Europe/Rome
       GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
@@ -28,6 +38,8 @@ services:
     container_name: doco-cd-elizabeth
     restart: unless-stopped
     profiles: [elizabeth]
+    ports:
+      - "9120:9120"
     environment:
       TZ: Europe/Rome
       GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}
@@ -52,6 +64,8 @@ services:
     container_name: doco-cd-navi
     restart: unless-stopped
     profiles: [navi]
+    ports:
+      - "9120:9120"
     environment:
       TZ: Europe/Rome
       GIT_ACCESS_TOKEN: ${GIT_ACCESS_TOKEN}

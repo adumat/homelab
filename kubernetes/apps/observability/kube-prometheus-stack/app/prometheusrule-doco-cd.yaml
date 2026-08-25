@@ -1,0 +1,70 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: doco-cd-rules
+spec:
+  groups:
+    - name: doco-cd.rules
+      rules:
+        # THE alert this file exists for. Docker GitOps has no equivalent of
+        # Flux's Kustomization readiness, so a dead sync was undetectable:
+        # donkey polled every 3 minutes for SIX DAYS with
+        # `ref file is empty` (zero-byte git refs) and navi crash-looped 6416
+        # times on a rejected Bitwarden token. Both reported `Up (healthy)`
+        # throughout - the process was alive, the sync was dead - and both were
+        # found only by reading container logs by hand.
+        #
+        # `doco_cd_polls_total` counts SUCCESSFUL polls, so a flat counter is
+        # exactly the signal a liveness probe cannot give. Poll interval is 3m,
+        # so 30m should contain ~10 increments; zero means every attempt failed.
+        - alert: DocoCdPollStalled
+          annotations:
+            summary: >-
+              doco-cd on {{ $labels.instance }} has completed no successful poll
+              in 30m - the container may be healthy while GitOps is dead
+          expr: |
+            increase(doco_cd_polls_total[30m]) == 0
+          for: 15m
+          labels:
+            severity: critical
+        # Catches the crash-loop case, where the process dies before it can
+        # serve metrics at all. navi restarted every 60s for 4.5 days; the
+        # scrape target would simply have been down.
+        - alert: DocoCdDown
+          annotations:
+            summary: doco-cd on {{ $labels.instance }} is not scrapeable
+          expr: |
+            up{job="doco-cd"} == 0
+          for: 15m
+          labels:
+            severity: critical
+        # A restarting container resets its counters, which can mask a stall:
+        # `increase()` accounts for resets, so a crash-looping doco-cd could keep
+        # DocoCdPollStalled quiet. Frequent restarts are their own signal.
+        #
+        # `resets()` on the counter, NOT `changes(doco_cd_info)`: a restart
+        # changes the `start_time` LABEL, which creates a new series rather than
+        # changing a value, so changes() would never fire.
+        - alert: DocoCdRestarting
+          annotations:
+            summary: >-
+              doco-cd on {{ $labels.instance }} restarted
+              {{ $value | printf "%.0f" }} time(s) in 30m
+          expr: |
+            resets(doco_cd_polls_total[30m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+        # Version drift across hosts: the upgrade is manual per host, so one
+        # host silently lagging is the normal failure. Informational.
+        - alert: DocoCdVersionSkew
+          annotations:
+            summary: >-
+              doco-cd versions differ across hosts
+              ({{ $value }} distinct versions)
+          expr: |
+            count(count by (version) (doco_cd_info)) > 1
+          for: 1h
+          labels:
+            severity: info

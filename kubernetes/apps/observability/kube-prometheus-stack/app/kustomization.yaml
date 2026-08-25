@@ -11,5 +11,6 @@ resources:
   - ./scrapeconfig.yaml
   - ./externalsecret.yaml
   - ./externalsecret-garage.yaml
+  - ./prometheusrule-doco-cd.yaml
   - ./prometheusrule-garage.yaml
   - ./prometheusrule-node-health.yaml
