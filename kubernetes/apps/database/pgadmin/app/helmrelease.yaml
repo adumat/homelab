@@ -62,6 +62,17 @@ spec:
               # strand those servers behind an account you could no longer reach.
               PGADMIN_CONFIG_AUTHENTICATION_SOURCES: "['oauth2', 'internal']"
               PGADMIN_CONFIG_OAUTH2_AUTO_CREATE_USER: "True"
+              # Stops the "Set Master Password" dialog. pgadmin demands that
+              # vault key in server mode as soon as oauth2 is in
+              # AUTHENTICATION_SOURCES (browser/__init__.py: the OAUTH2 branch
+              # is entered regardless of this flag) - internal-only auth never
+              # asked, which is why it appeared the moment SSO was enabled.
+              #
+              # Safe here because the key exists ONLY to encrypt passwords saved
+              # inside pgadmin, and we save none: every server authenticates
+              # through the libpq passfile, which pgadmin never reads or stores.
+              # The trade-off is that "save password" is disabled in the UI.
+              PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
             envFrom:
               - secretRef:
                   name: pgadmin-secret
