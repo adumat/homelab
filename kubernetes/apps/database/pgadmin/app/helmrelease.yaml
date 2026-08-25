@@ -14,6 +14,34 @@ spec:
       pgadmin:
         annotations:
           reloader.stakater.com/auto: "true"
+        initContainers:
+          # libpq IGNORES a passfile that is group- or world-readable, and a
+          # Kubernetes Secret volume is always owned by root:fsGroup - so mode
+          # 0600 would be unreadable by pgadmin (uid 5050) and 0640 would be
+          # rejected by libpq. Neither works mounted directly.
+          #
+          # This runs AS 5050, so the file it writes into the emptyDir is owned
+          # by 5050 and can then be chmod 600. Credentials come from the CNPG
+          # secrets that already exist in this namespace rather than a second
+          # copy in Bitwarden.
+          pgpass:
+            image:
+              repository: docker.io/dpage/pgadmin4
+              tag: 9.15.0
+            command:
+              - /bin/sh
+              - -c
+              - |
+                set -eu
+                SU_USER=$(cat /creds/su/username); SU_PASS=$(cat /creds/su/password)
+                IM_USER=$(cat /creds/immich/username); IM_PASS=$(cat /creds/immich/password)
+                umask 077
+                cat > /pgpass/pgpass <<EOF
+                cluster18-rw.database.svc.cluster.local:5432:*:${SU_USER}:${SU_PASS}
+                immich-db-rw.database.svc.cluster.local:5432:*:${SU_USER}:${SU_PASS}
+                immich-db-rw.database.svc.cluster.local:5432:*:${IM_USER}:${IM_PASS}
+                EOF
+                chmod 600 /pgpass/pgpass
         containers:
           app:
             image:
@@ -119,3 +147,29 @@ spec:
           - path: /pgadmin4/servers.json
             subPath: servers.json
             readOnly: true
+      # Written by the pgpass initContainer; servers.json points PassFile here.
+      pgpass:
+        type: emptyDir
+        advancedMounts:
+          pgadmin:
+            pgpass:
+              - path: /pgpass
+            app:
+              - path: /pgpass
+                readOnly: true
+      creds-su:
+        type: secret
+        name: cloudnative-pg-secret
+        advancedMounts:
+          pgadmin:
+            pgpass:
+              - path: /creds/su
+                readOnly: true
+      creds-immich:
+        type: secret
+        name: cloudnative-immich-user
+        advancedMounts:
+          pgadmin:
+            pgpass:
+              - path: /creds/immich
+                readOnly: true
