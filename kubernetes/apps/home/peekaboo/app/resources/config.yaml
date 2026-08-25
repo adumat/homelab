@@ -1,6 +1,8 @@
 go2rtc:
   url: "https://go2rtc.${DOMAIN}"
   rtsp: "go2rtc.home.svc.cluster.local:554"
+  # server-side (WHEP audio proxy) reaches go2rtc's API directly, not via Envoy
+  api: "http://go2rtc.home.svc.cluster.local"
 idleTimeout: 15
 cameras:
   - name: sofias-room
