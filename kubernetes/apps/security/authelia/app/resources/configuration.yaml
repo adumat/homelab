@@ -33,29 +33,40 @@ server:
     # brute-force against the token endpoint, and these are confidential
     # clients with 72-char secrets plus PKCE. userinfo is raised for the same
     # topology reason before it bites too.
+    # Raised ~20x more (2026-08-26): the 10x values still saturated. A dead
+    # refresh-token replay (Envoy session whose cookie holds a token Authelia
+    # rotated/expired) pecks /api/oidc/token at up to ~1080/hr, which alone
+    # exceeds the old 1000/hr 1-hour bucket -> the limiter fills -> refresh
+    # failures return 429 instead of `invalid_grant`, so Envoy treats them as
+    # transient and never clears the dead session, and EVERY OIDC app 429s
+    # (the limiter is keyed by the shared envoy-internal pod IP). The ceiling
+    # must sit above any realistic replay so `invalid_grant` always gets
+    # through (Envoy can then self-clear) and one broken session can't down all
+    # apps. Still capped (not disabled): confidential clients, 72-char secrets,
+    # PKCE. Durable cure for token *death* (refresh rotation grace) is separate.
     rate_limits:
       openid_connect_token:
         enable: true
         buckets:
           - period: '1 minute'
-            requests: 300
+            requests: 6000
           - period: '2 minutes'
-            requests: 400
+            requests: 8000
           - period: '10 minutes'
-            requests: 500
+            requests: 10000
           - period: '1 hour'
-            requests: 1000
+            requests: 20000
       openid_connect_userinfo:
         enable: true
         buckets:
           - period: '1 minute'
-            requests: 300
+            requests: 6000
           - period: '2 minutes'
-            requests: 400
+            requests: 8000
           - period: '10 minutes'
-            requests: 500
+            requests: 10000
           - period: '1 hour'
-            requests: 1000
+            requests: 20000
 
 log:
   level: 'info'
