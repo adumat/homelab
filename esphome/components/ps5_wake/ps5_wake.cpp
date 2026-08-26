@@ -22,6 +22,32 @@ static const char *const TAG = "ps5_wake";
 namespace {
 volatile bool g_open_ok = false;
 volatile bool g_open_done = false;
+volatile int g_found = 0;
+
+void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
+  if (event == ESP_BT_GAP_DISC_RES_EVT) {
+    const uint8_t *b = param->disc_res.bda;
+    char addr[18];
+    snprintf(addr, sizeof(addr), "%02X:%02X:%02X:%02X:%02X:%02X", b[0], b[1], b[2], b[3], b[4], b[5]);
+    char name[64] = "";
+    int rssi = 0;
+    for (int i = 0; i < param->disc_res.num_prop; i++) {
+      const esp_bt_gap_dev_prop_t &p = param->disc_res.prop[i];
+      if (p.type == ESP_BT_GAP_DEV_PROP_BDNAME && p.val != nullptr) {
+        int n = p.len < static_cast<int>(sizeof(name)) - 1 ? p.len : static_cast<int>(sizeof(name)) - 1;
+        memcpy(name, p.val, n);
+        name[n] = '\0';
+      } else if (p.type == ESP_BT_GAP_DEV_PROP_RSSI && p.val != nullptr) {
+        rssi = *static_cast<int8_t *>(p.val);
+      }
+    }
+    g_found = g_found + 1;
+    // Deliberately ESP_LOGI, not D: this line IS the deliverable of a scan.
+    ESP_LOGI("ps5_wake", "FOUND %s  rssi=%d  name='%s'", addr, rssi, name);
+  } else if (event == ESP_BT_GAP_DISC_STATE_CHANGED_EVT) {
+    ESP_LOGD("ps5_wake", "discovery state changed");
+  }
+}
 
 void l2cap_cb(esp_bt_l2cap_cb_event_t event, esp_bt_l2cap_cb_param_t *param) {
   switch (event) {
@@ -195,6 +221,51 @@ void PS5Wake::loop() {
     this->result_pending_ = false;
     this->publish_result_(this->pending_);
   }
+}
+
+void PS5Wake::scan() {
+  if (this->in_progress_) {
+    this->publish_result_("busy");
+    return;
+  }
+  // bt_up_ needs a pad MAC because it spoofs before controller init. Spoofing
+  // while scanning is harmless — we are only listening for inquiry responses.
+  if (this->pad_mac_text_ == nullptr || !parse_mac_(this->pad_mac_text_->state, this->pad_)) {
+    this->publish_result_("scan needs a valid pad_mac");
+    return;
+  }
+  this->in_progress_ = true;
+  this->publish_result_("scanning ~13s, watch the log");
+  if (xTaskCreate(&PS5Wake::scan_task_, "ps5_scan", 6144, this, 5, nullptr) != pdPASS) {
+    this->in_progress_ = false;
+    this->publish_result_("could not start scan task");
+  }
+}
+
+void PS5Wake::scan_task_(void *arg) {
+  auto *self = static_cast<PS5Wake *>(arg);
+  g_found = 0;
+
+  if (!self->bt_up_(self->pad_)) {
+    snprintf(self->pending_, sizeof(self->pending_), "scan: bluetooth failed to start");
+  } else {
+    esp_bt_gap_register_callback(gap_cb);
+    // inq_len is in 1.28s units (0x01-0x30). 8 => ~10.2s of inquiry.
+    esp_err_t err = esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, 8, 0);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "start_discovery failed: %s", esp_err_to_name(err));
+      snprintf(self->pending_, sizeof(self->pending_), "scan: start failed");
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(13000));
+      esp_bt_gap_cancel_discovery();
+      snprintf(self->pending_, sizeof(self->pending_), "scan done: %d found (see log)",
+               static_cast<int>(g_found));
+    }
+  }
+
+  self->result_pending_ = true;
+  self->in_progress_ = false;
+  vTaskDelete(nullptr);
 }
 
 void PS5Wake::wake_task_(void *arg) {

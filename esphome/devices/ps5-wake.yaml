@@ -154,3 +154,12 @@ button:
     name: wake        # -> POST /button/wake/press
     on_press:
       - ps5_wake.wake: waker
+  # Scan for nearby Bluetooth Classic devices and log address + name + RSSI.
+  # Exists because the PS5 does not expose its Bluetooth address anywhere in its
+  # UI - System Information shows only the LAN and Wi-Fi MACs, and neither is the
+  # Bluetooth radio. Put the console in Settings > Accessories > Add device, press
+  # this, and read the log.
+  - platform: template
+    name: scan        # -> POST /button/scan/press
+    on_press:
+      - ps5_wake.scan: waker
