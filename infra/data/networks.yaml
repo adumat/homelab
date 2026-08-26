@@ -176,6 +176,12 @@ zones:
       - name: intercom-controller
         mac: '48:9d:31:c7:4f:c0'
         ip: 10.1.30.33
+      # ps5-wake: wakes the PS5 over Bluetooth Classic after a UPS cut leaves it
+      # fully off, which the network WAKEUP datagram cannot recover from. MAC read
+      # from the silicon with esptool (ESP32-D0WD-V3), not from a lease table.
+      - name: ps5-wake
+        mac: '68:09:47:79:1d:f0'
+        ip: 10.1.30.34
       # Cameras (10.1.30.40-49)
       - name: sofia-camera
         mac: '34:60:f9:4b:b2:8d'
