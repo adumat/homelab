@@ -38,14 +38,26 @@ logger:
   #
   # Set back to 0 once bring-up is done if you want the RAM back.
   baud_rate: 115200
-  level: INFO
+  # DEBUG globally, because ESPHome's per-component `logs:` can only make a
+  # component QUIETER than the global level, never louder — a component set above
+  # the global level is a hard config error:
+  #   "The configured log level for ps5_wake (DEBUG) must not be less severe than
+  #    the global log level (INFO)."
+  # ps5_wake's l2cap callback logs INIT_EVT, CL_INIT_EVT and CLOSE_EVT at ESP_LOGD,
+  # and those are exactly the lines that distinguish "the console refused the
+  # connection" from "the console never answered" — so DEBUG has to be global and
+  # the noise damped back down per component below.
+  level: DEBUG
   logs:
-    # Raise ONLY this component to DEBUG. The l2cap callback logs INIT_EVT,
-    # CL_INIT_EVT and CLOSE_EVT at ESP_LOGD — at global INFO those are invisible,
-    # and they are exactly the lines that tell you whether the console refused the
-    # connection or never answered. Targeted rather than a global DEBUG, which
-    # would cost RAM this board does not have spare.
-    ps5_wake: DEBUG
+    # Claw back most of the cost of a global DEBUG. These are the chatty ones and
+    # none of them are interesting here.
+    component: INFO
+    sensor: INFO
+    text: INFO
+    text_sensor: INFO
+    wifi: INFO
+    web_server: INFO
+    esp32.preferences: INFO
 
 # NO api: component, per design §3.4. This device is standalone by requirement and
 # must not depend on Home Assistant, and dropping api: frees the RAM the heap gate
