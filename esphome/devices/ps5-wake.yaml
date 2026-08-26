@@ -30,8 +30,22 @@ external_components:
     refresh: 0s
 
 logger:
+  # baud_rate was 0 (serial off). Re-enabled 2026-08-25 for bring-up: with no api:
+  # component AND no serial, there was no CLI log path at all — `esphome logs` fails
+  # with "no 'api:' component is configured" and serial was dead too. The web_server
+  # page still streams logs over /events, but USB serial is what you want while
+  # calibrating min_heap_for_always_on and diagnosing the first L2CAP attempt.
+  #
+  # Set back to 0 once bring-up is done if you want the RAM back.
+  baud_rate: 115200
   level: INFO
-  baud_rate: 0   # no serial logging; saves flash and RAM
+  logs:
+    # Raise ONLY this component to DEBUG. The l2cap callback logs INIT_EVT,
+    # CL_INIT_EVT and CLOSE_EVT at ESP_LOGD — at global INFO those are invisible,
+    # and they are exactly the lines that tell you whether the console refused the
+    # connection or never answered. Targeted rather than a global DEBUG, which
+    # would cost RAM this board does not have spare.
+    ps5_wake: DEBUG
 
 # NO api: component, per design §3.4. This device is standalone by requirement and
 # must not depend on Home Assistant, and dropping api: frees the RAM the heap gate
