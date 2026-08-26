@@ -29,10 +29,16 @@ class PS5Wake : public Component {
   void set_retries(uint8_t r) { this->retries_ = r; }
   void set_min_heap_for_always_on(uint32_t h) { this->min_heap_ = h; }
 
-  /// Run the wake sequence. Safe to call repeatedly; serialised internally.
+  /// Kick off the wake sequence. Returns immediately — the work happens on a
+  /// separate task, because it blocks for seconds and the ESPHome loop must not.
   void wake();
 
+  /// Publishes any result the worker task left behind. Runs on the main loop.
+  void loop() override;
+
  protected:
+  /// The blocking wake sequence. Runs on its own FreeRTOS task, NEVER the loop.
+  static void wake_task_(void *arg);
   /// Parse "AA:BB:CC:DD:EE:FF" into 6 bytes. Returns false on any malformed input.
   static bool parse_mac_(const std::string &in, uint8_t out[6]);
 
@@ -52,7 +58,18 @@ class PS5Wake : public Component {
   uint32_t min_heap_{120000};
 
   bool bt_ready_{false};
-  bool in_progress_{false};
+  volatile bool in_progress_{false};
+
+  /// MACs are snapshotted here before the task starts, so the task never touches
+  /// the text entities — those belong to the main loop.
+  uint8_t pad_[6]{};
+  uint8_t ps5_[6]{};
+
+  /// Result handoff from the worker task to the main loop. ESPHome components are
+  /// NOT thread-safe, so the task must not call publish_state() itself; it writes
+  /// here and loop() does the publishing.
+  volatile bool result_pending_{false};
+  char pending_[64]{};
 };
 
 template<typename... Ts> class WakeAction : public Action<Ts...> {

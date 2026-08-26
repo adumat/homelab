@@ -156,6 +156,11 @@ void PS5Wake::bt_down_() {
 }
 
 void PS5Wake::wake() {
+  // Runs on the ESPHome main loop. Must return promptly: validate, snapshot, and
+  // hand off. The previous version did the whole sequence inline and crashed the
+  // device — worst case it blocked for ~24s (10 attempts x 2s wait + backoffs),
+  // which starves the loop and trips the watchdog. Observed as
+  // "Fault - Unknown, Crashed core: 1" after a single failed wake.
   if (this->in_progress_) {
     this->publish_result_("wake already in progress");
     return;
@@ -164,75 +169,84 @@ void PS5Wake::wake() {
     this->publish_result_("no MAC entities bound");
     return;
   }
-
-  uint8_t pad[6];
-  uint8_t ps5[6];
-  if (!parse_mac_(this->pad_mac_text_->state, pad)) {
+  if (!parse_mac_(this->pad_mac_text_->state, this->pad_)) {
     this->publish_result_("pad_mac is not a valid MAC");
     return;
   }
-  if (!parse_mac_(this->ps5_mac_text_->state, ps5)) {
+  if (!parse_mac_(this->ps5_mac_text_->state, this->ps5_)) {
     this->publish_result_("ps5_mac is not a valid MAC");
     return;
   }
 
   this->in_progress_ = true;
+  this->publish_result_("waking...");
 
-  if (!this->bt_up_(pad)) {
-    this->publish_result_("bluetooth failed to start");
+  // 6 kB: bt_up_ does controller+bluedroid init, which is not shallow.
+  if (xTaskCreate(&PS5Wake::wake_task_, "ps5_wake", 6144, this, 5, nullptr) != pdPASS) {
     this->in_progress_ = false;
-    return;
+    this->publish_result_("could not start wake task");
   }
+}
 
-  esp_bt_l2cap_register_callback(l2cap_cb);
-  esp_err_t err = esp_bt_l2cap_init();
-  if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-    this->publish_result_("l2cap_init failed");
-    this->in_progress_ = false;
-    return;
+void PS5Wake::loop() {
+  // The worker task cannot publish: ESPHome components are not thread-safe. It
+  // leaves the message here and the main loop publishes it.
+  if (this->result_pending_) {
+    this->result_pending_ = false;
+    this->publish_result_(this->pending_);
   }
+}
 
-  // HID control (0x11) then HID interrupt (0x13). The console sees a trusted
-  // controller reconnecting and wakes. No pairing is needed: spoofing the pad's
-  // BD_ADDR rides the bond the console already holds.
-  const uint16_t psms[2] = {0x11, 0x13};
-  bool ok = false;
+void PS5Wake::wake_task_(void *arg) {
+  auto *self = static_cast<PS5Wake *>(arg);
+  const char *outcome = "no l2cap open";
 
-  for (uint8_t attempt = 1; attempt <= this->retries_ && !ok; attempt++) {
-    for (uint16_t psm : psms) {
-      g_open_ok = false;
-      g_open_done = false;
-      err = esp_bt_l2cap_connect(0, psm, ps5);
-      if (err != ESP_OK) {
-        ESP_LOGW(TAG, "attempt %u psm 0x%02X connect call failed: %s", attempt, psm,
-                 esp_err_to_name(err));
-        continue;
-      }
-      // Wait for the callback rather than assuming success.
-      for (int i = 0; i < 40 && !g_open_done; i++)
-        vTaskDelay(pdMS_TO_TICKS(50));
-      if (g_open_done && g_open_ok) {
-        ok = true;
-        break;
-      }
-      ESP_LOGW(TAG, "attempt %u psm 0x%02X did not open", attempt, psm);
-    }
-    if (!ok)
-      vTaskDelay(pdMS_TO_TICKS(300 * attempt));  // backoff
-  }
-
-  if (ok) {
-    this->publish_result_("wake sent");
+  if (!self->bt_up_(self->pad_)) {
+    outcome = "bluetooth failed to start";
   } else {
-    char buf[48];
-    snprintf(buf, sizeof(buf), "no l2cap open after %u attempts", this->retries_);
-    this->publish_result_(buf);
+    esp_bt_l2cap_register_callback(l2cap_cb);
+    esp_err_t err = esp_bt_l2cap_init();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+      outcome = "l2cap_init failed";
+    } else {
+      // HID control (0x11) then HID interrupt (0x13). The console sees a trusted
+      // controller reconnecting. No pairing needed: spoofing the pad's BD_ADDR
+      // rides the bond the console already holds.
+      const uint16_t psms[2] = {0x11, 0x13};
+      bool ok = false;
+      for (uint8_t attempt = 1; attempt <= self->retries_ && !ok; attempt++) {
+        for (uint16_t psm : psms) {
+          g_open_ok = false;
+          g_open_done = false;
+          err = esp_bt_l2cap_connect(0, psm, self->ps5_);
+          if (err != ESP_OK) {
+            ESP_LOGW(TAG, "attempt %u psm 0x%02X connect call failed: %s", attempt, psm,
+                     esp_err_to_name(err));
+            continue;
+          }
+          for (int i = 0; i < 40 && !g_open_done; i++)
+            vTaskDelay(pdMS_TO_TICKS(50));
+          if (g_open_done && g_open_ok) {
+            ok = true;
+            break;
+          }
+          ESP_LOGW(TAG, "attempt %u psm 0x%02X did not open", attempt, psm);
+        }
+        if (!ok)
+          vTaskDelay(pdMS_TO_TICKS(300 * attempt));
+      }
+      outcome = ok ? "wake sent" : "no l2cap open";
+    }
   }
 
-  if (this->bt_mode_ == BT_MODE_ON_DEMAND)
-    this->bt_down_();
+  if (self->bt_mode_ == BT_MODE_ON_DEMAND)
+    self->bt_down_();
 
-  this->in_progress_ = false;
+  snprintf(self->pending_, sizeof(self->pending_), "%s (after %u attempts)", outcome,
+           self->retries_);
+  self->result_pending_ = true;
+  self->in_progress_ = false;
+  vTaskDelete(nullptr);
 }
 
 }  // namespace ps5_wake
