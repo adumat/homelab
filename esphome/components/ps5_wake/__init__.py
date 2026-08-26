@@ -26,6 +26,7 @@ BT_MODES = {
 
 WakeAction = ps5_wake_ns.class_("WakeAction", automation.Action)
 ScanAction = ps5_wake_ns.class_("ScanAction", automation.Action)
+CaptureAction = ps5_wake_ns.class_("CaptureAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema(
     {
@@ -100,5 +101,17 @@ async def wake_action_to_code(config, action_id, template_arg, args):
     ),
 )
 async def scan_action_to_code(config, action_id, template_arg, args):
+    parent = await cg.get_variable(config[CONF_ID])
+    return cg.new_Pvariable(action_id, template_arg, parent)
+
+
+@automation.register_action(
+    "ps5_wake.capture",
+    CaptureAction,
+    automation.maybe_simple_id(
+        cv.Schema({cv.GenerateID(): cv.use_id(PS5Wake)})
+    ),
+)
+async def capture_action_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
     return cg.new_Pvariable(action_id, template_arg, parent)

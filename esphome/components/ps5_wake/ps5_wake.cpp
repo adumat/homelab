@@ -23,6 +23,9 @@ namespace {
 volatile bool g_open_ok = false;
 volatile bool g_open_done = false;
 volatile int g_found = 0;
+volatile bool g_cap_done = false;
+uint8_t g_cap_bda[6] = {0};
+char g_cap_name[64] = "";
 
 void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
   if (event == ESP_BT_GAP_DISC_RES_EVT) {
@@ -46,6 +49,27 @@ void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
     ESP_LOGI("ps5_wake", "FOUND %s  rssi=%d  name='%s'", addr, rssi, name);
   } else if (event == ESP_BT_GAP_DISC_STATE_CHANGED_EVT) {
     ESP_LOGD("ps5_wake", "discovery state changed");
+  } else if (event == ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT) {
+    // Fires when the link opens, BEFORE any pairing result. This is the event
+    // capture mode exists for: the console reveals its address here even if the
+    // pairing it attempts afterwards fails.
+    const uint8_t *b = param->acl_conn_cmpl_stat.bda;
+    snprintf(g_cap_name, sizeof(g_cap_name), "%s", "");
+    memcpy(g_cap_bda, b, 6);
+    g_cap_done = true;
+    ESP_LOGI("ps5_wake", "ACL from %02X:%02X:%02X:%02X:%02X:%02X (stat=%d)", b[0], b[1], b[2], b[3],
+             b[4], b[5], param->acl_conn_cmpl_stat.stat);
+  } else if (event == ESP_BT_GAP_AUTH_CMPL_EVT) {
+    // Carries the device name too, which is how we confirm it is the console
+    // rather than some other Bluetooth device in the room.
+    const uint8_t *b = param->auth_cmpl.bda;
+    memcpy(g_cap_bda, b, 6);
+    snprintf(g_cap_name, sizeof(g_cap_name), "%s", (const char *) param->auth_cmpl.device_name);
+    g_cap_done = true;
+    ESP_LOGI("ps5_wake", "AUTH from %02X:%02X:%02X:%02X:%02X:%02X name='%s' stat=%d", b[0], b[1],
+             b[2], b[3], b[4], b[5], g_cap_name, param->auth_cmpl.stat);
+  } else if (event == ESP_BT_GAP_PIN_REQ_EVT || event == ESP_BT_GAP_CFM_REQ_EVT) {
+    ESP_LOGI("ps5_wake", "pairing request received (event %d) — address already captured", event);
   }
 }
 
@@ -129,12 +153,19 @@ bool PS5Wake::bt_up_(const uint8_t pad_mac[6]) {
   if (this->bt_ready_)
     return true;
 
-  // Spoofing the pad's address MUST happen before controller init: the stack
-  // reads the base MAC once, at init.
-  esp_err_t err = esp_iface_mac_addr_set(pad_mac, ESP_MAC_BT);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "esp_iface_mac_addr_set failed: %s", esp_err_to_name(err));
-    return false;
+  esp_err_t err = ESP_OK;
+  // pad_mac == nullptr means "come up as ourselves, do not spoof". Capture mode
+  // uses that deliberately: impersonating a pad the console already trusts risks
+  // it auto-connecting instead of appearing as a new device, and risks disturbing
+  // the real pad's bond — which is the thing this whole device depends on.
+  if (pad_mac != nullptr) {
+    // Spoofing MUST happen before controller init: the stack reads the base MAC
+    // once, at init.
+    err = esp_iface_mac_addr_set(pad_mac, ESP_MAC_BT);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "esp_iface_mac_addr_set failed: %s", esp_err_to_name(err));
+      return false;
+    }
   }
 
   esp_bt_controller_config_t cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
@@ -217,6 +248,14 @@ void PS5Wake::wake() {
 void PS5Wake::loop() {
   // The worker task cannot publish: ESPHome components are not thread-safe. It
   // leaves the message here and the main loop publishes it.
+  if (this->captured_pending_) {
+    this->captured_pending_ = false;
+    if (this->ps5_mac_text_ != nullptr) {
+      // Writing an entity must happen here, on the main loop — never from a task.
+      this->ps5_mac_text_->publish_state(this->captured_);
+      ESP_LOGI(TAG, "ps5_mac set to %s from capture", this->captured_);
+    }
+  }
   if (this->result_pending_) {
     this->result_pending_ = false;
     this->publish_result_(this->pending_);
@@ -260,6 +299,57 @@ void PS5Wake::scan_task_(void *arg) {
       esp_bt_gap_cancel_discovery();
       snprintf(self->pending_, sizeof(self->pending_), "scan done: %d found (see log)",
                static_cast<int>(g_found));
+    }
+  }
+
+  self->result_pending_ = true;
+  self->in_progress_ = false;
+  vTaskDelete(nullptr);
+}
+
+void PS5Wake::capture() {
+  if (this->in_progress_) {
+    this->publish_result_("busy");
+    return;
+  }
+  this->in_progress_ = true;
+  this->publish_result_("discoverable 90s — pick 'PS5-Wake' on the console");
+  if (xTaskCreate(&PS5Wake::capture_task_, "ps5_cap", 6144, this, 5, nullptr) != pdPASS) {
+    this->in_progress_ = false;
+    this->publish_result_("could not start capture task");
+  }
+}
+
+void PS5Wake::capture_task_(void *arg) {
+  auto *self = static_cast<PS5Wake *>(arg);
+  g_cap_done = false;
+
+  // nullptr: come up as ourselves. See bt_up_ for why we must not spoof here.
+  if (!self->bt_up_(nullptr)) {
+    snprintf(self->pending_, sizeof(self->pending_), "capture: bluetooth failed to start");
+  } else {
+    esp_bt_gap_register_callback(gap_cb);
+    esp_bt_gap_set_device_name("PS5-Wake");
+    esp_err_t err = esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "set_scan_mode failed: %s", esp_err_to_name(err));
+      snprintf(self->pending_, sizeof(self->pending_), "capture: could not go discoverable");
+    } else {
+      ESP_LOGI(TAG, "discoverable as 'PS5-Wake' for 90s — select it on the console");
+      for (int i = 0; i < 180 && !g_cap_done; i++)
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+      if (g_cap_done) {
+        snprintf(self->captured_, sizeof(self->captured_), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 g_cap_bda[0], g_cap_bda[1], g_cap_bda[2], g_cap_bda[3], g_cap_bda[4],
+                 g_cap_bda[5]);
+        self->captured_pending_ = true;
+        snprintf(self->pending_, sizeof(self->pending_), "captured %s", self->captured_);
+      } else {
+        snprintf(self->pending_, sizeof(self->pending_), "capture: nothing connected in 90s");
+      }
+      // Back to invisible. This device should not sit discoverable.
+      esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
     }
   }
 

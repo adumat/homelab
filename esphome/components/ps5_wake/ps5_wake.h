@@ -41,11 +41,19 @@ class PS5Wake : public Component {
   /// Wi-Fi MACs — so the address has to be discovered over the air.
   void scan();
 
+  /// Become discoverable so the PS5 can find us on its Bluetooth Accessories
+  /// screen. When the console opens a link we capture its address and write it
+  /// into ps5_mac. The pairing itself is expected to FAIL and that is fine — the
+  /// address arrives with the ACL connection, before any pairing outcome.
+  void capture();
+
  protected:
   /// The blocking wake sequence. Runs on its own FreeRTOS task, NEVER the loop.
   static void wake_task_(void *arg);
   /// The blocking discovery sequence. Also its own task, same reason.
   static void scan_task_(void *arg);
+  /// Discoverable-and-wait, so the console connects to us. Own task, same reason.
+  static void capture_task_(void *arg);
   /// Parse "AA:BB:CC:DD:EE:FF" into 6 bytes. Returns false on any malformed input.
   static bool parse_mac_(const std::string &in, uint8_t out[6]);
 
@@ -77,6 +85,11 @@ class PS5Wake : public Component {
   /// here and loop() does the publishing.
   volatile bool result_pending_{false};
   char pending_[64]{};
+
+  /// Address captured in capture mode, handed to the main loop to write into the
+  /// ps5_mac text entity — the task must not touch entities itself.
+  volatile bool captured_pending_{false};
+  char captured_[18]{};
 };
 
 template<typename... Ts> class WakeAction : public Action<Ts...> {
@@ -92,6 +105,15 @@ template<typename... Ts> class ScanAction : public Action<Ts...> {
  public:
   explicit ScanAction(PS5Wake *parent) : parent_(parent) {}
   void play(Ts... x) override { this->parent_->scan(); }
+
+ protected:
+  PS5Wake *parent_;
+};
+
+template<typename... Ts> class CaptureAction : public Action<Ts...> {
+ public:
+  explicit CaptureAction(PS5Wake *parent) : parent_(parent) {}
+  void play(Ts... x) override { this->parent_->capture(); }
 
  protected:
   PS5Wake *parent_;

@@ -163,3 +163,16 @@ button:
     name: scan        # -> POST /button/scan/press
     on_press:
       - ps5_wake.scan: waker
+  # Capture the console's Bluetooth address. Press this, then on the PS5 open
+  # Settings > Accessories > Bluetooth Accessories and select "PS5-Wake". The
+  # pairing is EXPECTED TO FAIL - that does not matter, because the console reveals
+  # its address when the link opens, before any pairing outcome. The captured
+  # address is written straight into ps5_mac.
+  #
+  # Needed because the PS5 never shows its Bluetooth address in its own UI (System
+  # Information lists only the LAN and Wi-Fi MACs), and on that screen the console
+  # is scanning rather than advertising, so we cannot find it by inquiry either.
+  - platform: template
+    name: capture_ps5_mac   # -> POST /button/capture_ps5_mac/press
+    on_press:
+      - ps5_wake.capture: waker
