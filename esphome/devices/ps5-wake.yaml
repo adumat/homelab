@@ -59,10 +59,25 @@ logger:
     web_server: INFO
     esp32.preferences: INFO
 
-# NO api: component, per design §3.4. This device is standalone by requirement and
-# must not depend on Home Assistant, and dropping api: frees the RAM the heap gate
-# needs. Consequence: `esphome logs` cannot attach (it uses the API), and
-# baud_rate: 0 disables serial too — read logs from the web_server page instead.
+# api: RE-ADDED 2026-08-25 after bring-up proved the no-api decision impractical.
+#
+# Design §3.4 said "no api:", for two reasons: standalone operation, and freeing the
+# RAM the §5 heap gate needs. The first reason is satisfied either way — this API is
+# an endpoint, not a dependency, and the device still wakes the console via REST and
+# the web page with no Home Assistant present. Requirement 1 was "no dependency on
+# Home Assistant", not "no API".
+#
+# The second reason still stands and is the real cost, so this is reversible: set
+# `level: INFO` and delete this block to reclaim RAM once bring-up is finished.
+#
+# What forced it: without api:, `esphome logs` refuses outright, which is what the
+# dashboard's Logs button runs. baud_rate does not help there — serial needs a USB
+# link to the machine READING the logs, and that machine is a Kubernetes pod with no
+# connection to the device. So the only log paths were the device's own web page or
+# WebSerial from a laptop, neither of which is the dashboard.
+api:
+  encryption:
+    key: ${api_key}
 
 ota:
   - platform: esphome
