@@ -2058,7 +2058,37 @@ Hardware already in the house, metrics absent.
       Unlocks the **PS5 wake device**, which can now be built this way from the start: config in
       `esphome/devices/`, custom BR/EDR component in `esphome/components/` via `external_components`
       from a git source. Separate plan, own hardware prerequisites.
-- [ ] **PS5 wake device — code complete, blocked on hardware (2026-08-22).** A dedicated ESP32 that
+- [ ] **PS5 wake device — hardware live, reaching the console, rejected on identity (2026-08-26).**
+      Flashed and running at `ps5-wake.lan` / `10.1.30.34`. Everything up to the Bluetooth link
+      layer works; the console answers and then refuses us.
+  - **The console's Bluetooth address is `80:60:B7:10:03:3F`** — captured, not guessed. Note it is
+      the **Wi-Fi MAC + 1** (`80:60:b7:10:03:3e`), same OUI, consecutive. The PS5 exposes neither in
+      a way that helps: System Information lists LAN and Wi-Fi only.
+  - **How it was captured, since nothing else worked.** The pad route failed twice: a DualSense
+      stores one host, and connecting it to a Mac over Bluetooth *makes the Mac its host*, so HID
+      feature report `0x09` could only ever return the Mac's controller address. Inquiry failed too
+      — on Settings → Accessories → Bluetooth Accessories the console is **scanning, not
+      advertising**, so a scan from our side returns 0 devices. The answer was to invert it: the
+      ESP32 goes discoverable as `PS5-Wake`, you select it on the console, and the address arrives
+      in `ESP_BT_GAP_ACL_CONN_CMPL_STAT_EVT` when the link opens — **before** any pairing outcome.
+      The pairing is expected to fail and does not matter. Owner's idea, and the only one that worked.
+  - 🔴 **Current blocker: `stat=271` = `0x10F` = `ESP_BT_STATUS_HCI_HOST_REJECT_DEVICE`**, HCI error
+      0x0F, *"Connection Rejected due to Unacceptable BD_ADDR"*. The ACL link to the console **does**
+      establish — `ACL from 80:60:B7:10:03:3F` — and is then torn down. Crucially this is **not**
+      `AUTH_FAILURE` (0x105), `KEY_MISSING` (0x106) or `HOST_REJECT_SECURITY` (0x10E): we never reach
+      authentication. The console rejects the **identity**, which makes this a bond-list problem
+      rather than the HID-session/link-key wall the design predicted.
+  - **Next test, cheap and no rebuild:** we spoof `A0:AB:51:B1:23:7B`, which is the pad that was
+      connected to a Mac and whose console-side standing is therefore doubtful. Try the other pad,
+      `4C:B9:9B:9F:0E:81`, keeping `ps5_mac` at `80:60:B7:10:03:3F`. If the link is accepted, the
+      technique works and the only error was which pad we impersonated.
+  - ⚠️ **BR/EDR sniffing needs real hardware** (Ubertooth-class) because it frequency-hops; cheap
+      nRF sniffers are BLE-only and Bluedroid has no promiscuous mode. Only worth it if a
+      genuinely-trusted address is *also* rejected.
+  - ⚠️ **A captured address does not survive an OTA** — `restore_value` restores the last value
+      actually flushed to flash, and a fresh capture reverted to the previous value across a
+      reflash. Re-set `ps5_mac` after any OTA, or make capture persist immediately.
+- [x] **PS5 wake device — component written and compiling (2026-08-22).** A dedicated ESP32 that
       wakes the PS5 by impersonating a paired DualSense over Bluetooth Classic, because a UPS output
       cut leaves the console **fully off** and Sony's network wake needs Rest Mode. Design and plan
       under `docs/superpowers/`; component at `esphome/components/ps5_wake/`, device at
