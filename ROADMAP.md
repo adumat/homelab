@@ -2086,10 +2086,15 @@ Hardware already in the house, metrics absent.
   - Remaining, all needing the board on site: flash it over USB; **calibrate
     `min_heap_for_always_on`** from what `free_heap` actually reports (the `120000` in the config is a
     guess, and static RAM is already at 67% before Bluedroid allocates its 60–100 KB); add a DHCP
-    reservation at **`10.1.20.32`** on clients VLAN 20 once the MAC is known — verified free, and
-    deliberately outside the guest zone's `10.1.20.16/28` range so guests cannot wake the console,
-    while `servers → clients` is already `full` so donkey and PNO can reach it, **no firewall change
-    needed**; and enter both MACs on the web config page.
+    reservation at **`10.1.30.34`** on **IoT VLAN 30** once the MAC is known; and enter both MACs on
+    the web config page.
+    ⚠️ **The VLAN was wrong in the original design and is corrected here.** It joins the same SSID as
+    the other ESPHome devices, and **SSID determines the VLAN** — a reservation cannot move a host
+    between VLANs. Flashed 2026-08-25 and came up at `10.1.30.113` from the IoT pool. `.30`–`.33` are
+    the existing four devices so `.34` is next free. Guest isolation still holds (guests reach only
+    `10.1.30.16/28`) and `servers → iot` already permits what is needed, so **still no firewall
+    change**. The MAC must be read from the device's web page or the OPNsense lease table — donkey
+    cannot ARP across VLANs, and the web_server v3 UI does not expose it in served HTML.
     ⚠️ Read the PS5's **Bluetooth** MAC from Settings → System → System Information, *not* its LAN
     MAC. And **do not pair the DualSense to a computer to find its address** — a DualSense remembers
     only one host, so pairing it elsewhere unpairs it from the PS5 and destroys the very bond this
