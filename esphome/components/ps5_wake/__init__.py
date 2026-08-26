@@ -49,6 +49,18 @@ async def to_code(config):
     # L2CAP itself is a second, separate opt-in on top of BT_CLASSIC_ENABLED
     # (defaults to n even once classic BT is on) - this is what wake() links against.
     add_idf_sdkconfig_option("CONFIG_BT_L2CAP_ENABLED", True)
+    # The CONTROLLER must also be built for BR/EDR. CONFIG_BT_CLASSIC_ENABLED above
+    # only enables Classic in the Bluedroid HOST; the controller has a separate
+    # Kconfig choice that defaults to BLE_ONLY. With that default,
+    # esp_bt_controller_init() rejects ESP_BT_MODE_CLASSIC_BT with
+    # ESP_ERR_INVALID_ARG — and it does so at RUNTIME, so the compile is clean and
+    # the failure only appears when a wake is attempted.
+    #
+    # BR_EDR_ONLY rather than BTDM: this device has no BLE components, and the
+    # leaner controller leaves more heap, which matters here — free heap at setup
+    # was measured at 120,956 against a 120,000 gate.
+    add_idf_sdkconfig_option("CONFIG_BTDM_CTRL_MODE_BLE_ONLY", False)
+    add_idf_sdkconfig_option("CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY", True)
 
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
