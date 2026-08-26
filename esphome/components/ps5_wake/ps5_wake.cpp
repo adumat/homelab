@@ -280,6 +280,15 @@ void PS5Wake::wake_task_(void *arg) {
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
       outcome = "l2cap_init failed";
     } else {
+      // The L2CAP API is VFS-based: ESP_BT_L2CAP_OPEN_EVT returns an int fd, and
+      // the header states vfs_register "must be called after esp_bt_l2cap_init()
+      // successful and before esp_bt_l2cap_deinit()". Skipping it produced
+      // ESP_BT_L2CAP_NO_RESOURCE (status=3) on every connect, in ~30ms, against
+      // both a dead address and a known-live Bluetooth device — i.e. the stack had
+      // nowhere to allocate a descriptor, nothing to do with the peer.
+      err = esp_bt_l2cap_vfs_register();
+      if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+        ESP_LOGW(TAG, "vfs_register failed: %s", esp_err_to_name(err));
       // HID control (0x11) then HID interrupt (0x13). The console sees a trusted
       // controller reconnecting. No pairing needed: spoofing the pad's BD_ADDR
       // rides the bond the console already holds.
@@ -289,7 +298,11 @@ void PS5Wake::wake_task_(void *arg) {
         for (uint16_t psm : psms) {
           g_open_ok = false;
           g_open_done = false;
-          err = esp_bt_l2cap_connect(0, psm, self->ps5_);
+          // Not 0 (== SEC_NONE). A HID link to a bonded console is encrypted and
+          // authenticated, and the docs present this pair as the normal setting;
+          // asking for no security can be refused by a peer that requires it.
+          err = esp_bt_l2cap_connect(ESP_BT_L2CAP_SEC_ENCRYPT | ESP_BT_L2CAP_SEC_AUTHENTICATE,
+                                     psm, self->ps5_);
           if (err != ESP_OK) {
             ESP_LOGW(TAG, "attempt %u psm 0x%02X connect call failed: %s", attempt, psm,
                      esp_err_to_name(err));
