@@ -195,8 +195,16 @@ bool PS5Wake::bt_up_(const uint8_t pad_mac[6]) {
   esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
   this->bt_ready_ = true;
-  ESP_LOGI(TAG, "bluedroid up, spoofing %02X:%02X:%02X:%02X:%02X:%02X", pad_mac[0], pad_mac[1],
-           pad_mac[2], pad_mac[3], pad_mac[4], pad_mac[5]);
+  // pad_mac may legitimately be nullptr (capture mode comes up unspoofed), so this
+  // MUST be guarded. Dereferencing it unconditionally here caused
+  // "Fault - LoadProhibited" on the first capture attempt: the nullptr case was
+  // handled for esp_iface_mac_addr_set above and then read through two lines later.
+  if (pad_mac != nullptr) {
+    ESP_LOGI(TAG, "bluedroid up, spoofing %02X:%02X:%02X:%02X:%02X:%02X", pad_mac[0], pad_mac[1],
+             pad_mac[2], pad_mac[3], pad_mac[4], pad_mac[5]);
+  } else {
+    ESP_LOGI(TAG, "bluedroid up with our own address (not spoofing)");
+  }
   return true;
 }
 
