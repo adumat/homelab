@@ -396,11 +396,17 @@ void PS5Wake::wake_task_(void *arg) {
         for (uint16_t psm : psms) {
           g_open_ok = false;
           g_open_done = false;
-          // Not 0 (== SEC_NONE). A HID link to a bonded console is encrypted and
-          // authenticated, and the docs present this pair as the normal setting;
-          // asking for no security can be refused by a peer that requires it.
-          err = esp_bt_l2cap_connect(ESP_BT_L2CAP_SEC_ENCRYPT | ESP_BT_L2CAP_SEC_AUTHENTICATE,
-                                     psm, self->ps5_);
+          // SEC_NONE, reverted 2026-08-26. Requesting ENCRYPT|AUTHENTICATE cannot
+          // work here: spoofing a BD_ADDR does NOT give us the link key for that
+          // bond, so an encryption handshake has nothing to complete with. The
+          // observed symptom fits exactly — with the correct console address and an
+          // awake console, every attempt ran the full 2s wait and the callback
+          // never fired at all. Not a refusal; a silent stall.
+          //
+          // This flag was changed in the same commit as the vfs_register fix, which
+          // was careless: that bundled a proven fix with a speculative one and made
+          // the result uninterpretable.
+          err = esp_bt_l2cap_connect(ESP_BT_L2CAP_SEC_NONE, psm, self->ps5_);
           if (err != ESP_OK) {
             ESP_LOGW(TAG, "attempt %u psm 0x%02X connect call failed: %s", attempt, psm,
                      esp_err_to_name(err));
