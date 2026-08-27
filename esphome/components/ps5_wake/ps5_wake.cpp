@@ -65,7 +65,10 @@ void PS5Wake::setup() {
     this->publish_result_("always_on declined: low heap");
     return;
   }
-  ESP_LOGCONFIG(TAG, "setup complete, free heap %u", (unsigned) heap);
+  // ESP_LOGI, not ESP_LOGCONFIG: at level INFO the CONFIG-level boot dump is
+  // hidden, and this is the number that says whether the always_on gate engaged.
+  ESP_LOGI(TAG, "setup complete, free heap %u (gate %u)", (unsigned) heap,
+           (unsigned) this->min_heap_);
 }
 
 void PS5Wake::dump_config() {
