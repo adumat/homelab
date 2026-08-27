@@ -2058,7 +2058,40 @@ Hardware already in the house, metrics absent.
       Unlocks the **PS5 wake device**, which can now be built this way from the start: config in
       `esphome/devices/`, custom BR/EDR component in `esphome/components/` via `external_components`
       from a git source. Separate plan, own hardware prerequisites.
-- [ ] **PS5 wake device — hardware live, reaching the console, rejected on identity (2026-08-26).**
+- [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
+      Confirmed on hardware: pressing `wake` on `ps5-wake.lan` turned a powered-off PS5 on.
+  - **The mechanism is the baseband PAGE, not L2CAP.** Paging the console from a BD_ADDR it
+      recognises is the entire trick — no L2CAP channel, no link key, no HID reports. Every
+      `no l2cap open (after 5 attempts)` in the logs is **noise**: those were ten successful pages,
+      and the first almost certainly did the job. The design's PSM 0x11/0x13 framing was the wrong
+      layer, inherited from the upstream reference it cited.
+  - Independently corroborated by `github.com/AuRoN89/ps5-bt-wake` (CC BY 4.0, so usable with
+      attribution — unlike `blow05/esp32_ps_wake`, which has no licence at all): it spoofs the pad
+      MAC, sends a raw HCI `CREATE_CONNECTION`, restores the MAC, and states plainly that no link
+      keys, pairing info or HID reports are needed. That project also derives the console's
+      Bluetooth address as the Wi-Fi MAC ±1, matching our captured value exactly.
+  - **Working configuration:** `pad_mac` = `A0:AB:51:B1:23:7B` (a DualSense genuinely bonded to
+      this console), `ps5_mac` = `80:60:B7:10:03:3F` (captured, = Wi-Fi MAC + 1).
+  - ⚠️ **`ACL from …` is NOT the success signal** — it only appears when the console is already
+      awake, and its absence is expected on a successful wake. Do not treat the L2CAP result as an
+      outcome; the only reliable confirmation is the console itself. This misled diagnosis for hours.
+  - ⚠️ **Which pad matters.** `4C:B9:9B:9F:0E:81` produced total silence (no ACL, pure page
+      timeout) — it was never bonded to this console. `A0:AB:51:B1:23:7B` works. Note that
+      connecting a pad to another host (a Mac) re-keys it, and its HID report `0x09` then names that
+      host, which is why reading the console's address from a pad never worked.
+
+      **Follow-ups now that it works:**
+  - [ ] **Strip the L2CAP layer.** It contributes nothing to the wake and is the most fragile code
+        in the component — the retry loop, the VFS registration, the security flags, the callback.
+        A page-and-stop implementation would be far smaller and reclaim flash (currently 82.5%).
+  - [ ] `last_result` should report **"page sent"**, not an L2CAP verdict. As written it reports
+        failure on a successful wake, which is actively misleading.
+  - [ ] Wire it into **power-nap-over** so a UPS recovery can wake the console — the original point.
+  - [ ] Move it to a **non-UPS outlet**, per the design: the device must survive the cut it exists
+        to recover from.
+  - [ ] Consider dropping `api:` and setting `level: INFO` again to reclaim RAM, now that bring-up
+        no longer needs verbose logs (free heap at setup was 120,956 against a 120,000 gate).
+- [x] **PS5 wake device — hardware live, reaching the console, rejected on identity (2026-08-26).**
       Flashed and running at `ps5-wake.lan` / `10.1.30.34`. Everything up to the Bluetooth link
       layer works; the console answers and then refuses us.
   - **The console's Bluetooth address is `80:60:B7:10:03:3F`** — captured, not guessed. Note it is
