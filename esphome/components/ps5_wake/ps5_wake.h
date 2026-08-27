@@ -36,10 +36,6 @@ class PS5Wake : public Component {
   /// Publishes any result the worker task left behind. Runs on the main loop.
   void loop() override;
 
-  /// Scan for nearby Bluetooth Classic devices and log them. Exists because the
-  /// PS5 does not show its Bluetooth address anywhere in its UI — only the LAN and
-  /// Wi-Fi MACs — so the address has to be discovered over the air.
-  void scan();
 
   /// Become discoverable so the PS5 can find us on its Bluetooth Accessories
   /// screen. When the console opens a link we capture its address and write it
@@ -50,8 +46,6 @@ class PS5Wake : public Component {
  protected:
   /// The blocking wake sequence. Runs on its own FreeRTOS task, NEVER the loop.
   static void wake_task_(void *arg);
-  /// The blocking discovery sequence. Also its own task, same reason.
-  static void scan_task_(void *arg);
   /// Discoverable-and-wait, so the console connects to us. Own task, same reason.
   static void capture_task_(void *arg);
   /// Parse "AA:BB:CC:DD:EE:FF" into 6 bytes. Returns false on any malformed input.
@@ -96,15 +90,6 @@ template<typename... Ts> class WakeAction : public Action<Ts...> {
  public:
   explicit WakeAction(PS5Wake *parent) : parent_(parent) {}
   void play(Ts... x) override { this->parent_->wake(); }
-
- protected:
-  PS5Wake *parent_;
-};
-
-template<typename... Ts> class ScanAction : public Action<Ts...> {
- public:
-  explicit ScanAction(PS5Wake *parent) : parent_(parent) {}
-  void play(Ts... x) override { this->parent_->scan(); }
 
  protected:
   PS5Wake *parent_;
