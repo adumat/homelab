@@ -30,34 +30,17 @@ external_components:
     refresh: 0s
 
 logger:
-  # baud_rate was 0 (serial off). Re-enabled 2026-08-25 for bring-up: with no api:
-  # component AND no serial, there was no CLI log path at all — `esphome logs` fails
-  # with "no 'api:' component is configured" and serial was dead too. The web_server
-  # page still streams logs over /events, but USB serial is what you want while
-  # calibrating min_heap_for_always_on and diagnosing the first L2CAP attempt.
-  #
-  # Set back to 0 once bring-up is done if you want the RAM back.
+  # Serial kept as a fallback path: if wifi or the API ever break, this is the only
+  # way to see anything. Costs little compared to api:, which is deliberately kept.
   baud_rate: 115200
-  # DEBUG globally, because ESPHome's per-component `logs:` can only make a
-  # component QUIETER than the global level, never louder — a component set above
-  # the global level is a hard config error:
-  #   "The configured log level for ps5_wake (DEBUG) must not be less severe than
-  #    the global log level (INFO)."
-  # ps5_wake's l2cap callback logs INIT_EVT, CL_INIT_EVT and CLOSE_EVT at ESP_LOGD,
-  # and those are exactly the lines that distinguish "the console refused the
-  # connection" from "the console never answered" — so DEBUG has to be global and
-  # the noise damped back down per component below.
-  level: DEBUG
-  logs:
-    # Claw back most of the cost of a global DEBUG. These are the chatty ones and
-    # none of them are interesting here.
-    component: INFO
-    sensor: INFO
-    text: INFO
-    text_sensor: INFO
-    wifi: INFO
-    web_server: INFO
-    esp32.preferences: INFO
+  # Back to INFO after bring-up (was DEBUG). Everything that matters is logged at
+  # INFO or above: the spoofed address, each page emitted, page-call failures, and
+  # the captured console address. DEBUG only added ESP-IDF noise and cost heap.
+  #
+  # Note per-component `logs:` entries can only make a component QUIETER than the
+  # global level, never louder — so there is nothing to damp here any more, and the
+  # previous damping block existed solely to offset a global DEBUG.
+  level: INFO
 
 # api: RE-ADDED 2026-08-25 after bring-up proved the no-api decision impractical.
 #

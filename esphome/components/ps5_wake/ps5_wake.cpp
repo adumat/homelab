@@ -320,7 +320,9 @@ void PS5Wake::wake_task_(void *arg) {
                      esp_err_to_name(err));
             continue;
           }
-          ESP_LOGD(TAG, "attempt %u paged psm 0x%02X", attempt, psm);
+          // INFO, not DEBUG: with the L2CAP result ignored and no ack to observe,
+          // this is the ONLY evidence that a page actually went out.
+          ESP_LOGI(TAG, "attempt %u paged psm 0x%02X", attempt, psm);
           vTaskDelay(pdMS_TO_TICKS(2000));
         }
         vTaskDelay(pdMS_TO_TICKS(300 * attempt));
