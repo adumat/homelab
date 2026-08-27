@@ -33,14 +33,16 @@ logger:
   # Serial kept as a fallback path: if wifi or the API ever break, this is the only
   # way to see anything. Costs little compared to api:, which is deliberately kept.
   baud_rate: 115200
-  # Back to INFO after bring-up (was DEBUG). Everything that matters is logged at
-  # INFO or above: the spoofed address, each page emitted, page-call failures, and
-  # the captured console address. DEBUG only added ESP-IDF noise and cost heap.
+  # CONFIG, not INFO. ESPHome's order is ERROR < WARN < INFO < CONFIG < DEBUG, and
+  # ESP_LOGCONFIG lines sit at CONFIG — so `level: INFO` silently hides the entire
+  # boot dump: bt_mode, retries, min_heap_for_always_on and the free-heap figure.
+  # That heap number is the one value needed to tell whether always_on engaged, so
+  # it is worth a level. CONFIG drops the DEBUG-level ESP-IDF noise and keeps it.
   #
   # Note per-component `logs:` entries can only make a component QUIETER than the
-  # global level, never louder — so there is nothing to damp here any more, and the
-  # previous damping block existed solely to offset a global DEBUG.
-  level: INFO
+  # global level, never louder — raising one above global is a hard config error,
+  # not a no-op. The old damping block existed solely to offset a global DEBUG.
+  level: CONFIG
 
 # api: RE-ADDED 2026-08-25 after bring-up proved the no-api decision impractical.
 #
