@@ -1,15 +1,44 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   packageRules: [
+    // ── Broad rules first; the hold list at the BOTTOM overrides them ──
+    //
+    // ignoreTests: false on every rule. Image Pull (proves the image is
+    // pullable) and Konflate (renders the Flux diff) are the only evidence
+    // available before a merge, so nothing merges without them.
     {
-      description: "Auto-merge trusted container digests",
-      matchDatasources: ["docker"],
+      description: "Automerge digests",
       matchUpdateTypes: ["digest"],
-      matchPackageNames: ["/home-operations/"],
       automerge: true,
       automergeType: "pr",
       ignoreTests: false,
     },
+    {
+      description: "Automerge patches (still batched weekly by groups.json5)",
+      matchUpdateTypes: ["patch"],
+      automerge: true,
+      automergeType: "pr",
+      ignoreTests: false,
+    },
+    {
+      description: "Automerge minors for everything not recovery-critical",
+      matchUpdateTypes: ["minor"],
+      automerge: true,
+      automergeType: "pr",
+      ignoreTests: false,
+    },
+
+    // ── Majors: never, for any package ────────────────────────────────
+    {
+      description: "Never automerge a major",
+      matchUpdateTypes: ["major"],
+      automerge: false,
+    },
+
+    // ── GitHub Actions digest pins (unchanged from before) ────────────
+    //
+    // ignoreTests: true is correct here and deliberate: Konflate does not
+    // render workflow files, so there is no meaningful check to wait for.
     {
       description: "Auto-merge GitHub Actions digest pins",
       matchManagers: ["github-actions"],
@@ -31,6 +60,46 @@
       automerge: true,
       automergeType: "branch",
       ignoreTests: true,
+    },
+
+    // ── Recovery-critical: NEVER automerge — MUST BE LAST ─────────────
+    //
+    // ⚠️ Renovate applies packageRules in order and LATER RULES WIN. This
+    // block must stay at the bottom. Placed above the broad `minor` rule it
+    // is silently overridden, and cilium, authelia and cloudnative-pg would
+    // automerge - the exact opposite of the intent, with no error anywhere.
+    //
+    // The criterion is blast radius, not semver and not "has a schema".
+    // romm had a schema and its failure did not matter; a bad cilium bump
+    // means you cannot reach the cluster to fix it.
+    //
+    //   Hold anything whose failure impairs your ability to fix it.
+    //
+    // This list is duplicated in groups.json5, where the same packages are
+    // pulled out of their stack groups into per-package PRs. Both are
+    // required: grouping without this would sweep them into an automerging
+    // stack PR, and this without grouping would stall a whole stack behind
+    // one held package. Change them together.
+    {
+      description: "Recovery-critical: never automerge (MUST be the last rule)",
+      matchPackageNames: [
+        "ghcr.io/home-operations/charts-mirror/cilium",
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+        "ghcr.io/external-secrets/charts/external-secrets",
+        "quay.io/jetstack/charts/cert-manager",
+        "ghcr.io/authelia/authelia",
+        "ghcr.io/lldap/lldap",
+        "ghcr.io/cloudnative-pg/charts/cloudnative-pg",
+        "ghcr.io/home-operations/charts/miroir",
+        "ghcr.io/home-operations/charts/kopiur",
+        "ghcr.io/prometheus-community/charts/kube-prometheus-stack",
+        "docker.io/envoyproxy/gateway-helm",
+        "mirror.gcr.io/envoyproxy/gateway-helm",
+        "/siderolabs/installer/",
+        "/siderolabs/talosctl/",
+      ],
+      automerge: false,
     },
   ],
 }
