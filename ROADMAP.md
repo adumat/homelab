@@ -30,9 +30,14 @@ Live faults. They belong to no phase because they should not wait for one; both 
       (same SHA as the workstation `.env`). Given its own token on the same machine account, so
       rotating the operator credential can no longer silently kill a host's GitOps. Each host now
       holds a distinct token and the operator token is on none of them.
-- [ ] **Make `bootstrap.sh` refuse an empty `BWS_ACCESS_TOKEN`.** This is the defect that cost
-      4.5 days: it accepted an empty value, wrote it, and exited 0. A guard that fails loudly
-      turns a silent multi-day outage into an obvious bootstrap error
+- [x] **`bootstrap.sh` now refuses an empty credential — done 2026-08-25** (`57df2b1`). Guards
+      both the write path and the "file already exists" re-run path; the latter mattered, as it is
+      the one that let navi stay broken silently.
+
+      Found while testing it: the fallback used `grep -oP`, and **navi is a BusyBox LXC whose grep
+      has no `-P`**. The pattern failed, `|| true` swallowed the error, and the caller saw empty
+      for a key that was actually set — a complete mechanism for navi's blank token without anyone
+      forgetting a flag. All four extractions now use a portable `sed` helper.
 - [ ] **Watch charmander's 100 Mbit link — hardware.** `eno1` negotiates **100Mbit/Full** while
       the other four nodes are at `1000Mbit`. Nothing in `patches/` forces a speed and the link is
       clean (zero errs, drops, carrier events), so it is **cabling or the switch port**, not the
@@ -2007,11 +2012,26 @@ clean and already current. Two things remain:
       JSON5 needs the `json5` CLI first — `jq` and `yq -p json` cannot parse it.
 
       Open PRs 30 → 33 and still draining as automerge works through Image Pull and Konflate.
-- [ ] Factor the `ResourceClaimTemplate` of frigate and jellyfin into a `components/gpu`.
-      **This is not a new capability**: DRA (`resource.k8s.io/v1`) is already in use in both
-      apps. The gain is removing the duplication
-- [ ] While factoring, check whether `adminAccess: true` and `allocationMode: All` are
-      needed — neither is set today
+- [x] **`components/gpu` done 2026-08-28** (`c7579ce`). frigate and jellyfin had byte-identical
+      `ResourceClaimTemplate`s differing only in `metadata.name`; both already substitute `APP`,
+      and their HelmReleases needed no change because `resourceClaimTemplateName: <app>` already
+      equals it. Verified the live objects were **re-owned, not recreated** — same age, claims
+      still allocated, both pods untouched at 0 restarts.
+- [x] **Both answered from the topology, not the docs.**
+      - **`adminAccess: true` — no, and it would be wrong.** It grants privileged device access
+        for monitoring/admin workloads, needs the `DRAAdminAccess` feature gate and a
+        specially-labelled namespace. These are ordinary consumers.
+      - **`allocationMode: All` — no, and it would be a real change rather than the no-op it
+        looks like.** The live object shows the API server defaults `exactly` to
+        `ExactCount, count: 1`. `All` claims *every* matching device on the node — identical
+        today, since each node advertises exactly one `gpu.intel.com` device with
+        `allowMultipleAllocations` unset, but it hard-codes an intent that breaks the moment a
+        node has two GPUs.
+
+      ⚠️ Not fixed, pre-existing: with one device per node and no sharing, frigate and jellyfin
+      fit only because the scheduler put them on different nodes. Nothing enforces it — if both
+      landed on one node the second would sit unschedulable. Anti-affinity is the lever if it
+      ever bites.
 
 ### Phase 5 — the missing observability
 
