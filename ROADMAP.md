@@ -2112,6 +2112,37 @@ Hardware already in the house, metrics absent.
       Unlocks the **PS5 wake device**, which can now be built this way from the start: config in
       `esphome/devices/`, custom BR/EDR component in `esphome/components/` via `external_components`
       from a git source. Separate plan, own hardware prerequisites.
+- [ ] **PS5 keepalive — phase 1 built and live 2026-08-27, acceptance tests part-run.**
+      Holds one invariant: *the PS5 is never fully off*, autonomously, with no cluster dependency.
+      A fully-off console cannot be woken over the network by anything — only by the BT page — so
+      keeping it in reach is what makes remote play reliable. Specs and plan under
+      `docs/superpowers/`; new component `esphome/components/ps5_status/`.
+  - **State detection is DDP over UDP 9302.** Measured on this console: `HTTP/1.1 200 Ok` awake,
+      **`HTTP/1.1 620 Server Standby` in rest mode**, silence when off. That `620` is the
+      foundation — without it rest is indistinguishable from off and keepalive would wake the
+      console, watch it rest, and wake it again forever. Depends on the console setting
+      `Power Saving → Features Available in Rest Mode → Stay Connected to the Internet`.
+  - ⚠️ **A resting console drops polls.** Two single-sample dropouts in 85 min of rest, one a
+      garbled datagram at the ON→REST transition. A naive one-timeout-equals-off rule would have
+      woken the console twice in an afternoon. Hence: 3-poll debounce, unparseable replies are
+      strictly neutral, and a *witnessed* shutdown additionally waits out a 15 min grace period.
+  - **ON → REST is delegated to the console's own idle timer**, observed self-resting in ~10 min.
+      Treated as best-effort: if it never rests, the console parks at ON, which still satisfies the
+      invariant. That deliberately avoids porting ~600-900 lines of chiaki's reverse-engineered
+      RP-Crypt and ctrl framing to a microcontroller to reclaim ~18 Wh a few times a year.
+  - **Firewall:** `iot → clients` was `none`. Now one pinhole — UDP 9302 to `10.1.20.31/32` only,
+      live as seq 301 pass / 309 drop-remaining. The access matrix already supported this: a
+      port-list entry honours `proto` and `range`, where `range` overrides the destination net.
+  - ⚠️ **The console is on Ethernet** (`ps5-lan` 10.1.20.31); its Wi-Fi NIC is down. DDP targets
+      the wired NIC, while the BT wake uses the **Wi-Fi** MAC + 1. Two addresses, both load-bearing,
+      for different reasons — a future "it stopped waking" hunt will otherwise check the wrong NIC.
+  - ⚠️ **`min_heap_for_always_on` recalibrated 120000 → 105000.** `ps5_status` costs ~8.5 kB of
+      heap, which pushed boot heap to ~112 kB and made the *advisory* gate trip on every boot, its
+      warning overwriting `last_result` — the wake-outcome field. The gate is advisory only:
+      `setup()` does nothing but log, and `bt_up_` runs from the wake/capture tasks regardless.
+  - Remaining: acceptance tests 3 (grace), 4 (cold recovery) and 5 (cooldown) need physical access
+      to the console. Test 1 (parse, cross-checked against an independent probe) and the inert-when-
+      off check both passed; test 2 (no wakes in ≥2 h of resting) is running.
 - [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
       Confirmed on hardware: pressing `wake` on `ps5-wake.lan` turned a powered-off PS5 on.
   - **The mechanism is the baseband PAGE, not L2CAP.** Paging the console from a BD_ADDR it
@@ -2172,9 +2203,14 @@ Hardware already in the house, metrics absent.
   - ⚠️ **BR/EDR sniffing needs real hardware** (Ubertooth-class) because it frequency-hops; cheap
       nRF sniffers are BLE-only and Bluedroid has no promiscuous mode. Only worth it if a
       genuinely-trusted address is *also* rejected.
-  - ⚠️ **A captured address does not survive an OTA** — `restore_value` restores the last value
-      actually flushed to flash, and a fresh capture reverted to the previous value across a
-      reflash. Re-set `ps5_mac` after any OTA, or make capture persist immediately.
+  - ⚠️ **A freshly-captured address can be lost across a reflash — but NOT because OTA erases
+      NVS.** Corrected 2026-08-27: OTA does not touch NVS, and both MACs survived two OTAs that
+      day. Values are keyed by a hash of the entity's `object_id`, so what actually loses them is
+      (a) **renaming** an entity, which orphans the old value under the old hash, (b) an `esptool`
+      flash with erase, or (c) a value written inside the **preference flush window**
+      (`flash_write_interval`, 60 s by default) before a reboot — which is what bit the capture.
+      `initial_value` from a committed substitution now covers (a) and (b); only (c) needs care,
+      so leave ~a minute between a capture and a reflash.
 - [x] **PS5 wake device — component written and compiling (2026-08-22).** A dedicated ESP32 that
       wakes the PS5 by impersonating a paired DualSense over Bluetooth Classic, because a UPS output
       cut leaves the console **fully off** and Sony's network wake needs Rest Mode. Design and plan
