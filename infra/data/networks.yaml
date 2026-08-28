@@ -199,7 +199,11 @@ zones:
           description: MQTT
         - port: 8123
           description: Home Assistant
-      clients: none
+      clients:
+        - port: 9302
+          proto: UDP
+          range: 10.1.20.31/32
+          description: PS5 discovery (DDP)
       iot_local: none
       untrusted: none
       guest: none
