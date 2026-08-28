@@ -83,6 +83,12 @@ logger:
 # link to the machine READING the logs, and that machine is a Kubernetes pod with no
 # connection to the device. So the only log paths were the device's own web page or
 # WebSerial from a laptop, neither of which is the dashboard.
+# Diagnostics for an unexplained reboot seen 2026-08-27 during a grace window.
+# Without an uptime sensor a restart is invisible — this device may have been
+# restarting occasionally all along with nothing to show it.
+debug:
+  update_interval: 60s
+
 api:
   encryption:
     key: ${api_key}
@@ -143,6 +149,11 @@ text_sensor:
     id: ps5_state
     lambda: 'return {id(conclusion)};'
     update_interval: 10s
+  # Says WHY the last boot happened: panic, watchdog, brownout, or a clean OTA.
+  - platform: debug
+    reset_reason:
+      name: reset reason
+      entity_category: diagnostic
 
 sensor:
   - platform: template
@@ -166,6 +177,22 @@ sensor:
     accuracy_decimals: 0
     update_interval: 30s
     entity_category: diagnostic
+  # A reboot is otherwise undetectable: the keepalive globals are
+  # restore_value: false, so they silently reset and look like a fresh start.
+  - platform: uptime
+    name: uptime
+    update_interval: 60s
+    entity_category: diagnostic
+  # Largest contiguous free block, not total free. Bluedroid BR/EDR needs ~42 kB
+  # in one piece, so fragmentation can fail the wake while free_heap still looks
+  # comfortable — that distinction is invisible to free_heap alone.
+  - platform: debug
+    block:
+      name: heap max block
+      entity_category: diagnostic
+    loop_time:
+      name: loop time
+      entity_category: diagnostic
 
 # Keepalive runtime state. All restore_value: false on purpose — these are
 # millis()-relative, and millis() restarts at 0 on reboot, so a restored
