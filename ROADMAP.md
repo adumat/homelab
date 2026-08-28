@@ -2159,6 +2159,12 @@ Hardware already in the house, metrics absent.
       ESPHome device that is not in Home Assistant**, and treat "no uptime sensor" as "reboots are
       invisible" — it plausibly also explains the earlier "a captured MAC did not survive" reports,
       since a reboot inside the 60 s preference flush window discards the value.
+    - Audited all device configs 2026-08-27: `hvac-controller` and `intercom-controller` already set
+      it. **`houzetek-smart-plug.yaml` does not** — so `iron-outlet` and `power-outlet` run the
+      15 min default. That is *defensible* for them, unlike ps5-wake: both are in Home Assistant, so
+      a client keeps them alive, and rebooting when HA has been unreachable for 15 min is a
+      reasonable recovery for a plug whose only job is to obey HA. Worth a deliberate decision
+      rather than a silent default, but not a bug.
     - Now instrumented: `uptime`, `debug.reset_reason` and `debug.block` (largest contiguous free
       block — Bluedroid needs 42 kB in one piece, and fragmentation can fail a wake while
       `free_heap` still looks comfortable).
@@ -2167,9 +2173,29 @@ Hardware already in the house, metrics absent.
       recovered console sits awake, which is exactly why active standby is a power optimisation and
       not a requirement. The transition itself produced one `silent` sample that the debounce
       absorbed, on real data.
-  - Remaining: test 2 (no wakes in ≥2 h of continuous rest) is now running from a clean resting
-      state — it could not have passed before the reboot fix. Tests 3 (full 15 min grace, which the
-      reboot cycle made impossible until now) and 5 (cooldown) need physical access to the console.
+  - ✅ **Test 2 passed in substance: 116 min of continuous rest, keepalive ON, ZERO wakes.**
+      `silent_streak` 0 and `wake_attempts` 0 at every sample. It fell 4 min short of the nominal
+      2 h only because of the panic below, which never woke the console. This test could not have
+      run at all before the `reboot_timeout` fix.
+  - ⚠️ **OPEN: `exception/panic` at ~1 h 56 m uptime.** A *second*, distinct reboot cause, found
+      immediately after the timeout fix removed the first. Uptime reached 6964 s — over six times
+      the old 15 min ceiling — then panicked. Without `debug.reset_reason` this would have been
+      mistaken for the timeout fix having failed.
+    - **This was previously unobservable**: the firmware never survived 15 min, so a panic at ~2 h
+      could never have been seen. It may be long-standing rather than new.
+    - Heap was healthy at the time (110 kB free, 102 kB largest block, loop time 23 ms), so not OOM
+      and not a blocked loop.
+    - **Prime suspect is the observer, not the observed**: ~100 SSE connections had been opened to
+      the device's `web_server` `/events` endpoint while monitoring it. Experiment in progress —
+      all ESP polling stopped, device left completely alone; a single uptime read after 2-3 h
+      decides it. Over 2 h ⇒ the monitoring was the trigger; another panic ⇒ firmware bug.
+    - A backtrace needs **serial**: the panic dump goes to UART at 115200, and the ESPHome pod has
+      no USB path to the device. Chasing it further means plugging the ESP32 into a laptop.
+    - Impact if it persists: every panic resets the keepalive globals, converting a witnessed
+      shutdown into an unwitnessed one and losing the grace period. Degrades the design, does not
+      break the core invariant — the console still gets woken.
+  - Remaining: tests 3 (full 15 min grace, impossible until the reboot fix) and 5 (cooldown) need
+      physical access to the console.
 - [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
       Confirmed on hardware: pressing `wake` on `ps5-wake.lan` turned a powered-off PS5 on.
   - **The mechanism is the baseband PAGE, not L2CAP.** Paging the console from a BD_ADDR it
