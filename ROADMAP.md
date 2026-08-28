@@ -1969,10 +1969,44 @@ clean and already current. Two things remain:
       upgrade is one reset, and alerting on that would raise a warning for each maintenance window;
       a crash-loop is ~30 resets, so the signal is untouched.
 
-### Phase 4 — `just merge` and the gpu component
+### Phase 4 — Renovate automerge and the gpu component
 
-- [ ] Add the `just merge <digest|patch|minor|major>` recipe: bulk-merge Renovate PRs by
-      label, skipping the ones labelled `hold`
+- [x] ~~Add the `just merge <digest|patch|minor|major>` recipe~~ **Superseded 2026-08-26 and done
+      differently.** A bulk-merge recipe automates the clicking without removing the need to click.
+      Broadened Renovate automerge and fixed grouping instead, so the queue drains itself.
+      Spec: `docs/superpowers/specs/2026-08-26-renovate-automerge-grouping-design.md`.
+      The `hold` label was dropped: it never existed, Renovate cannot match labels in
+      `packageRules`, and with automerge the window to apply one barely exists. The durable
+      mechanism is a `packageRules` entry, which is reviewable in git.
+
+      **Three changes shipped** (`3a04d1c`, `fae08a9`, `d4f1e0f`, `93e61f2`, `df729b1`):
+
+      1. **A prerequisite that was not in this phase at all — a cluster-wide `timeout: 15m`.**
+         Re-reading the romm deadlock showed the migration *succeeded*; the pod just missed Flux's
+         5m default, and the rollback into a migrated schema is what froze the Kustomization. Only
+         romm and paperless carried an override — the two that had already bitten. Broadening
+         automerge without this would have made an unattended landmine more likely. All **78**
+         deployed HelmReleases now inherit 15m.
+      2. **Automerge by blast radius, not semver.** Hold anything whose failure impairs the ability
+         to fix it; automerge the rest. Explicitly *not* "has a schema" — romm had one and did not
+         matter, while a bad cilium bump means the cluster is unreachable.
+      3. **Grouping follows attention.** Five namespace groups added; recovery-critical packages
+         pulled out into per-package PRs, appended last so they override the path rules.
+
+      **Verification against real PRs found two holes the validator could not** — a rule matching
+      nothing is valid config:
+      - **cilium is referenced under two package names** (`ghcr.io/home-operations/charts-mirror/
+        cilium` in apps, `quay.io/cilium/charts/cilium` in the bootstrap helmfile). Only one was
+        held, leaving an open **1.19.6 → 1.20.1 minor on the CNI** eligible to automerge.
+      - **`ghcr.io/siderolabs/kubelet` was not held at all**, with an open **v1.36.3 → v1.37.0** —
+        a Kubernetes minor bump on every node. The talos hold covers `/installer/` and
+        `/talosctl/`, not kubelet.
+
+      Lesson worth keeping: **`renovate-config-validator` only checks syntax.** Ordering bugs and
+      rules that bind to nothing both pass it. Both presets now carry an ordering assertion, and
+      JSON5 needs the `json5` CLI first — `jq` and `yq -p json` cannot parse it.
+
+      Open PRs 30 → 33 and still draining as automerge works through Image Pull and Konflate.
 - [ ] Factor the `ResourceClaimTemplate` of frigate and jellyfin into a `components/gpu`.
       **This is not a new capability**: DRA (`resource.k8s.io/v1`) is already in use in both
       apps. The gain is removing the duplication
