@@ -1,0 +1,12 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Intel GPU access via DRA (resource.k8s.io/v1). NOT a new capability: frigate
+# and jellyfin already used DRA with byte-identical ResourceClaimTemplates that
+# differed only in metadata.name. This removes that duplication.
+#
+# The consumer keeps `resourceClaimTemplateName: <app>` in its HelmRelease -
+# that value equals ${APP}, so nothing there changes.
+resources:
+  - ./resourceclaimtemplate.yaml

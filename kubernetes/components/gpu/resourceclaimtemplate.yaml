@@ -1,0 +1,27 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kubernetes/kubernetes/v1.34.0/api/openapi-spec/v3/apis__resource.k8s.io__v1_openapi.json
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: ${APP}
+spec:
+  spec:
+    devices:
+      requests:
+        - name: gpu
+          # `exactly` with no count means exactly 1, which is correct here and
+          # deliberately NOT `allocationMode: All`.
+          #
+          # Measured 2026-08-28: every node advertises exactly ONE gpu.intel.com
+          # device and the driver leaves `allowMultipleAllocations` unset, so a
+          # device takes one claim. `All` would therefore be identical today
+          # while hard-coding an intent that breaks the moment a node has two
+          # GPUs, and would make the one-consumer-per-node limit permanent
+          # rather than incidental.
+          #
+          # `adminAccess: true` is also deliberately absent: it grants
+          # privileged device access for monitoring/admin workloads, needs the
+          # DRAAdminAccess feature gate and a specially-labelled namespace.
+          # These are ordinary consumers.
+          exactly:
+            deviceClassName: gpu.intel.com

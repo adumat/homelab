@@ -9,6 +9,7 @@ spec:
   components:
     - ../../../../components/nfs-scaler
     - ../../../../components/kopiur
+    - ../../../../components/gpu
   path: ./kubernetes/apps/home/frigate/app
   sourceRef:
     kind: GitRepository
