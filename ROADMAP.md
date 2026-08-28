@@ -2140,9 +2140,23 @@ Hardware already in the house, metrics absent.
       heap, which pushed boot heap to ~112 kB and made the *advisory* gate trip on every boot, its
       warning overwriting `last_result` — the wake-outcome field. The gate is advisory only:
       `setup()` does nothing but log, and `bt_up_` runs from the wake/capture tasks regardless.
-  - Remaining: acceptance tests 3 (grace), 4 (cold recovery) and 5 (cooldown) need physical access
-      to the console. Test 1 (parse, cross-checked against an independent probe) and the inert-when-
-      off check both passed; test 2 (no wakes in ≥2 h of resting) is running.
+  - ✅ **It woke the console unattended on 2026-08-27.** Full chain observed: console powered off →
+      3-poll debounce (conclusion stayed `on` at streak 1, flipped at 3) → grace held while streak
+      climbed 4→7 with no page → page → `200 Ok` from an independent probe 90 s later. `last_result`
+      read "page sent (5 attempts)". Measured: Bluedroid BR/EDR costs **~42 kB** of heap
+      (110,612 → 68,668), so the 105000 gate has real margin.
+  - ⚠️ **One unexplained reboot**, mid-grace, with nothing running but the poll loop. It converted a
+      *witnessed* shutdown into an unwitnessed one (globals are `restore_value: false`), which is why
+      the console was paged after 5 min instead of 15. Stable for the following 8 min with flat heap,
+      so not a loop. **A restart was previously undetectable** — the globals reset silently and this
+      device had no uptime sensor, so it may have been restarting since bring-up unnoticed, including
+      after the two earlier successful wakes. Now instrumented: `uptime`, `debug.reset_reason`
+      (distinguishes panic / watchdog / **brownout** / clean OTA — brownout is a live candidate) and
+      `debug.block` (largest contiguous free block; fragmentation can fail a wake needing 42 kB in
+      one piece while `free_heap` still looks comfortable).
+  - Remaining: test 2 (no wakes in ≥2 h of continuous rest) needs a re-run — the first attempt was
+      invalidated when the console stopped resting. Tests 3 (full 15 min grace) and 5 (cooldown, 3
+      attempts then `failed`) need physical access to the console.
 - [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
       Confirmed on hardware: pressing `wake` on `ps5-wake.lan` turned a powered-off PS5 on.
   - **The mechanism is the baseband PAGE, not L2CAP.** Paging the console from a BD_ADDR it
