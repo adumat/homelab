@@ -2145,18 +2145,31 @@ Hardware already in the house, metrics absent.
       climbed 4→7 with no page → page → `200 Ok` from an independent probe 90 s later. `last_result`
       read "page sent (5 attempts)". Measured: Bluedroid BR/EDR costs **~42 kB** of heap
       (110,612 → 68,668), so the 105000 gate has real margin.
-  - ⚠️ **One unexplained reboot**, mid-grace, with nothing running but the poll loop. It converted a
-      *witnessed* shutdown into an unwitnessed one (globals are `restore_value: false`), which is why
-      the console was paged after 5 min instead of 15. Stable for the following 8 min with flat heap,
-      so not a loop. **A restart was previously undetectable** — the globals reset silently and this
-      device had no uptime sensor, so it may have been restarting since bring-up unnoticed, including
-      after the two earlier successful wakes. Now instrumented: `uptime`, `debug.reset_reason`
-      (distinguishes panic / watchdog / **brownout** / clean OTA — brownout is a live candidate) and
-      `debug.block` (largest contiguous free block; fragmentation can fail a wake needing 42 kB in
-      one piece while `free_heap` still looks comfortable).
-  - Remaining: test 2 (no wakes in ≥2 h of continuous rest) needs a re-run — the first attempt was
-      invalidated when the console stopped resting. Tests 3 (full 15 min grace) and 5 (cooldown, 3
-      attempts then `failed`) need physical access to the console.
+  - ⚠️ **SOLVED — `api.reboot_timeout` defaults to 15 min, and ps5-wake had been rebooting on it
+      since it was flashed.** With no API client connected the device reboots itself; ps5-wake is not
+      in Home Assistant, so it restarted every ~15 minutes, unnoticed, because nothing reported
+      uptime. Caught within minutes of adding an uptime sensor: 845 s → 1 s, reset reason
+      *"Reboot request from api"*. Fixed with `reboot_timeout: 0s`; uptime then passed 1204 s.
+    - **Fatal to keepalive, not cosmetic.** The globals are `restore_value: false`, so every reboot
+      reset `last_solid` and converted each WITNESSED shutdown into an unwitnessed one — a 15 min
+      grace can never outlive a 15 min reboot cycle, so the grace path could never have worked. It
+      also made the device silently depend on HA, which runs in the cluster: with the cluster down,
+      the one case this device exists to survive, it would have rebooted every 15 minutes.
+    - `micro-drip-controller` and `proton` already set `reboot_timeout: 0s`. **Check it on every new
+      ESPHome device that is not in Home Assistant**, and treat "no uptime sensor" as "reboots are
+      invisible" — it plausibly also explains the earlier "a captured MAC did not survive" reports,
+      since a reboot inside the 60 s preference flush window discards the value.
+    - Now instrumented: `uptime`, `debug.reset_reason` and `debug.block` (largest contiguous free
+      block — Bluedroid needs 42 kB in one piece, and fragmentation can fail a wake while
+      `free_heap` still looks comfortable).
+  - ✅ **ON → REST confirmed**: the console self-rested unprompted at 15:45 UTC, ~62 min after the
+      wake. So the idle timer here is nearer 1 h than the 20 min minimum — that is how long a
+      recovered console sits awake, which is exactly why active standby is a power optimisation and
+      not a requirement. The transition itself produced one `silent` sample that the debounce
+      absorbed, on real data.
+  - Remaining: test 2 (no wakes in ≥2 h of continuous rest) is now running from a clean resting
+      state — it could not have passed before the reboot fix. Tests 3 (full 15 min grace, which the
+      reboot cycle made impossible until now) and 5 (cooldown) need physical access to the console.
 - [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
       Confirmed on hardware: pressing `wake` on `ps5-wake.lan` turned a powered-off PS5 on.
   - **The mechanism is the baseband PAGE, not L2CAP.** Paging the console from a BD_ADDR it
