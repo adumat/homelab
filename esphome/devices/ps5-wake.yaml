@@ -12,6 +12,12 @@
 # http://<device>/ and persisted in flash — deliberately NOT compile-time, so the
 # console or the pad can be replaced without a rebuild.
 
+substitutions:
+  # The console's LAN address. Its Wi-Fi NIC (10.1.20.30) is down — the PS5 is
+  # wired. NOTE this is unrelated to the Bluetooth address used for the wake,
+  # which is the Wi-Fi MAC + 1.
+  ps5_ip: "10.1.20.31"
+
 esphome:
   name: ps5-wake
   friendly_name: ps5-wake
@@ -26,7 +32,7 @@ external_components:
       type: git
       url: https://github.com/adumat/homelab
       ref: main
-    components: [ps5_wake]
+    components: [ps5_wake, ps5_status]
     refresh: 0s
 
 logger:
@@ -134,6 +140,19 @@ ps5_wake:
   # board with web_server running, then change this. The component degrades to
   # on-demand rather than OOM-looping if the gate is not met.
   min_heap_for_always_on: 120000
+
+
+# Reads console state over the discovery protocol: 200 -> on, 620 -> rest,
+# no answer -> silent. Requires the iot->clients UDP 9302 pinhole in
+# infra/data/networks.yaml; without it every observation is "silent".
+ps5_status:
+  id: ps5s
+  host: ${ps5_ip}
+  update_interval: 60s
+  timeout: 2s
+  state:
+    name: PS5 state raw
+    entity_category: diagnostic
 
 button:
   - platform: template
