@@ -92,6 +92,21 @@ debug:
 api:
   encryption:
     key: ${api_key}
+  # MANDATORY here, not a preference. The default is 15min: if no API client
+  # connects within it, the device reboots itself. This device is not in Home
+  # Assistant, so it had been rebooting every 15 minutes since it was flashed —
+  # invisible until an uptime sensor was added on 2026-08-27.
+  #
+  # Two ways that breaks keepalive, both fatal to its purpose:
+  #   1. The keepalive globals are restore_value: false, so every reboot resets
+  #      last_solid — turning every WITNESSED shutdown into an unwitnessed one.
+  #      A 15 min grace can never outlive a 15 min reboot cycle.
+  #   2. It is a hidden dependency on HA, which lives in the k8s cluster. With
+  #      the cluster down — exactly when this device has to work alone — it
+  #      would reboot every 15 minutes forever.
+  #
+  # micro-drip-controller and proton already set this; ps5-wake was missed.
+  reboot_timeout: 0s
 
 ota:
   - platform: esphome
