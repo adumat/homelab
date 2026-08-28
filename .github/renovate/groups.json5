@@ -86,6 +86,39 @@
       matchFileNames: ["kubernetes/apps/network/**"],
       minimumGroupSize: 1,
     },
+    {
+      description: "Services stack",
+      groupName: "services-stack",
+      matchFileNames: ["kubernetes/apps/services/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "kube-system (cilium is pulled out below - recovery-critical)",
+      groupName: "kube-system-stack",
+      matchFileNames: ["kubernetes/apps/kube-system/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "System-upgrade stack",
+      groupName: "system-upgrade-stack",
+      matchFileNames: ["kubernetes/apps/system-upgrade/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "flux-system apps (flux itself is pulled out below)",
+      groupName: "flux-system-stack",
+      matchFileNames: ["kubernetes/apps/flux-system/**"],
+      minimumGroupSize: 1,
+    },
+    {
+      // The last namespace that still produced singleton PRs. `default` is
+      // deliberately absent: it contains nothing renovatable, so a rule there
+      // would be dead config.
+      description: "Actions runner stack",
+      groupName: "actions-runner-stack",
+      matchFileNames: ["kubernetes/apps/actions-runner-system/**"],
+      minimumGroupSize: 1,
+    },
 
     // ── k8s single-chart / ecosystem groups ───────────────────────────
     {
@@ -182,6 +215,43 @@
       groupName: "app-template",
       matchPackageNames: ["ghcr.io/bjw-s-labs/helm/app-template"],
       minimumGroupSize: 1,
+    },
+    {
+      description: "Grafana operator (all locations)",
+      groupName: "observability-stack",
+      matchPackageNames: ["ghcr.io/grafana/helm-charts/grafana-operator"],
+      minimumGroupSize: 1,
+    },
+
+    // ── Recovery-critical: one PR per package, never grouped ──────────
+    //
+    // These are held from automerge in autoMerge.json5. They must ALSO be
+    // ungrouped, or a stack group containing one of them either automerges
+    // it anyway (defeating the hold) or stalls the whole stack behind it.
+    //
+    // groupName: null removes any group assigned by the rules above, which
+    // is why these must come last - Renovate applies packageRules in order
+    // and later rules win.
+    //
+    // Keep this list in sync with autoMerge.json5.
+    {
+      description: "Recovery-critical: never grouped, one PR each",
+      matchPackageNames: [
+        "ghcr.io/home-operations/charts-mirror/cilium",
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
+        "ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
+        "ghcr.io/external-secrets/charts/external-secrets",
+        "quay.io/jetstack/charts/cert-manager",
+        "ghcr.io/authelia/authelia",
+        "ghcr.io/lldap/lldap",
+        "ghcr.io/cloudnative-pg/charts/cloudnative-pg",
+        "ghcr.io/home-operations/charts/miroir",
+        "ghcr.io/home-operations/charts/kopiur",
+        "ghcr.io/prometheus-community/charts/kube-prometheus-stack",
+        "docker.io/envoyproxy/gateway-helm",
+        "mirror.gcr.io/envoyproxy/gateway-helm",
+      ],
+      groupName: null,
     },
   ],
 }
