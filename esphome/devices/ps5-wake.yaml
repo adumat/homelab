@@ -18,6 +18,22 @@ substitutions:
   # which is the Wi-Fi MAC + 1.
   ps5_ip: "10.1.20.31"
 
+  # Known-good addresses, committed so a wiped device boots working. NVS still
+  # wins at runtime; these are only the fallback. Without them a template text
+  # restores to "" — which is exactly why ps5_mac came up blank after the
+  # esptool flash.
+  pad_mac_default: "A0:AB:51:B1:23:7B"
+  ps5_mac_default: "80:60:B7:10:03:3F"
+
+  # Keepalive tuning. Every number MUST carry an initial_value: a template
+  # number with none restores to min_value, which would mean debounce 2 and
+  # cooldown 5m on a wiped device — maximally trigger-happy.
+  ka_debounce_default: "3"
+  ka_grace_min_default: "15"
+  ka_settle_s_default: "180"
+  ka_max_attempts_default: "3"
+  ka_cooldown_min_default: "60"
+
 esphome:
   name: ps5-wake
   friendly_name: ps5-wake
@@ -105,6 +121,7 @@ text:
     id: pad_mac
     optimistic: true
     restore_value: true
+    initial_value: ${pad_mac_default}
     max_length: 17
     mode: text
   - platform: template
@@ -112,6 +129,7 @@ text:
     id: ps5_mac
     optimistic: true
     restore_value: true
+    initial_value: ${ps5_mac_default}
     max_length: 17
     mode: text
 
@@ -129,6 +147,69 @@ sensor:
     accuracy_decimals: 0
     update_interval: 60s
 
+# Defaults OFF, and RESTORE_DEFAULT_OFF means a wiped device also comes up OFF.
+# Template switches have no initial_value; this is the equivalent. OFF is the
+# right post-wipe default because the failure mode is "does nothing" rather than
+# "surprise console boot".
+switch:
+  - platform: template
+    name: keepalive
+    id: keepalive
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+number:
+  - platform: template
+    name: keepalive debounce polls
+    id: ka_debounce
+    optimistic: true
+    restore_value: true
+    initial_value: ${ka_debounce_default}
+    min_value: 2
+    max_value: 10
+    step: 1
+    entity_category: config
+  - platform: template
+    name: keepalive grace minutes
+    id: ka_grace_min
+    optimistic: true
+    restore_value: true
+    initial_value: ${ka_grace_min_default}
+    min_value: 0
+    max_value: 120
+    step: 1
+    entity_category: config
+  - platform: template
+    name: keepalive settle seconds
+    id: ka_settle_s
+    optimistic: true
+    restore_value: true
+    initial_value: ${ka_settle_s_default}
+    min_value: 60
+    max_value: 600
+    step: 10
+    entity_category: config
+  - platform: template
+    name: keepalive max attempts
+    id: ka_max_attempts
+    optimistic: true
+    restore_value: true
+    initial_value: ${ka_max_attempts_default}
+    min_value: 1
+    max_value: 10
+    step: 1
+    entity_category: config
+  - platform: template
+    name: keepalive cooldown minutes
+    id: ka_cooldown_min
+    optimistic: true
+    restore_value: true
+    initial_value: ${ka_cooldown_min_default}
+    min_value: 5
+    max_value: 720
+    step: 5
+    entity_category: config
+
 ps5_wake:
   id: waker
   pad_mac: pad_mac
@@ -136,10 +217,13 @@ ps5_wake:
   last_result: last_result
   bt_mode: always_on
   retries: 5
-  # PROVISIONAL. Calibrate from what free_heap actually reports on the assembled
-  # board with web_server running, then change this. The component degrades to
-  # on-demand rather than OOM-looping if the gate is not met.
-  min_heap_for_always_on: 120000
+  # Calibrated 2026-08-27 against the assembled board with web_server AND
+  # ps5_status resident: boot heap is ~112 kB, so the old provisional 120000
+  # tripped on every boot and its "always_on declined" message overwrote
+  # last_result, which is the wake-outcome field. The gate is advisory only —
+  # setup() does nothing but log, and bt_up_ runs from the wake/capture tasks
+  # regardless — so this changes no behaviour, it just stops a false warning.
+  min_heap_for_always_on: 105000
 
 
 # Reads console state over the discovery protocol: 200 -> on, 620 -> rest,
