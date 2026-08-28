@@ -35,6 +35,22 @@ spec:
                 metadata:
                   name: _
                 spec:
+                  # Flux defaults to 5m. That is the deadlock trigger, not the migrations:
+                  # romm 5.0.0 -> 5.1.0 ran its Alembic migration SUCCESSFULLY, missed the 5m
+                  # window while starting, and `remediateLastFailure: true` then rolled Helm
+                  # back to the 5.0.0 image, which could no longer read the migrated schema.
+                  # The rollback can never complete, so the Kustomization freezes at an old
+                  # lastAppliedRevision and NOTHING else in it can update either.
+                  #
+                  # 15m because that is what both apps that hit this (romm, paperless) needed.
+                  # Set here rather than per-app: the reactive pattern of adding a timeout
+                  # after each deadlock cannot protect the app that has not deadlocked yet.
+                  #
+                  # The cost, stated plainly: a genuinely stuck upgrade now burns 15m per
+                  # attempt instead of 5m, so with retries: 2 plus the rollback it is ~45m
+                  # before it settles. Accepted - a slow failure is recoverable, the
+                  # deadlock it prevents is not.
+                  timeout: 15m
                   install:
                     crds: CreateReplace
                     strategy:
