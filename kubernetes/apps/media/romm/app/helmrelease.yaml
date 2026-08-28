@@ -6,11 +6,11 @@ metadata:
   name: &app romm
 spec:
   interval: 1h
-  # A romm minor bump runs Alembic migrations on first boot, and those are
-  # one-way: if Helm times out and remediation rolls back, the older image
-  # cannot read the migrated schema and the rollback can never succeed either.
-  # Give both Helm and the startup probe room to outlast a slow migration.
-  timeout: 15m
+  # A romm minor bump runs one-way Alembic migrations on first boot, which is why
+  # the startup probe below allows 15m (failureThreshold 180 x periodSeconds 5).
+  # The matching Helm timeout is no longer set here - it is the cluster-wide
+  # default in kubernetes/flux/cluster/ks.yaml, which explains the deadlock this
+  # pair exists to prevent.
   chartRef:
     kind: OCIRepository
     name: app-template
