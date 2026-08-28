@@ -137,6 +137,12 @@ text_sensor:
   - platform: template
     name: last_result
     id: last_result
+  # The debounced conclusion, as opposed to ps5_status's raw observation.
+  - platform: template
+    name: PS5 state
+    id: ps5_state
+    lambda: 'return {id(conclusion)};'
+    update_interval: 10s
 
 sensor:
   - platform: template
@@ -146,6 +152,53 @@ sensor:
     unit_of_measurement: B
     accuracy_decimals: 0
     update_interval: 60s
+  # silent_streak is what acceptance test 2 inspects: it must never reach the
+  # debounce threshold while the console is resting normally.
+  - platform: template
+    name: keepalive wake attempts
+    lambda: 'return id(wake_attempts);'
+    accuracy_decimals: 0
+    update_interval: 30s
+    entity_category: diagnostic
+  - platform: template
+    name: keepalive silent streak
+    lambda: 'return id(silent_streak);'
+    accuracy_decimals: 0
+    update_interval: 30s
+    entity_category: diagnostic
+
+# Keepalive runtime state. All restore_value: false on purpose — these are
+# millis()-relative, and millis() restarts at 0 on reboot, so a restored
+# cooldown deadline would be meaningless.
+globals:
+  - id: silent_streak
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: last_solid          # 0 none, 1 on, 2 rest
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: witnessed_off_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+  - id: wake_attempts
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: cooldown_until_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+  - id: settle_until_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+  - id: conclusion
+    type: std::string
+    restore_value: false
+    initial_value: '"unknown"'
 
 # Defaults OFF, and RESTORE_DEFAULT_OFF means a wiped device also comes up OFF.
 # Template switches have no initial_value; this is the equivalent. OFF is the
@@ -237,6 +290,68 @@ ps5_status:
   state:
     name: PS5 state raw
     entity_category: diagnostic
+  on_state:
+    - lambda: |-
+        const uint32_t now = millis();
+
+        // Strictly neutral. A resting console emits malformed datagrams — one
+        // was observed at an ON->REST transition — and treating that as a state
+        // change would mean spurious wakes.
+        if (x == "unknown") return;
+
+        if (x == "on" || x == "rest") {
+          id(silent_streak) = 0;
+          id(last_solid) = (x == "on") ? 1 : 2;
+          id(witnessed_off_ms) = 0;
+          id(wake_attempts) = 0;
+          id(conclusion) = (x == "on") ? "on" : "rest";
+          return;
+        }
+
+        // x == "silent" from here down.
+
+        // Our own link being down must not read as "the console is off".
+        if (!wifi::global_wifi_component->is_connected() || now < 120000) return;
+
+        id(silent_streak)++;
+        const int debounce = (int) id(ka_debounce).state;
+        if (id(silent_streak) < debounce) return;
+
+        if (id(silent_streak) == debounce) {
+          // Witnessed means we saw on/rest immediately before the silence, so
+          // the shutdown was probably deliberate and gets a stay of execution.
+          // Unwitnessed (we just booted) is recovered promptly — which is the
+          // power-cut case, since a blackout reboots us too.
+          id(witnessed_off_ms) = (id(last_solid) != 0) ? now : 0;
+          id(conclusion) = "off";
+        }
+
+        if (!id(keepalive).state) return;
+
+        // Subtraction everywhere: millis() wraps at 49.7 days. A deadline of 0
+        // means "no deadline" and is correctly treated as already past.
+        if ((int32_t) (now - id(settle_until_ms)) < 0) return;
+        if ((int32_t) (now - id(cooldown_until_ms)) < 0) return;
+        if (id(witnessed_off_ms) != 0 &&
+            (int32_t) (now - (id(witnessed_off_ms) +
+                              (uint32_t) (id(ka_grace_min).state * 60000.0f))) < 0)
+          return;
+
+        if (id(wake_attempts) >= (int) id(ka_max_attempts).state) {
+          id(cooldown_until_ms) = now + (uint32_t) (id(ka_cooldown_min).state * 60000.0f);
+          id(wake_attempts) = 0;
+          id(conclusion) = "failed";
+          ESP_LOGW("keepalive", "giving up after %d attempts, cooling down %.0f min",
+                   (int) id(ka_max_attempts).state, id(ka_cooldown_min).state);
+          return;
+        }
+
+        id(wake_attempts)++;
+        id(settle_until_ms) = now + (uint32_t) (id(ka_settle_s).state * 1000.0f);
+        id(conclusion) = "waking";
+        ESP_LOGI("keepalive", "console appears off, paging (attempt %d)",
+                 id(wake_attempts));
+        id(waker).wake();
 
 button:
   - platform: template
