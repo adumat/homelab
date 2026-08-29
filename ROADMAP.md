@@ -2398,7 +2398,7 @@ Torrent only, no usenet. `tqm` already runs as an hourly cronjob.
 - [ ] Replace the `xseed.sh` script with the `cross-seed` app
       (`ghcr.io/cross-seed/cross-seed`): more capable, and maintained by someone else
 
-## MCP in cluster
+### Phase 7 — MCP in cluster
 
 MCP servers should be **deployed in the cluster and exposed on `envoy-internal`**, so they
 are usable from Claude Code on this machine, from other machines on the LAN, and from the
@@ -2408,7 +2408,7 @@ Today `.mcp.json` points at `uvx mcp-proxy` against Home Assistant's `/api/mcp` 
 The file is correctly in `.gitignore` — it holds a long-lived HA token — and must stay
 there.
 
-### Decisions to make before deploying
+#### Decisions to make before deploying
 
 - [ ] **How to authenticate the MCP endpoints.** An unauthenticated Home Assistant MCP on
       the LAN is a remote control for the house. OIDC is not usable: MCP clients are not
@@ -2432,7 +2432,7 @@ there.
       become available to open-webui too, not just to Claude Code
 - [ ] Decide whether to create a dedicated `ai/` namespace
 
-### Servers to deploy
+#### Servers to deploy
 
 - [ ] **ha-mcp** (`ghcr.io/homeassistant-ai/ha-mcp`) — dedicated server with a richer tool
       surface than Home Assistant's built-in `/api/mcp`; replaces the current `mcp-proxy`
@@ -2443,7 +2443,7 @@ there.
       answers a pain already recorded below: the weekly CNPG failures were diagnosed by
       hand-querying VictoriaLogs
 
-### To explore
+#### To explore
 
 Unverified candidates. Each item should be closed with "exists and is useful" or "does not
 exist", not left open.
@@ -2460,23 +2460,26 @@ exist", not left open.
 - [ ] **CNPG / Postgres** — querying the cluster databases. Weigh carefully: it would give
       an agent read access to all application data
 
-## TODO
+### Phase 8 — elizabeth: array health and its blind spots
 
-- [ ] Investigate the issue caused by exposing both external and internal gateways simultaneously — appears to cause problems in Chrome (e.g., mixed routing, cookie conflicts, or certificate mismatches between the two gateways)
+Split out of phase 6 on 2026-08-29. These are Unraid/array concerns that were sitting under a
+`*arr stack` heading purely because nowhere else fitted. elizabeth is the most load-bearing
+external host in the estate — 18 live NFS mounts, both CNPG object stores, the kopiur repository
+— so its array deserves its own phase rather than a footnote.
 
-- [ ] Improve Home Assistant dashboard
-- [ ] Add Syncthing
-- [ ] Find a way to use AI to automatically catalog documents in Paperless-ngx
-- [ ] Review and merge `mise-upgrade-dependencies` branch (mise upgrades + Romm removal)
-
-## Follow-ups
-
-- [x] ~~NFS canary reliability — Unraid disrupts NFS connections when the mover runs, canary doesn't handle it well~~
-      **Moot: nfs-canary was retired in phase 1.5.** Replaced by `nfs-stale-exporter`, running on all
-      five nodes, which probes the mount **root** and drives KEDA directly
-- [ ] Scrape MinIO metrics from elizabeth into Prometheus — currently zero MinIO metrics exist, so restarts, latency and S3 error rates are invisible from the cluster. This is what forced the weekly CNPG backup failures to be diagnosed by hand-querying VictoriaLogs for `IncompleteBody` instead of a single query
-- [ ] Enable syslog mirroring on elizabeth **to a share, not to flash** — the 5 parity sync errors of 2026-08-02 could not be investigated per-sector because syslog had already rotated and nothing is persisted. Without this, the next array incident is equally unexplainable
-- [ ] Plan replacement of the parity disk `sdf` (WD100EFAX) — 57,077 power-on hours (~6.5 years), 1 ATA error logged, recorded max temp 60 °C. SMART still PASSED and it was not implicated in the sync errors, but it is by far the oldest device in the array (the two data disks are at 12,009h)
+- [ ] **Plan replacement of the parity disk `sdf` (WD100EFAX).** 57,077 power-on hours (~6.5
+      years), 1 ATA error logged, recorded max temp 60 °C. SMART still PASSED and it was not
+      implicated in the 2026-08-02 sync errors, but it is by far the oldest device in the array —
+      the two data disks are at 12,009h. **This is the only item on the whole roadmap with a
+      physical clock running on it.**
+- [ ] **Enable syslog mirroring on elizabeth — to a share, not to flash.** The 5 parity sync errors
+      of 2026-08-02 could not be investigated per-sector because syslog had already rotated and
+      nothing is persisted. Without this the next array incident is equally unexplainable.
+- [x] ~~Scrape MinIO metrics from elizabeth into Prometheus~~ **Moot since 2026-08-25: MinIO is
+      retired** (phase 2.7). Its replacement, garage, is already scraped at `elizabeth.lan:3903`.
+- [x] ~~NFS canary reliability — Unraid disrupts NFS connections when the mover runs, canary
+      doesn't handle it well~~ **Moot: nfs-canary was retired in phase 1.5.** Replaced by
+      `nfs-stale-exporter`, which probes the mount **root** and drives KEDA directly.
 
 ### Phase 10 — cleanup
 
@@ -2518,3 +2521,12 @@ undocumented in another phase.
       Vestigial: it only authorised cross-namespace `backendRefs` to the authelia Service, which
       the `oidc-auth` component no longer sets. Proven 2026-07-30 — kopia lives in
       `volsync-system`, is not in the grant, and attaches fine
+
+## Loose ends (not a phase)
+
+- [ ] Investigate the issue caused by exposing both external and internal gateways simultaneously — appears to cause problems in Chrome (e.g., mixed routing, cookie conflicts, or certificate mismatches between the two gateways)
+
+- [ ] Improve Home Assistant dashboard
+- [ ] Add Syncthing
+- [ ] Find a way to use AI to automatically catalog documents in Paperless-ngx
+- [ ] Review and merge `mise-upgrade-dependencies` branch (mise upgrades + Romm removal)
