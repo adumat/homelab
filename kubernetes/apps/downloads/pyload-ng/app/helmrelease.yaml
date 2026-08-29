@@ -19,7 +19,7 @@ spec:
           dnsdist:
             image:
               repository: docker.io/powerdns/dnsdist-19
-              tag: 1.9.15@sha256:af0a812fedd2d24cb54c7058cc7b07ca643b44bbf543fe9ae826fc5c663b0801
+              tag: 1.9.16@sha256:260b1120947a10c494fad4d93cde33ebace34bf4800c88ebb114dd7f9e829809
             restartPolicy: Always
           gluetun:
             dependsOn:
@@ -62,7 +62,7 @@ spec:
             nameOverride: pyload-ng
             image:
               repository: ghcr.io/linuxserver/pyload-ng
-              tag: 0.5.0@sha256:97b31c9b7f5e3ec32ea65921d943a79191bcb97b00f322299d8b14c60e4dcf29
+              tag: 0.5.0@sha256:89f218455512a6f3413da80fce432983a28512ac8464da362124f4f25f372aa8
             env:
               TZ: Europe/Rome
               PUID: "1000"
