@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: ghcr.io/suwayomi/suwayomi-server
-              tag: v2.3.2243@sha256:e59f212ccf91b26de8676a063a2db90256c148c6261535c7c477d47a43d9751b
+              tag: v2.3.2333@sha256:ddbe2ca6294a6f19fea094a2e372153adc6053ba34a361719fabcd1d10045bd8
             env:
               TZ: Europe/Rome
               BIND_IP: 0.0.0.0
