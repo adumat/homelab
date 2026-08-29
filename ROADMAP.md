@@ -2185,10 +2185,14 @@ Hardware already in the house, metrics absent.
       could never have been seen. It may be long-standing rather than new.
     - Heap was healthy at the time (110 kB free, 102 kB largest block, loop time 23 ms), so not OOM
       and not a blocked loop.
-    - **Prime suspect is the observer, not the observed**: ~100 SSE connections had been opened to
-      the device's `web_server` `/events` endpoint while monitoring it. Experiment in progress —
-      all ESP polling stopped, device left completely alone; a single uptime read after 2-3 h
-      decides it. Over 2 h ⇒ the monitoring was the trigger; another panic ⇒ firmware bug.
+    - **The monitoring hypothesis is REFUTED.** ~100 SSE connections to `/events` were the prime
+      suspect, so all polling was stopped and the device left alone. Checked 2026-08-29 after ~48 h
+      untouched: uptime 54,302 s (15.1 h) with reset reason still `exception/panic` — so it
+      panicked again with nobody watching. Not an observer effect.
+    - **Sporadic, not periodic**: 1 h 56 m the first time, 15.1 h the second. No fixed interval, so
+      it is not a timer. Heap and loop time were healthy at both checks, so not a slow leak either.
+    - Over that run `wake_attempts` stayed 0 with the console resting — 15 h of extra evidence for
+      the debounce, well beyond test 2's 116 min.
     - A backtrace needs **serial**: the panic dump goes to UART at 115200, and the ESPHome pod has
       no USB path to the device. Chasing it further means plugging the ESP32 into a laptop.
     - Impact if it persists: every panic resets the keepalive globals, converting a witnessed
