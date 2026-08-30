@@ -4,6 +4,11 @@ kind: LiteLLMMCPServer
 metadata:
   name: ha-mcp
 spec:
+  # litellm hard-rejects '-' in an mcp_servers key ("Server name cannot contain
+  # '-'") and exits at startup, so the registered key cannot be the resource
+  # name. Kubernetes in turn forbids '_' in a name, so the two can never match:
+  # alias is the only way to satisfy both.
+  alias: ha_mcp
   # spec.workload, not spec.url: the operator runs the server itself as a
   # Deployment + Service and derives the URL into status.resolvedURL - here
   # http://ha-mcp.ai.svc.cluster.local:8086/mcp. That is the reason this phase
@@ -35,6 +40,8 @@ kind: LiteLLMMCPServer
 metadata:
   name: grafana-mcp
 spec:
+  # See the note on ha-mcp: litellm rejects '-' in the mcp_servers key.
+  alias: grafana_mcp
   workload:
     # Docker Hub, NOT ghcr. ghcr.io/grafana/mcp-grafana is a 404 - the only
     # component here not on ghcr, so a cold pull hits Docker Hub rate limits.
