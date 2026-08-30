@@ -42,6 +42,11 @@ spec:
         login: true
         passwordSecret:
           name: litellm-db-secret
+      - name: n8n
+        ensure: present
+        login: true
+        passwordSecret:
+          name: n8n-db-secret
   enableSuperuserAccess: true
   superuserSecret:
     name: cloudnative-pg-secret

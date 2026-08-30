@@ -488,6 +488,26 @@ identity_providers:
         userinfo_signed_response_alg: 'none'
         consent_mode: 'implicit'
 
+      # n8n's own SSO is an enterprise feature, so the community edition is
+      # protected at the gateway by the oidc-auth component like it-tools.
+      # 'admin' rather than 'household': a workflow engine holds credentials for
+      # everything it automates and can execute arbitrary code.
+      - client_id: 'n8n'
+        client_name: 'n8n'
+        client_secret: '{{ secret "/secrets/oidc/n8n" }}'
+        public: false
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        lifespan: 'envoy_session'
+        redirect_uris:
+          - 'https://n8n.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        consent_mode: 'implicit'
+
       # client_id is esp-home (the app and route name); the host is esphome.
       - client_id: 'esp-home'
         client_name: 'ESPHome'

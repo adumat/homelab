@@ -1,0 +1,36 @@
+---
+# Declarative CNPG rather than the INIT_POSTGRES initContainer the other nine
+# apps on this cluster use. Same reasoning as litellm, plus one that applies
+# here specifically: INIT_POSTGRES puts INIT_POSTGRES_SUPER_USER/SUPER_PASS in
+# the app's own Secret, so the app's pod can read the Postgres superuser
+# credential. n8n executes user-authored workflow code, which makes that a
+# materially worse trade than it is elsewhere.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: n8n
+spec:
+  name: n8n
+  owner: n8n
+  cluster:
+    name: cluster18
+---
+# yaml-language-server: $schema=https://schemas.tholinka.dev/external-secrets.io/externalsecret_v1.json
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: n8n-db
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden
+  target:
+    name: n8n-db-secret
+    template:
+      type: kubernetes.io/basic-auth
+      data:
+        username: n8n
+        password: '{{ .N8N_DB_PASSWORD }}'
+  dataFrom:
+    - extract:
+        key: n8n-secret
