@@ -68,3 +68,47 @@ spec:
           secretKeyRef:
             name: mcp-secrets
             key: GRAFANA_TOKEN
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMMCPServer
+metadata:
+  name: n8n-mcp
+spec:
+  # See the note on ha-mcp: litellm rejects '-' in the mcp_servers key.
+  alias: n8n_mcp
+  # n8n-mcp requires a bearer token of its own in http mode - it exits at
+  # startup without one. This is NOT n8n's API key; the two are unrelated
+  # secrets and both are needed for the full tool set.
+  authType: bearer_token
+  authTokenRef:
+    name: mcp-secrets
+    key: N8N_MCP_AUTH_TOKEN
+  workload:
+    image: ghcr.io/czlonkowski/n8n-mcp:2.76.0
+    port: 3000
+    env:
+      # Default is stdio, which never opens a port.
+      - name: MCP_MODE
+        value: http
+      - name: PORT
+        value: "3000"
+      - name: AUTH_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: mcp-secrets
+            key: N8N_MCP_AUTH_TOKEN
+      # Anonymous usage telemetry is ON by default upstream.
+      - name: N8N_MCP_TELEMETRY_DISABLED
+        value: "true"
+      - name: LOG_LEVEL
+        value: warn
+      # ⚠️ Documentation tools only until N8N_API_URL/N8N_API_KEY are set. Those
+      # unlock 16 workflow-MANAGEMENT tools, and the key can only be minted from
+      # n8n's UI (Settings -> n8n API) once an owner account exists, so it
+      # cannot be provisioned declaratively ahead of first login.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
