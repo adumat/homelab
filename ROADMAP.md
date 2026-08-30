@@ -38,14 +38,33 @@ Live faults. They belong to no phase because they should not wait for one; both 
       has no `-P`**. The pattern failed, `|| true` swallowed the error, and the caller saw empty
       for a key that was actually set — a complete mechanism for navi's blank token without anyone
       forgetting a flag. All four extractions now use a portable `sed` helper.
-- [ ] **Watch charmander's 100 Mbit link — hardware.** `eno1` negotiates **100Mbit/Full** while
-      the other four nodes are at `1000Mbit`. Nothing in `patches/` forces a speed and the link is
-      clean (zero errs, drops, carrier events), so it is **cabling or the switch port**, not the
-      `e1000e` driver. It matters because charmander is a **control plane running etcd** and hosts
-      a miroir loopfile pool, and replicated writes are already network-bound at 1 GbE — this node
-      is at a tenth of that. It may also explain why iPXE's native driver could not bring the link
-      up during the rebuild. Reseat or replace the cable, try another port, then re-check with
-      `talosctl -n 10.1.10.11 get links eno1`
+- [x] ✅ **charmander's 100 Mbit link — FIXED 2026-08-30 by replacing the cable.** `eno1` now
+      negotiates **1000Mbit/Full**, matching the other four nodes. The node was pulled with etcd at
+      3/3 and every affected volume at 2-of-3 votes with 2 UpToDate copies elsewhere, so nothing
+      froze; it came back with **term still 3** (no leader election) and resynced its 9 data
+      replicas by itself, zero split-brain. **Uncordoned the same day** — the drain existed only
+      until the cable was sorted, and all five nodes are schedulable again.
+
+      Deliberately **not** trimmed back: the `autoDiskfulAfter` conversions left **20 volumes at
+      3-diskful** (15 at 2, 11 at 1) and upstream will not revert them on its own. Keeping the
+      extra redundancy is the accepted choice, not an oversight.
+
+      `autoDiskfulAfter` raised 30m → **1h** the same day: 30m is shorter than a planned
+      single-node maintenance window, so a cable swap that overruns converts legs for a node that
+      is about to come back, and they only resync away again.
+
+      ⚠️ Only ~3 minutes of uptime were observed at the fix. The old link was stable for days
+      before it flapped, so this proves the negotiated speed, not that the fault is gone.
+
+      Original report, kept for the failure mode it documents:
+
+      `eno1` negotiated **100Mbit/Full** while the other four nodes ran at `1000Mbit`. Nothing in
+      `patches/` forced a speed and the link was clean (zero errs, drops, carrier events), which
+      pointed at **cabling or the switch port** rather than the `e1000e` driver — correctly, as it
+      turned out. It mattered because charmander is a **control plane running etcd** and hosts a
+      miroir loopfile pool, and replicated writes are already network-bound at 1 GbE — this node
+      was at a tenth of that. It may also explain why iPXE's native driver could not bring the
+      link up during the rebuild.
 
       🔥 **No longer theoretical — it flapped and took out storage on 2026-08-24.** The link
       dropped for ~21 seconds and every warning alert in the cluster followed from it:
@@ -1843,7 +1862,7 @@ unsigned iPXE, and strand it.
       `/mnt/user/backups/volsync-preblackout-20260818` (17G). 35G total, recoverable by reverting
       the commit — re-add the ClusterRepository and the archive is browsable again
 - Deleting those 35G from elizabeth is deferred to **phase 10**.
-- Tracked in **🔴 Urgent** at the top: charmander's 100 Mbit link. Detail below.
+- charmander's 100 Mbit link: **fixed 2026-08-30**, cable replaced, now `1000Mbit/Full`. Detail below.
 - [x] ✅ **power-nap-over fixed 2026-08-24** — root cause was doco-cd, see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
@@ -1863,19 +1882,22 @@ exceed roughly that no matter which NVMe backs it. The Crucial P3's QLC enduranc
 watching, but it is **not** what limits throughput today — the single biggest storage win
 available is a faster replication link, not a better disk.
 
-#### 🔴 charmander is on a 100 Mbit link
+#### ✅ charmander was on a 100 Mbit link — fixed 2026-08-30
 
-Found while establishing the above. `eno1` on charmander negotiates **100Mbit/Full** while all
-four other nodes are at `1000Mbit`. Nothing in `patches/` forces a speed, so it is autonegotiated;
-the link is clean (zero errs, drops, carrier events on `/proc/net/dev`), which points at **cabling
-or the switch port**, not the `e1000e` driver.
+Found while establishing the above. `eno1` on charmander negotiated **100Mbit/Full** while all
+four other nodes ran at `1000Mbit`. Nothing in `patches/` forced a speed, so it was autonegotiated;
+the link was clean (zero errs, drops, carrier events on `/proc/net/dev`), which pointed at
+**cabling or the switch port** rather than the `e1000e` driver.
 
-It matters more than a worker would: charmander is a **control plane running etcd**, and it also
+It mattered more than a worker would: charmander is a **control plane running etcd**, and it also
 hosts a miroir loopfile pool. It may also be related to the phase 3 boot trouble — iPXE's native
 driver could not bring the link up on this machine at all.
 
-Next step: reseat/replace charmander's cable and check the switch port, then re-verify with
-`talosctl -n 10.1.10.11 get links eno1`.
+**The cable was the fault.** Replaced 2026-08-30; `eno1` now negotiates `1000Mbit/Full`. Since the
+benchmark above shows replicated writes are capped by the link and not the disk, this took
+charmander from a tenth of line rate to parity with the rest of the cluster. Full outcome — the
+safe-to-pull checks, the clean resync, the uncordon, and the 3-diskful volumes left in place — is
+in **🔴 Urgent** at the top.
 
 #### 🔴 power-nap-over never picked up the renames
 
