@@ -102,10 +102,20 @@ spec:
         value: "true"
       - name: LOG_LEVEL
         value: warn
-      # ⚠️ Documentation tools only until N8N_API_URL/N8N_API_KEY are set. Those
-      # unlock 16 workflow-MANAGEMENT tools, and the key can only be minted from
-      # n8n's UI (Settings -> n8n API) once an owner account exists, so it
-      # cannot be provisioned declaratively ahead of first login.
+      # These two add the workflow-MANAGEMENT tools on top of the documentation
+      # ones. The internal Service, deliberately: the public host is behind the
+      # Authelia SecurityPolicy, which would answer the API with a 302 to the
+      # login page rather than JSON.
+      - name: N8N_API_URL
+        value: "http://n8n.services.svc.cluster.local:5678"
+      # Minted by hand from n8n's UI - there is no API to create an API key, and
+      # an owner account has to exist first, so this cannot be provisioned
+      # declaratively before n8n's first login.
+      - name: N8N_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: mcp-secrets
+            key: N8N_API_KEY
     resources:
       requests:
         cpu: 10m
