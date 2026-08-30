@@ -24,7 +24,9 @@ spec:
               # required for getOwnUserID(); without it the scanner aborts on start
               PAPERLESS_USERNAME: admin
               AI_PROVIDER: custom
-              CUSTOM_BASE_URL: http://litellm.services.svc.cluster.local:4000/v1
+              # The proxy is a LiteLLMProxy named "main" in the ai namespace
+              # now, so the Service is main.ai, not litellm.services.
+              CUSTOM_BASE_URL: http://main.ai.svc.cluster.local:4000/v1
               CUSTOM_MODEL: auto
               SCAN_INTERVAL: "30"
               PROCESS_PREDEFINED_DOCUMENTS: "yes"
