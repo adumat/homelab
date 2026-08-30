@@ -25,7 +25,14 @@ spec:
     auth.anonymous:
       enabled: 'false'
     auth.basic:
-      enabled: 'false'
+      # MUST stay enabled: grafana-operator's own API client authenticates with
+      # HTTP basic as the admin user. Disabling it (3aa90b5, "in favor of OAuth")
+      # locked the operator out, so the Grafana CR sat at stageStatus: failed and
+      # every GrafanaDashboard reported "None of the available Grafana instances
+      # matched the selector" - all 63 of them frozen from 2026-02-17 to
+      # 2026-08-29, silently, because the restored PVC kept serving the old copies.
+      # Human logins are unaffected either way: they go through OAuth.
+      enabled: 'true'
     auth.generic_oauth:
       enabled: 'true'
       name: 'Authelia'
@@ -78,11 +85,11 @@ spec:
           containers:
             - name: grafana
               env:
-                - name: GF_SECURITY_ADMIN_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: grafana
-                      key: GF_SECURITY_ADMIN_PASSWORD
+                # GF_SECURITY_ADMIN_PASSWORD is deliberately NOT set here. The
+                # operator injects both admin env vars from the grafana-admin-credentials
+                # secret it generates and authenticates with. Overriding only the
+                # password from Bitwarden left the two halves pointing at different
+                # values, so the operator's basic auth could never succeed.
                 - name: GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET
                   valueFrom:
                     secretKeyRef:
