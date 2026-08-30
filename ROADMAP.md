@@ -2420,67 +2420,115 @@ Torrent only, no usenet. `tqm` already runs as an hourly cronjob.
 - [ ] Replace the `xseed.sh` script with the `cross-seed` app
       (`ghcr.io/cross-seed/cross-seed`): more capable, and maintained by someone else
 
-### Phase 7 — MCP in cluster
+### Phase 7 — MCP in cluster — ✅ done 2026-08-30
 
-MCP servers should be **deployed in the cluster and exposed on `envoy-internal`**, so they
-are usable from Claude Code on this machine, from other machines on the LAN, and from the
-LLM apps in the cluster. Not as local `uvx` processes.
+Spec: `docs/superpowers/specs/2026-08-29-mcp-in-cluster-design.md`.
+Plan A (the `ai` namespace) and Plan B (n8n) both shipped.
 
-Today `.mcp.json` points at `uvx mcp-proxy` against Home Assistant's `/api/mcp` endpoint.
-The file is correctly in `.gitignore` — it holds a long-lived HA token — and must stay
-there.
+**What runs now.** A dedicated **`ai`** namespace holding `litellm-operator` and a
+`LiteLLMProxy` named `main`, which owns the Deployment, Service, ConfigMap and HTTPRoute.
+Four `LiteLLMModel`s carry the old config over verbatim (`auto` twice on purpose — that is a
+load-balancing group). Three `LiteLLMMCPServer`s run as operator-managed workloads, reachable
+only inside the cluster: **ha-mcp** (82 tools), **grafana-mcp** (72), **n8n-mcp** (28).
+`https://litellm.${DOMAIN}/mcp/` serves **182 tools** behind a budget-capped
+`LiteLLMVirtualKey`. `.mcp.json` now points there instead of at the broken `uvx` bridge.
+**n8n** itself is an ordinary app in `services` — Postgres on cluster18, 2Gi PVC under kopiur,
+`envoy-internal` only, `authorization_policy: admin`.
 
-#### Decisions to make before deploying
+#### The three decisions, as resolved
 
-- [ ] **How to authenticate the MCP endpoints.** An unauthenticated Home Assistant MCP on
-      the LAN is a remote control for the house. OIDC is not usable: MCP clients are not
-      browsers and do not follow redirects. The verified path is Envoy Gateway's
-      `SecurityPolicy.apiKeyAuth`, which extracts the key from a header:
+- **Authentication: the per-server `apiKeyAuth` plan below was superseded.** With
+  `spec.workload` the MCP servers never leave the cluster, so there is nothing to protect per
+  server. One exposed endpoint, guarded by a virtual key with a real budget. The
+  `apiKeyAuth` note is kept below because it is still correct if a server ever *is* exposed.
+- **Mechanism: `litellm-operator`.** Free to adopt because litellm had never been used — zero
+  `chat/completions` in its lifetime, and its only consumer, paperless-ai, had never called it.
+- **A dedicated `ai/` namespace: yes.** The proxy adopts every model and MCP server in its own
+  namespace, so the namespace boundary *is* the selector.
 
-      ```yaml
-      apiKeyAuth:
-        credentialRefs:
-          - {group: "", kind: Secret, name: mcp-apikeys}
-        extractFrom:
-          - headers: [x-api-key]
-      ```
+#### Traps, all found by running it
 
-      Verified detail: when extracting from `Authorization`, the value in the Secret must
-      **not** include the `Bearer` prefix, because Envoy compares the string as-is
-- [ ] **Which mechanism to deploy them with.** Two options: ordinary app-template
-      HelmReleases with an HTTPRoute, or `litellm-operator` with `LiteLLMMCPServer`
-      resources (`litellm.home-operations.com/v1alpha1`). The second registers them
-      automatically as tools inside LiteLLM, which is already deployed here — so they
-      become available to open-webui too, not just to Claude Code
-- [ ] Decide whether to create a dedicated `ai/` namespace
+- **litellm rejects `-` in an `mcp_servers` key** and aborts startup. Kubernetes forbids `_` in
+  a resource name, so the two can never match — `spec.alias` is the only way out.
+- **MCP access is not expressible on `LiteLLMVirtualKey`.** litellm gates servers per key via
+  `object_permission`, which the CRD does not expose, and it fails *silently*: `tools/list`
+  returns an empty array with no error, which reads like a broken gateway. Granted out of band,
+  and it must be re-granted whenever a server is **added**, not only when the key is
+  regenerated. Recipe is in `virtualkey.yaml`.
+- **Every server's defaults were wrong for Kubernetes.** ha-mcp's image `CMD` is stdio and
+  never opens a port (needs `ha-mcp-web`, port 8086, and `HOMEASSISTANT_*` env names, not
+  `HA_*`). grafana-mcp needs `-t streamable-http`, an explicit `--address`, and
+  `--allowed-hosts` or it 403s every request. n8n-mcp defaults to stdio too and **exits**
+  without `AUTH_TOKEN`.
+- **n8n-mcp blocks private IPs by default**, so every management call failed
+  `SSRF protection: Private IP addresses not allowed` against a ClusterIP — while `tools/list`
+  still advertised all 28 tools, because that count comes from config rather than from probing
+  n8n. Only a real tool call reveals it. `WEBHOOK_SECURITY_MODE=permissive`.
+- **n8n writes `/home/node/.cache`**, which is neither `/tmp` nor its PVC, so
+  `readOnlyRootFilesystem` killed it — *after* every database migration had run, leaving a
+  healthy database and a crashlooping pod.
+- **Controllers hold stale failures and do not retry.** grafana-operator, cloudnative-pg and
+  litellm-operator each sat on an error from before its dependency existed. A
+  `rollout restart` is the reliable nudge; `flux reconcile` is not, because it does not touch
+  the controller.
+- **A HelmRelease still inside its first install ignores new values.** n8n held Phase 4's
+  cluster-wide 15m timeout while crashlooping; `flux reconcile hr --force` was needed.
 
-#### Servers to deploy
+#### Fixed on the way: grafana-operator had been locked out since February
 
-- [ ] **ha-mcp** (`ghcr.io/homeassistant-ai/ha-mcp`) — dedicated server with a richer tool
-      surface than Home Assistant's built-in `/api/mcp`; replaces the current `mcp-proxy`
-      bridge. This is the priority. The server's own authentication is undocumented, so it
-      must be protected at the gateway
-- [ ] **Grafana MCP** (`grafana/mcp-grafana`) — queries against Prometheus, Loki,
-      dashboards and alerts; needs `GRAFANA_URL` and `GRAFANA_SERVICE_ACCOUNT_TOKEN`. It
-      answers a pain already recorded below: the weekly CNPG failures were diagnosed by
-      hand-querying VictoriaLogs
+Enabling grafana-mcp needed a Grafana service-account token, which exposed that
+`auth.basic.enabled: 'false'` (set 2026-02-17 "in favor of OAuth") had locked out
+grafana-operator's own API client. The Grafana CR sat at `stageStatus: failed`, so the operator
+treated it as *no matching instance* and **all 63 GrafanaDashboard CRs had stopped syncing** —
+invisible, because the kopiur-restored PVC kept serving the copies already in `grafana.db`.
+A second, independent fault compounded it: the CR overrode only `GF_SECURITY_ADMIN_PASSWORD`
+from Bitwarden while `GF_SECURITY_ADMIN_USER` came from the operator-generated secret, so the
+two halves named different passwords. Fixed in `282cacf`/`7c108dc`; note that Grafana applies
+`admin_password` **only when it creates the admin user**, so a one-time in-pod
+`grafana cli admin reset-admin-password` was also required.
 
-#### To explore
+#### Deliberately not done
 
-Unverified candidates. Each item should be closed with "exists and is useful" or "does not
-exist", not left open.
+- **Paperless and Immich MCP** — neither publishes a container image. `nloui/paperless-mcp` is
+  nine months stale. Revisit only if someone starts publishing.
+- **CNPG / Postgres MCP** — recommended against outright. cluster18 holds authelia, lldap and
+  vaultwarden; an MCP over it is LLM read access to the auth store and the password manager's
+  backing tables.
+- **Kubernetes / GitHub / context7** — low value for Claude Code, which already has `kubectl`,
+  `gh` and the web. They matter only for an in-cluster LLM with no shell.
+- **kubesearch MCP** — still unverified, the one open item from the original explore list.
+- **Running a model locally** — impossible; the Intel GPUs report `memory: 0`.
 
-- [ ] **kubesearch** — check whether an MCP server for kubesearch.dev exists; it would give
-      access to community deployment patterns while adding new apps
-- [ ] **context7** — up-to-date library documentation. Evaluate whether it helps in a repo
-      that is almost entirely YAML
-- [ ] **Kubernetes** — worth it only if it offers something `kubectl` through a shell does
-      not already give
-- [ ] **Paperless / Immich / Karakeep / Jellyfin** — self-hosted apps present here that may
-      have an official or community MCP. Verify one by one: an MCP over paperless would make
-      documents queryable, which is close to the "catalog documents with AI" TODO item
-- [ ] **CNPG / Postgres** — querying the cluster databases. Weigh carefully: it would give
-      an agent read access to all application data
+#### Manual steps a rebuild would need
+
+Neither token can be provisioned declaratively:
+
+- **`HA_TOKEN`** — Home Assistant long-lived tokens are UI-only.
+- **`N8N_API_KEY`** — n8n has no API for minting one, and an owner account must exist first.
+  It is a JWT bound to the instance, so a rebuilt n8n invalidates it.
+- **`GRAFANA_TOKEN`** — a `GrafanaServiceAccount` CR resolves `instanceName` only inside its
+  **own** namespace, so its Secret would land in `observability` while grafana-mcp runs in
+  `ai`. Minted via the admin API instead; recipe in `externalsecret-mcp.yaml`.
+
+<details>
+<summary>Original plan, kept for the <code>apiKeyAuth</code> detail</summary>
+
+The verified path for exposing an MCP server directly is Envoy Gateway's
+`SecurityPolicy.apiKeyAuth`. OIDC is not usable — MCP clients are not browsers and do not
+follow redirects.
+
+```yaml
+apiKeyAuth:
+  credentialRefs:
+    - {group: "", kind: Secret, name: mcp-apikeys}
+  extractFrom:
+    - headers: [x-api-key]
+```
+
+Verified detail: when extracting from `Authorization`, the value in the Secret must **not**
+include the `Bearer` prefix, because Envoy compares the string as-is.
+
+</details>
 
 ### Phase 8 — elizabeth: array health and its blind spots
 
