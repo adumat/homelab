@@ -20,3 +20,13 @@ spec:
   # maxBudget is a decimal STRING in the CRD, not a number.
   maxBudget: "20"
   budgetDuration: 30d
+  # ⚠️ MCP access is NOT expressible here. litellm gates MCP servers per key via
+  # object_permission and the CRD exposes no field for it, so a freshly
+  # generated key sees ZERO tools while the master key sees all of them -
+  # tools/list returns an empty array with no error, which reads like a broken
+  # gateway rather than a permission problem. Granted out of band, and it has to
+  # be re-applied whenever this key is regenerated:
+  #   curl -X POST -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
+  #     -d '{"key":"<key>","object_permission":{"mcp_servers":["grafana_mcp","ha_mcp"]}}' \
+  #     http://main.ai.svc.cluster.local:4000/key/update
+  # Those names are the mcp_servers ALIASES, not the resource names.
