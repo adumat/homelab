@@ -1,0 +1,46 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMProxy
+metadata:
+  name: main
+spec:
+  # No modelSelector: the proxy adopts every LiteLLMModel, LiteLLMMCPServer and
+  # LiteLLMGuardrail in this namespace. That is what the `ai` namespace
+  # boundary is for - the boundary IS the selector.
+  #
+  # The operator injects each model's apiKeyRef as its own generated env var
+  # (LITELLM_MODELKEY_<RESOURCE_NAME>), so only the master key has to be wired
+  # by hand - litellm reads LITELLM_MASTER_KEY from the environment.
+  env:
+    - name: LITELLM_MASTER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secrets
+          key: LITELLM_MASTER_KEY
+    # Only needed for LiteLLMVirtualKey: /key/generate returns 500 without a
+    # database. Models and MCP servers work fine without it.
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: litellm-secrets
+          key: DATABASE_URL
+  # apiAccess is what lets the LiteLLMVirtualKey controller reach this proxy's
+  # admin API. It is not optional: the controller hard-fails with
+  # "proxy main has no spec.apiAccess" when it is absent. Endpoint is omitted
+  # so it defaults to http://main.ai.svc:4000.
+  apiAccess:
+    masterKeyRef:
+      name: litellm-secrets
+      key: LITELLM_MASTER_KEY
+  routerSettings:
+    routing_strategy: usage-based-routing-v2
+    num_retries: 2
+    fallbacks:
+      - auto: [auto]
+  route:
+    hostnames:
+      - "litellm.${DOMAIN}"
+    parentRefs:
+      - name: envoy-internal
+        namespace: network
+        sectionName: https

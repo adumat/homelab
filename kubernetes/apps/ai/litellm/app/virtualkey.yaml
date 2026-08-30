@@ -1,0 +1,22 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMVirtualKey
+metadata:
+  name: claude-code
+spec:
+  # proxyRef is required by the CRD: it names the LiteLLMProxy whose admin API
+  # mints and revokes this key, and the controller reads that proxy's
+  # spec.apiAccess.masterKeyRef to authenticate.
+  proxyRef: main
+  keyAlias: claude-code
+  # The operator writes the generated key into this Secret. It goes into the
+  # gitignored .mcp.json, replacing the long-lived Home Assistant token that
+  # lives there today - a virtual key is revocable and budget-capped, a HA
+  # long-lived token is neither.
+  secretName: litellm-key-claude-code
+  secretKey: LITELLM_API_KEY
+  # Deliberately unrestricted on models: this key is for MCP tool access and
+  # ad-hoc use from Claude Code. The budget is the real guard.
+  # maxBudget is a decimal STRING in the CRD, not a number.
+  maxBudget: "20"
+  budgetDuration: 30d

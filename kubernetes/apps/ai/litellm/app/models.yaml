@@ -1,0 +1,51 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: auto-gemini
+spec:
+  # `auto` is shared with auto-openai below ON PURPOSE. Two entries with the
+  # same modelName is a litellm load-balancing group, not a mistake - it is how
+  # the old ConfigMap was written and routerSettings.fallbacks references it.
+  modelName: auto
+  params:
+    model: gemini/gemini-2.0-flash
+    apiKeyRef:
+      name: litellm-secrets
+      key: GEMINI_API_KEY
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: auto-openai
+spec:
+  modelName: auto
+  params:
+    model: openai/gpt-4o-mini
+    apiKeyRef:
+      name: litellm-secrets
+      key: OPENAI_API_KEY
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: gpt-4o-mini
+spec:
+  modelName: gpt-4o-mini
+  params:
+    model: openai/gpt-4o-mini
+    apiKeyRef:
+      name: litellm-secrets
+      key: OPENAI_API_KEY
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMModel
+metadata:
+  name: gemini-flash
+spec:
+  modelName: gemini-flash
+  params:
+    model: gemini/gemini-2.0-flash
+    apiKeyRef:
+      name: litellm-secrets
+      key: GEMINI_API_KEY

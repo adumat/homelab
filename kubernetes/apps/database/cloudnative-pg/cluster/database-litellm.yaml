@@ -1,0 +1,38 @@
+---
+# litellm needs Postgres ONLY for virtual keys: /key/generate is guarded by
+# `if prisma_client is None: raise 500`, so LiteLLMVirtualKey sits in
+# GenerateFailed forever without it. Models and MCP servers render into
+# config.yaml and need no DB at all.
+#
+# Declarative CNPG rather than the repo's usual INIT_POSTGRES initContainer
+# pattern: LiteLLMProxy has no initContainers field, so that pattern cannot
+# apply here.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: litellm
+spec:
+  name: litellm
+  owner: litellm
+  cluster:
+    name: cluster18
+---
+# yaml-language-server: $schema=https://schemas.tholinka.dev/external-secrets.io/externalsecret_v1.json
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: litellm-db
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden
+  target:
+    name: litellm-db-secret
+    template:
+      type: kubernetes.io/basic-auth
+      data:
+        username: litellm
+        password: '{{ .LITELLM_DB_PASSWORD }}'
+  dataFrom:
+    - extract:
+        key: litellm-secret

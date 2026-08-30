@@ -32,6 +32,16 @@ spec:
   monitoring:
     enablePodMonitor: true
 
+  # Declarative role for litellm. Every other app on this cluster creates its
+  # role with an INIT_POSTGRES initContainer, but LiteLLMProxy has no
+  # initContainers field, so the role has to come from here instead.
+  managed:
+    roles:
+      - name: litellm
+        ensure: present
+        login: true
+        passwordSecret:
+          name: litellm-db-secret
   enableSuperuserAccess: true
   superuserSecret:
     name: cloudnative-pg-secret

@@ -1,0 +1,63 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMMCPServer
+metadata:
+  name: ha-mcp
+spec:
+  # spec.workload, not spec.url: the operator runs the server itself as a
+  # Deployment + Service and derives the URL into status.resolvedURL - here
+  # http://ha-mcp.ai.svc.cluster.local:8086/mcp. That is the reason this phase
+  # uses the operator - no hand-written HelmRelease, Service and HTTPRoute per
+  # MCP server. A validating webhook rejects setting both url and workload.
+  #
+  # Replaces the `uvx mcp-proxy` bridge in the gitignored .mcp.json, which is
+  # currently BROKEN: uvx is not on the laptop's PATH.
+  workload:
+    image: ghcr.io/homeassistant-ai/ha-mcp:4.7.7
+    # The image CMD is `fastmcp run fastmcp.json`, which is STDIO mode - it
+    # never opens a port. `ha-mcp-web` is the HTTP entrypoint (pyproject
+    # [project.scripts]); it binds MCP_HOST=0.0.0.0 on MCP_PORT=8086 and serves
+    # MCP_SECRET_PATH=/mcp, which is exactly the operator's derived-url shape.
+    command: ["ha-mcp-web"]
+    port: 8086
+    env:
+      # ha-mcp reads HOMEASSISTANT_URL / HOMEASSISTANT_TOKEN, not HA_*.
+      - name: HOMEASSISTANT_URL
+        value: "http://home-assistant.home.svc.cluster.local:8123"
+      - name: HOMEASSISTANT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: mcp-secrets
+            key: HA_TOKEN
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMMCPServer
+metadata:
+  name: grafana-mcp
+spec:
+  workload:
+    # Docker Hub, NOT ghcr. ghcr.io/grafana/mcp-grafana is a 404 - the only
+    # component here not on ghcr, so a cold pull hits Docker Hub rate limits.
+    # Spegel and the image-pull workflow mitigate it.
+    image: docker.io/grafana/mcp-grafana:1.3.0
+    port: 8000
+    args:
+      # Default transport is stdio and default --address is localhost:8000,
+      # so without these the container never serves anything reachable.
+      - -t
+      - streamable-http
+      - --address
+      - 0.0.0.0:8000
+      # v1.3.0 rejects any Host header outside the allowlist with 403, and the
+      # allowlist defaults to the loopback variants of --address. The proxy
+      # calls the derived Service URL, so that Host has to be allowed.
+      - --allowed-hosts
+      - grafana-mcp.ai.svc.cluster.local:8000
+    env:
+      - name: GRAFANA_URL
+        value: "http://grafana-service.observability.svc.cluster.local:3000"
+      - name: GRAFANA_SERVICE_ACCOUNT_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: mcp-secrets
+            key: GRAFANA_TOKEN
