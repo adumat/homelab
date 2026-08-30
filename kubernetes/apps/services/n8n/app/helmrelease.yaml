@@ -110,6 +110,15 @@ spec:
         existingClaim: *app
         globalMounts:
           - path: /home/node/.n8n
+      # n8n compiles static assets at startup into ~/.cache, which is neither
+      # /tmp nor the PVC. With readOnlyRootFilesystem it dies on
+      # "ENOENT: no such file or directory, mkdir '/home/node/.cache'" AFTER
+      # running every database migration, so the DB looks fine and only the pod
+      # crashloops.
+      cache:
+        type: emptyDir
+        globalMounts:
+          - path: /home/node/.cache
       tmp:
         type: emptyDir
         globalMounts:
