@@ -108,6 +108,16 @@ spec:
       # login page rather than JSON.
       - name: N8N_API_URL
         value: "http://n8n.services.svc.cluster.local:5678"
+      # Without this every management call fails "SSRF protection: Private IP
+      # addresses not allowed" - a ClusterIP is by definition private. It fails
+      # in a way that is easy to miss: tools/list still advertises all 28 tools
+      # because the count comes from config, and only an actual call errors.
+      # Upstream labels permissive "NOT for production", but their threat model
+      # is multi-tenant SaaS where a caller supplies the n8n URL; here the URL
+      # is fixed above and this server is never exposed outside the cluster.
+      # Cloud-metadata endpoints stay blocked in every mode.
+      - name: WEBHOOK_SECURITY_MODE
+        value: permissive
       # Minted by hand from n8n's UI - there is no API to create an API key, and
       # an owner account has to exist first, so this cannot be provisioned
       # declaratively before n8n's first login.
