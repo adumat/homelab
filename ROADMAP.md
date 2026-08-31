@@ -2551,6 +2551,62 @@ external host in the estate — 18 live NFS mounts, both CNPG object stores, the
       doesn't handle it well~~ **Moot: nfs-canary was retired in phase 1.5.** Replaced by
       `nfs-stale-exporter`, which probes the mount **root** and drives KEDA directly.
 
+### Phase 9 — home climate automation
+
+The house has no autonomous climate control. Five HA automations fire on time triggers with
+**zero conditions**, written against raw `device_id` and entity-registry UUIDs, with aliases
+contradicting their own trigger times — a way to issue manual commands on a timer, not a
+control system.
+
+Everything needed to do better already exists except one thing: **there is no indoor
+temperature sensor anywhere in the house.** `T08 Temperatura ambiente/aux` reads `3276.6`
+(0x7FFF — disconnected probe) and `T07 sonda remota impianto` reads 11 °C while it is 37 °C
+outside. Every other °C sensor measures water, compressor, outdoor air, the server rack or the
+inverter. Windows, solar and presence are all *modifiers*; without a measured indoor
+temperature there is no setpoint to modify.
+
+Split into sub-phases because 9.2 and 9.3 write plant **configuration** registers rather than
+switches, and must not be what breaks the first rollout.
+
+- [ ] **9.1 — space heating and cooling.** Design approved 2026-08-31, spec at
+      `docs/superpowers/specs/2026-08-31-climate-automation-design.md`. A 4-profile ladder
+      (Comfort / Reduced / Standby / Protection) whose baseline comes from a weekly schedule and
+      is promoted a step by each active promoter — presence, cleaner, arriving. Per-floor
+      `generic_thermostat` entities supply hysteresis and `min_cycle_duration`; a thin
+      orchestrator owns plant sequencing and two hard interlocks. Config lands in git as an HA
+      package ConfigMap, like the dashboards.
+      **Blocking prerequisites:** Zigbee indoor sensors (try the owned radio first, humidity-capable);
+      the window→floor mapping test, which has never been done; and ESPHome season read-back —
+      the `select` reads `heat` while the machine's hard switch is in `cold`.
+- [ ] **9.2 — bivalent register control** (`r22 fascia solo pdc`, `r08`/`r28 fascia solo cal`,
+      `r10 caldaia supporto heat`). Command when the boiler is used and when it is not. Inverts
+      the solar rule from 9.1: rather than suppressing solar boost inside the boiler-only band,
+      *lower the changeover threshold* so the compressor uses the free electricity — poor COP on
+      free electricity still beats good efficiency on paid gas. **Needs its own brainstorm session.**
+      Guards already identified: confirm register semantics against the conditioner manual first,
+      since they are currently inferred from truncated Italian labels; rate-limit writes and only
+      write on change (EEPROM endurance — every 5 min is ~105k cycles/year); clamp to safe ranges
+      with known-good defaults `r22=5, r08=4, r28=4, r10=1, r12=1, r15=1, r16=1, r23=6, r37=1`;
+      keep `r28` tracking `r08` as its own label instructs; **never touch `r15`** (sanitary).
+- [ ] **9.3 — weather compensation.** The flow target is a fixed **60 °C**. Modulating it against
+      outdoor temperature is likely a bigger COP win than all of 9.1 combined, but it touches
+      plant registers rather than automation logic, so it is deliberately a separate project.
+- [ ] **9.4 — Early-On preconditioning.** "Be at 20 °C by 18:00" rather than "promote now". Needs
+      a learned heat-up rate. 9.1 ships a manual `ARRIVING` button as the stand-in. Note Google's
+      own warning that Early-On can *increase* consumption by running the system longer.
+- [ ] **9.5 — per-floor occupancy** from the alarm panel's motion sensors (`RADAR NOTTE`,
+      `RADAR MATRIMONIA`, `RADAR MANSARDA`, …) instead of house-wide presence.
+- [ ] **9.6 — DHW.** The sanitary schedule, and shifting hot water production into the solar
+      window instead of the night tariff. Out of 9.1's scope: the boiler and accumulator have
+      their own targets, support logic and delay registers.
+
+**Cleanup found on the way** — belongs to phase 10 if 9.1 slips:
+
+- [ ] HA floors are unconfigured: one floor (`ground_floor`), and 3 of 5 areas unassigned.
+      `Piano Terra` / `Primo Piano` exist only as alarm partitions.
+- [ ] `person.service` tracks a shared handset and has state `unknown`. Ignored for climate;
+      decide whether it should exist at all.
+
 ### Phase 10 — cleanup
 
 The bin for deferred cleanup: things that are safe to remove but not yet worth the risk, and
