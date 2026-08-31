@@ -10,11 +10,14 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    # Pinned by hand to the last 0.11.x, NOT the newest. Renovate only ever
-    # offers the latest, and that is 0.12.0 - BREAKING (CSI spec v1.13.0,
-    # VolumeHealth, k8s v0.37.0), PR #498. This takes 0.11.23's "never let
-    # staging reformat a device that carries a filesystem" (upstream #445,
-    # closing "Miroir formats volumes unexpectedly" #444) plus 0.11.24's
-    # teardown-deadlock fixes, without the breaking change.
-    tag: 0.11.24
+    # Taken deliberately, in two steps, not unattended: 0.11.24 first for
+    # 0.11.23's "never let staging reformat a device that carries a filesystem"
+    # (upstream #445, closing #444), verified healthy, then 0.12.0.
+    #
+    # 0.12.0 is flagged BREAKING - CSI spec v1.13.0, VolumeHealth, k8s v0.37.0.
+    # Checked before applying: chart kubeVersion is '>=1.31.0-0' against our
+    # v1.36.3, and the CSI sidecars (provisioner v6.3.0, snapshotter v8.6.0,
+    # resizer v2.2.1) are unchanged from 0.11.x, so the blast radius is the
+    # driver itself rather than the sidecar chain.
+    tag: 0.12.0
   url: oci://ghcr.io/home-operations/charts/miroir
