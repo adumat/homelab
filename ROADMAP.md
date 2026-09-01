@@ -16,6 +16,36 @@ the one backup kopiur cannot cover silently failing for two days on the least re
 Live faults. They belong to no phase because they should not wait for one; both were found on
 2026-08-24 while auditing the phase 3 renames, not by any alert.
 
+- [ ] 👀 **WATCH: magikarp hard-reset 2026-09-01 19:12:45, cause unknown.** Back up 30s later.
+      Ruled out with evidence: not a Talos upgrade (all five nodes v1.13.8, tuppr "all up to
+      date" either side), not a power event (no other node blipped, donkey and elizabeth
+      included), not the hardware watchdog (5m timeout, and Talos was still logging at
+      19:12:45.68), not OOM (0 kills), not thermal (CPU 42-48C, NVMe 37C). Service logs stop
+      mid-sentence with **no shutdown sequence** - the signature of a hard reset.
+
+      ⚠️ **It correlates with the nfs-stale-exporter 0.1.2 rollout and that must not be
+      forgotten.** Removing the `volume-subpaths` exclusion took magikarp from **6 probed
+      mounts to 18** - by far the largest increase of any node (bulbasaur 6, charmander 4,
+      squirtle 3, snorlax 1) - and its exporter pod was created at **19:12:45**, the same
+      second as the last log line. Against that: the other four nodes took the identical
+      update without incident, a userspace `lstat` has no business resetting a machine, and
+      magikarp has since run the new build against all 18 mounts with `leaked=0`, `stale=0`
+      and 0-1ms probe durations. magikarp had **1 boot in 14 days** before this, so there is
+      no prior pattern.
+
+      Decision 2026-09-01: **keep 0.1.2 and watch.** If magikarp resets again the correlation
+      becomes a finding and the exclusion goes back on that node. The detection 0.1.2 adds is
+      worth this much risk - it found pyload-ng silently dead for 12h on its first scrape.
+
+      **The next reset will be just as blank unless pstore is enabled.** `/sys/fs/pstore` is
+      empty and **no backend is registered** (no efi_pstore/ERST/ramoops in dmesg), so a panic
+      cannot be captured and "no panic logged" proves nothing. Network log shipping cannot
+      catch a hard reset's final moments by construction. Enabling a backend needs
+      `extraKernelArgs`, which per the Talos note below means a **new installer image plus
+      `talosctl upgrade`**, not an `apply-config` - so it is a deliberate job, not a quick fix.
+      Note efivarfs is mounted **ro** here, which likely rules out `efi_pstore` and points at
+      `ramoops` with a reserved memory region.
+
 - [x] ✅ **navi's doco-cd token — fixed 2026-08-24.** The cause was not a revoked token: navi's
       `.env` had **`BWS_ACCESS_TOKEN=` with an empty value**, so doco-cd authenticated with an
       empty credential and BWS answered `invalid_client` (RestartCount had reached **6416**,
