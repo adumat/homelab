@@ -38,7 +38,12 @@ spec:
               WIREGUARD_ENDPOINT_PORT: 51820
               VPN_PORT_FORWARDING: off
               # VPN_PORT_FORWARDING_PROVIDER: protonvpn
-              FIREWALL_INPUT_PORTS: 8080
+              # 8000 is gluetun's control server, opened so the VPN can be checked
+              # from outside the pod. /v1/publicip/ip returns "" whenever the tunnel
+              # is not actually carrying traffic - the only honest health signal
+              # gluetun exposes, since /v1/vpn/status reports "running" even while
+              # the tunnel is dead and reconnecting every 6 seconds.
+              FIREWALL_INPUT_PORTS: 8080,8000
               FIREWALL_OUTBOUND_SUBNETS: 10.42.0.0/16,10.43.0.0/16 # Allow access to k8s subnets
             envFrom:
               - secretRef:
@@ -132,6 +137,9 @@ spec:
         ports:
           http:
             port: *port
+          # For the blackbox VPN probe, not for humans.
+          control:
+            port: 8000
     route:
       app:
         annotations:

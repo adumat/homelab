@@ -38,17 +38,60 @@ spec:
           timeout: 5s
           tcp:
             preferred_ip_protocol: ipv4
+        # Is the VPN tunnel actually carrying traffic?
+        #
+        # gluetun's /v1/vpn/status is useless for this - it reported "running"
+        # all through 2026-09-02 while the tunnel was dead and gluetun tore it
+        # down and reconnected every ~6s (2271 restarts in 4h). /v1/publicip/ip
+        # is the honest signal: it holds the exit IP when the tunnel works and
+        # an empty string when it does not.
+        #
+        # So a 200 carrying an empty public_ip is a FAILURE, which is what
+        # fail_if_body_matches_regexp encodes. Without it the probe goes green
+        # on a completely broken VPN.
+        vpn_publicip:
+          prober: http
+          timeout: 5s
+          http:
+            valid_http_versions:
+              - HTTP/1.1
+              - HTTP/2.0
+            preferred_ip_protocol: ip4
+            fail_if_body_matches_regexp:
+              - '"public_ip"\s*:\s*""'
     prometheusRule:
       enabled: true
       rules:
+        # The VPN target is excluded here and alerted on separately: its failure
+        # means "no tunnel", not "host unreachable", and the generic wording
+        # sends you hunting a dead host that is actually running fine.
         - alert: BlackboxProbeFailed
-          expr: probe_success == 0
+          expr: probe_success{target!~".*/v1/publicip/ip"} == 0
           for: 15m
           labels:
             severity: critical
           annotations:
             summary: |-
               The host {{ $labels.target }} is currently unreachable
+        - alert: VpnTunnelDown
+          expr: probe_success{target=~".*/v1/publicip/ip"} == 0
+          for: 15m
+          labels:
+            severity: critical
+          annotations:
+            summary: |-
+              VPN tunnel is not carrying traffic - gluetun reports no exit IP
+            description: |-
+              gluetun has no public IP, so the WireGuard tunnel is passing no
+              traffic and qbittorrent is isolated by the kill switch.
+              Most likely cause is an EXPIRED MULLVAD SUBSCRIPTION: an
+              out-of-credit account has its key rejected, and because WireGuard
+              is a silent protocol nothing logs an error - gluetun prints
+              "setup complete" on a loop and /v1/vpn/status still says
+              "running". Check credit at mullvad.net first, then gluetun logs
+              for the ~6s reconnect loop.
+              A restarting qbittorrent pod also trips this, since the probe
+              target lives inside it.
     securityContext:
       readOnlyRootFilesystem: true
       allowPrivilegeEscalation: false
