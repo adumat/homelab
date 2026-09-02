@@ -36,6 +36,25 @@ spec:
               limits:
                 memory: 1Gi
     defaultPodOptions:
+      # ⚠️ TEMPORARY - remove once bulbasaur's DRBD wedge is cleared.
+      # `drbdsetup primary` for this volume HANGS on bulbasaur: the CSI fails
+      # the mount with "device /dev/drbd1007 not writable (is the volume in use
+      # on another node?)" and the pod sits in ContainerCreating forever, while
+      # the volume itself is perfectly healthy - 3 replicas UpToDate and
+      # connected, quorum:yes, loop device and backing file writable,
+      # auto-promote identical to the nodes where it mounts first try.
+      # Same family as the teardown wedge in upstream miroir #262
+      # (LINBIT drbd#137), which only a node reboot clears - and bulbasaur was
+      # rebooted for exactly that on 2026-09-01, so it has re-wedged.
+      # Cordoning does not survive rescheduling; this does.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: NotIn
+                    values: ["bulbasaur"]
       securityContext:
         # runAsNonRoot: true
         runAsUser: 1000
