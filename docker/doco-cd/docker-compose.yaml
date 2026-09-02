@@ -1,6 +1,6 @@
 services:
   doco-cd-donkey:
-    image: ghcr.io/kimdre/doco-cd:0.112.0
+    image: ghcr.io/kimdre/doco-cd:0.114.0
     container_name: doco-cd-donkey
     restart: unless-stopped
     profiles: [donkey]
@@ -34,7 +34,7 @@ services:
       retries: 3
 
   doco-cd-elizabeth:
-    image: ghcr.io/kimdre/doco-cd:0.112.0
+    image: ghcr.io/kimdre/doco-cd:0.114.0
     container_name: doco-cd-elizabeth
     restart: unless-stopped
     profiles: [elizabeth]
@@ -60,7 +60,7 @@ services:
       retries: 3
 
   doco-cd-navi:
-    image: ghcr.io/kimdre/doco-cd:0.112.0
+    image: ghcr.io/kimdre/doco-cd:0.114.0
     container_name: doco-cd-navi
     restart: unless-stopped
     profiles: [navi]
