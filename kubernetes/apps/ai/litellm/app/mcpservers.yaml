@@ -18,7 +18,7 @@ spec:
   # Replaces the `uvx mcp-proxy` bridge in the gitignored .mcp.json, which is
   # currently BROKEN: uvx is not on the laptop's PATH.
   workload:
-    image: ghcr.io/homeassistant-ai/ha-mcp:4.7.7
+    image: ghcr.io/homeassistant-ai/ha-mcp:4.22.1
     # The image CMD is `fastmcp run fastmcp.json`, which is STDIO mode - it
     # never opens a port. `ha-mcp-web` is the HTTP entrypoint (pyproject
     # [project.scripts]); it binds MCP_HOST=0.0.0.0 on MCP_PORT=8086 and serves
