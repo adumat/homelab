@@ -62,11 +62,17 @@ spec:
     prometheusRule:
       enabled: true
       rules:
-        # The VPN target is excluded here and alerted on separately: its failure
-        # means "no tunnel", not "host unreachable", and the generic wording
-        # sends you hunting a dead host that is actually running fine.
+        # Matched on `instance`, NOT `target`: the Probe CRD exposes the probed
+        # URL as `instance` and sets no `target` label at all. An expression
+        # using target={...} silently matches nothing, so this alert would never
+        # fire and the exclusion below would never exclude - verified against
+        # live series rather than assumed.
+        #
+        # The VPN is excluded from the generic alert and handled separately: its
+        # failure means "no tunnel", not "host unreachable", and the generic
+        # wording sends you hunting a dead host that is running fine.
         - alert: BlackboxProbeFailed
-          expr: probe_success{target!~".*/v1/publicip/ip"} == 0
+          expr: probe_success{instance!~".*/v1/publicip/ip"} == 0
           for: 15m
           labels:
             severity: critical
@@ -74,7 +80,7 @@ spec:
             summary: |-
               The host {{ $labels.target }} is currently unreachable
         - alert: VpnTunnelDown
-          expr: probe_success{target=~".*/v1/publicip/ip"} == 0
+          expr: probe_success{instance=~".*/v1/publicip/ip"} == 0
           for: 15m
           labels:
             severity: critical
