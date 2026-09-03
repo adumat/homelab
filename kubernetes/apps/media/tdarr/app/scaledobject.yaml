@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/keda.sh/scaledobject_v1alpha1.json
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: tdarr-server
+spec:
+  advanced:
+    restoreToOriginalReplicaCount: true
+  pollingInterval: 30
+  cooldownPeriod: 60
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tdarr-server
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
+        # See components/nfs-scaler for the fail-open / fail-closed asymmetry.
+        # tdarr is NOT scaled by that component: it renders TWO Deployments
+        # (tdarr-server, tdarr-node) and the component targets a single
+        # Deployment named ${APP}, which matches neither. Same reason immich
+        # hand-rolls its own.
+        #
+        # Parking matters more here than for a reader: tdarr WRITES to the
+        # media exports, so a stale handle must stop it, not slow it.
+        query: >-
+          (max(nfs_server_reachable) or vector(1))
+          * on() (1 - (max(min_over_time(nfs:mount_stale:app{namespace="media",app="tdarr"}[5m])) or vector(0)))
+        threshold: "1"
+        ignoreNullValues: "0"
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/keda.sh/scaledobject_v1alpha1.json
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: tdarr-node
+spec:
+  advanced:
+    restoreToOriginalReplicaCount: true
+  pollingInterval: 30
+  cooldownPeriod: 60
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tdarr-node
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
+        # Identical trigger to tdarr-server: both Deployments mount the same
+        # two NFS exports, so both must park together. The node is the one
+        # actually mid-transcode when a handle goes stale.
+        query: >-
+          (max(nfs_server_reachable) or vector(1))
+          * on() (1 - (max(min_over_time(nfs:mount_stale:app{namespace="media",app="tdarr"}[5m])) or vector(0)))
+        threshold: "1"
+        ignoreNullValues: "0"

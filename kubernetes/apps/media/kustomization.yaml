@@ -10,3 +10,4 @@ resources:
   - ./jellyseerr/ks.yaml
   - ./komga/ks.yaml
   - ./romm/ks.yaml
+  - ./tdarr/ks.yaml

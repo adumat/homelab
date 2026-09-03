@@ -1028,6 +1028,32 @@ identity_providers:
         consent_mode: 'pre-configured'
         pre_configured_consent_duration: '1 month'
 
+      - client_id: 'tdarr'
+        client_name: 'Tdarr'
+        client_secret: '{{ secret "/secrets/oidc/tdarr" }}'
+        public: false
+        # admin, not household: tdarr REWRITES media files in place.
+        authorization_policy: 'admin'
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        grant_types: ['authorization_code', 'refresh_token']
+        response_types: ['code']
+        # MUST be set. A client with no lifespan inherits Authelia's 1h30m
+        # refresh lifespan, which is SHORTER than the oidc-auth component's
+        # defaultRefreshTokenTTL of 168h - Envoy then replays dead tokens for a
+        # week and saturates the /api/oidc/token rate limiter.
+        lifespan: 'envoy_session'
+        redirect_uris:
+          - 'https://tdarr.${DOMAIN}/oauth2/callback'
+        scopes: ['openid', 'email', 'profile', 'offline_access']
+        userinfo_signed_response_alg: 'none'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
+
       # The temporary 'rehearsal' client was REMOVED here before cutover. It was a
       # public, passwordless client bound to the admin policy - acceptable on the
       # internal-only auth2 host during rehearsal, unacceptable on a public

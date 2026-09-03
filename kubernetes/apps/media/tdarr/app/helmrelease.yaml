@@ -1,0 +1,170 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tdarr
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      server:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: haveagitgat/tdarr
+              tag: 2.86.01@sha256:45742f00e51a58553844c8b13d97e7ae9b2ee9a056bd8e5993d9a8282a45a23f
+            env: &env
+              TZ: Europe/Rome
+              PUID: 1000
+              PGID: 1000
+              UMASK: "002"
+              # The server image bundles its own node. Only the `node`
+              # controller mounts /temp, so an internal node would transcode
+              # onto the container's writable layer. Pinned here rather than
+              # left to a UI setting git cannot enforce.
+              internalNode: "false"
+            probes:
+              liveness: &probes
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8265
+                  initialDelaySeconds: 30
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 5
+              readiness: *probes
+              startup:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet:
+                    path: /
+                    port: 8265
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 60
+            # NO readOnlyRootFilesystem and NO runAsNonRoot.
+            # This is a LinuxServer.io image: it starts as root under s6-overlay
+            # and drops to PUID/PGID itself. Setting either of the usual repo
+            # defaults produces a pod that fails in a confusing way.
+            securityContext:
+              allowPrivilegeEscalation: false
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+      node:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: haveagitgat/tdarr_node
+              tag: 2.86.01@sha256:7542459ac5ed5cd299600530e9625b9d590629d5dc391c0016773f5d6aa3fe75
+            env:
+              <<: *env
+              nodeName: cluster-node-1
+              serverIP: tdarr.media.svc.cluster.local
+              serverPort: 8266
+            securityContext:
+              allowPrivilegeEscalation: false
+            # The FFmpeg worker. CPU is the real resource here: x265 will use
+            # everything it is given. Left generous because SD encoding is the
+            # only workload and it is not latency-sensitive.
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                memory: 4Gi
+    defaultPodOptions:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        supplementalGroups: [10000]
+    service:
+      server:
+        controller: server
+        ports:
+          http:
+            port: 8265
+          server:
+            port: 8266
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Media
+          gethomepage.dev/name: Tdarr
+          gethomepage.dev/icon: tdarr.png
+          gethomepage.dev/description: Media Transcoding
+        hostnames:
+          - tdarr.${DOMAIN}
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs:
+              - identifier: server
+                port: 8265
+    persistence:
+      # Both PVCs are ReadWriteOnce, so each is mounted by exactly ONE
+      # controller. Mounting either from both would leave the second pod
+      # unschedulable the moment the two land on different nodes.
+      config:
+        existingClaim: tdarr
+        advancedMounts:
+          server:
+            app:
+              - path: /app/configs
+                subPath: configs
+              - path: /app/server
+                subPath: server
+      # The node re-registers with the server on every start, so its config is
+      # disposable - no PVC, and nothing worth backing up.
+      node-config:
+        type: emptyDir
+        advancedMounts:
+          node:
+            app:
+              - path: /app/configs
+      # Scratch, and only the node transcodes. The server's internal node is
+      # disabled in the UI precisely so nothing else wants this.
+      cache:
+        existingClaim: tdarr-cache
+        advancedMounts:
+          node:
+            app:
+              - path: /temp
+      # THE SAFETY BOUNDARY. Two paths, nothing else.
+      # Tdarr's library paths live in its own database, not in git, so no spec
+      # can constrain them and no repo review would catch /media/torrent typed
+      # into a form. Mounting only these two means the container has NO
+      # filesystem path to live torrent data - misconfiguring the UI cannot
+      # reach what is not mounted.
+      # Do NOT replace these with the whole /mnt/user/media the way jellyfin does.
+      film:
+        type: nfs
+        server: elizabeth.lan
+        path: /mnt/user/media/Film
+        globalMounts:
+          - path: /media/Film
+      series:
+        type: nfs
+        server: elizabeth.lan
+        path: /mnt/user/media/Serie TV
+        globalMounts:
+          - path: /media/Serie TV
