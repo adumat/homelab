@@ -348,7 +348,12 @@ identity_providers:
           - 'https://sonarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'radarr'
         client_name: 'Radarr'
@@ -364,7 +369,12 @@ identity_providers:
           - 'https://radarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'prowlarr'
         client_name: 'Prowlarr'
@@ -380,7 +390,12 @@ identity_providers:
           - 'https://prowlarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'qbittorrent'
         client_name: 'qBittorrent'
@@ -396,7 +411,12 @@ identity_providers:
           - 'https://qb.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'pyload-ng'
         client_name: 'pyLoad-NG'
@@ -412,7 +432,12 @@ identity_providers:
           - 'https://pyload.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # metube is household: grabbing a video is useful to a household member,
       # unlike the indexer/torrent stack.
@@ -430,7 +455,12 @@ identity_providers:
           - 'https://metube.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # peekaboo is a baby monitor: the page is left open for hours and must not
       # bounce to a login screen mid-watch. It gets the long_session profile (3
@@ -451,7 +481,12 @@ identity_providers:
           - 'https://peekaboo.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # ---------- Phase 2 Plan A: internal admin apps ----------
       - client_id: 'kopia'
@@ -468,7 +503,12 @@ identity_providers:
           - 'https://kopia.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # it-tools is household, not admin: it is a bag of offline utilities
       # (hashing, base64, cron parsing) with access to nothing.
@@ -486,7 +526,12 @@ identity_providers:
           - 'https://it-tools.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # n8n's own SSO is an enterprise feature, so the community edition is
       # protected at the gateway by the oidc-auth component like it-tools.
@@ -506,7 +551,12 @@ identity_providers:
           - 'https://n8n.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # client_id is esp-home (the app and route name); the host is esphome.
       - client_id: 'esp-home'
@@ -523,7 +573,12 @@ identity_providers:
           - 'https://esphome.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'victoria-logs'
         client_name: 'VictoriaLogs'
@@ -539,7 +594,12 @@ identity_providers:
           - 'https://victoria-logs.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'alertmanager'
         client_name: 'Alertmanager'
@@ -555,7 +615,12 @@ identity_providers:
           - 'https://alertmanager.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'prometheus'
         client_name: 'Prometheus'
@@ -571,7 +636,12 @@ identity_providers:
           - 'https://prometheus.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
 
       # hacs.${DOMAIN} is the VS Code editor for Home Assistant's config. Note
@@ -592,7 +662,12 @@ identity_providers:
           - 'https://hacs.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # pgadmin uses its NATIVE OAuth2 support, not the Envoy component, so this
       # is real SSO rather than two gates.
@@ -621,7 +696,12 @@ identity_providers:
           - 'https://pgadmin.${DOMAIN}/oauth2/authorize'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # gatus is an Envoy-OIDC client, not native, despite sitting with the
       # native apps in the Plan B spec: its route name matches APP, so the
@@ -651,7 +731,12 @@ identity_providers:
           - 'https://status.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # ---------- Native OIDC apps ----------
       - client_id: 'grafana'
@@ -678,7 +763,12 @@ identity_providers:
           - 'https://grafana.${DOMAIN}/login/generic_oauth'
         scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'headlamp'
         client_name: 'Headlamp'
@@ -710,7 +800,12 @@ identity_providers:
           - 'https://gitops.${DOMAIN}/oidc-callback'
         scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # The /accounts/oidc/authentik/ path segment is django-allauth's provider
       # ID configured inside paperless. It is NOT a reference to Authentik the
@@ -778,7 +873,12 @@ identity_providers:
           - 'https://files.${DOMAIN}/oidc-silent-redirect.html'
         scopes: ['openid', 'email', 'profile', 'groups', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # Native apps: client_id AND secret are hardcoded by ownCloud and cannot be
       # rotated. The digests are hashes of ownCloud's published values. This is
@@ -795,7 +895,12 @@ identity_providers:
           - 'oc://ios.owncloud.com'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'e4rAsNUSIUs0lF4nbv9FmCeUkTlV9GdgTLDH1b5uie7syb90SzEVrbN7HIpmWJeD'
         client_name: 'OCIS Android'
@@ -809,7 +914,12 @@ identity_providers:
           - 'oc://android.owncloud.com'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # Authentik matched these loopback URIs by regex; Authelia matches exactly.
       # If the desktop client uses an ephemeral port, more URIs are needed - this
@@ -827,7 +937,12 @@ identity_providers:
           - 'http://localhost/'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # Komga drives OIDC itself rather than sitting behind Envoy, so this block
       # differs from the acquirers below: no PKCE (Komga sends no code_challenge)
@@ -864,7 +979,12 @@ identity_providers:
           - 'https://mylar3.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'kapowarr'
         client_name: 'Kapowarr'
@@ -880,7 +1000,12 @@ identity_providers:
           - 'https://kapowarr.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       - client_id: 'suwayomi'
         client_name: 'Suwayomi'
@@ -896,7 +1021,12 @@ identity_providers:
           - 'https://suwayomi.${DOMAIN}/oauth2/callback'
         scopes: ['openid', 'email', 'profile', 'offline_access']
         userinfo_signed_response_alg: 'none'
-        consent_mode: 'implicit'
+        # NOT 'implicit': Authelia forces explicit consent whenever a
+        # refresh token will be granted, i.e. for any client requesting
+        # offline_access, so implicit was silently ignored and every app
+        # re-prompted on each login. pre-configured remembers it instead.
+        consent_mode: 'pre-configured'
+        pre_configured_consent_duration: '1 month'
 
       # The temporary 'rehearsal' client was REMOVED here before cutover. It was a
       # public, passwordless client bound to the admin policy - acceptable on the
