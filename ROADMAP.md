@@ -68,7 +68,37 @@ Live faults. They belong to no phase because they should not wait for one; both 
       has no `-P`**. The pattern failed, `|| true` swallowed the error, and the caller saw empty
       for a key that was actually set — a complete mechanism for navi's blank token without anyone
       forgetting a flag. All four extractions now use a portable `sed` helper.
-- [x] ✅ **charmander's 100 Mbit link — FIXED 2026-08-30 by replacing the cable.** `eno1` now
+- [ ] 🔧 **charmander's link — ROOT CAUSE IS THE PATCH PANEL, found 2026-09-04.** One pair on its
+      patch-panel port makes intermittent contact; touching the cable changes the link. That single
+      fact explains the whole history:
+
+      **1000BASE-T needs all four pairs, 100BASE-TX needs only two.** A bad pair cannot negotiate
+      gigabit, so the link does not die - it silently falls back to **100 Mbit**. An intermittent
+      pair also flaps. That is exactly what was observed on 2026-08-24, 2026-08-30 and again on
+      2026-09-04, and it is why the symptom was always "100 Mbit plus occasional flaps" rather than
+      a clean outage.
+
+      ⚠️ **The 2026-08-30 cable replacement did NOT fix this, and this entry previously claimed it
+      had.** The link came up at 1000Mbit afterwards and held three days, so it looked solved -
+      but handling the cable had merely reseated the patch-panel contact. It reverted on
+      2026-09-04. Verifying a link-speed reading is not the same as verifying a fix; only time or
+      a deliberate disturbance would have distinguished them.
+
+      **Cost of the 2026-09-04 recurrence**, which is the real argument for fixing the punch-down:
+      a 22-second flap at 16:40 removed charmander's IP, DRBD lost quorum, ext4 remounted
+      **read-only**, and `victoria-logs` crash-looped on `cannot create lock file … read-only file
+      system` - taking all five `fluent-bit` pods down with it. **Log ingestion was dead
+      cluster-wide for ~40 minutes and nothing said so** beyond generic `KubePodNotReady`. This is
+      the third time that same chain has run (2026-08-24, 2026-09-04), and both times the
+      read-only filesystem was mistaken for the fault rather than the symptom.
+
+      **Fix: re-punch that patch-panel port, or move charmander to a different one.** Until then
+      expect recurrence. Re-verify with `talosctl -n 10.1.10.11 get link eno1` AND by deliberately
+      wiggling the cable - a clean 1000Mbit reading on its own proves nothing, as 2026-08-30 showed.
+
+      Historical detail from when the cable was believed to be the cause:
+
+      `eno1` was at **100Mbit/Full** while
       negotiates **1000Mbit/Full**, matching the other four nodes. The node was pulled with etcd at
       3/3 and every affected volume at 2-of-3 votes with 2 UpToDate copies elsewhere, so nothing
       froze; it came back with **term still 3** (no leader election) and resynced its 9 data
@@ -1892,7 +1922,8 @@ unsigned iPXE, and strand it.
       `/mnt/user/backups/volsync-preblackout-20260818` (17G). 35G total, recoverable by reverting
       the commit — re-add the ClusterRepository and the archive is browsable again
 - Deleting those 35G from elizabeth is deferred to **phase 10**.
-- charmander's 100 Mbit link: **fixed 2026-08-30**, cable replaced, now `1000Mbit/Full`. Detail below.
+- charmander's 100 Mbit link: **NOT fixed by the 2026-08-30 cable swap** - root cause is a bad pair
+  on the patch-panel port, found 2026-09-04. See 🔴 Urgent.
 - [x] ✅ **power-nap-over fixed 2026-08-24** — root cause was doco-cd, see below
 
 #### Benchmark — the write path is network-bound, not disk-bound
@@ -1912,7 +1943,7 @@ exceed roughly that no matter which NVMe backs it. The Crucial P3's QLC enduranc
 watching, but it is **not** what limits throughput today — the single biggest storage win
 available is a faster replication link, not a better disk.
 
-#### ✅ charmander was on a 100 Mbit link — fixed 2026-08-30
+#### 🔧 charmander was on a 100 Mbit link — patch panel, still open (see 🔴 Urgent)
 
 Found while establishing the above. `eno1` on charmander negotiated **100Mbit/Full** while all
 four other nodes ran at `1000Mbit`. Nothing in `patches/` forced a speed, so it was autonegotiated;
