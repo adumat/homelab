@@ -84,7 +84,7 @@ spec:
     name: mcp-secrets
     key: N8N_MCP_AUTH_TOKEN
   workload:
-    image: ghcr.io/czlonkowski/n8n-mcp:2.79.0
+    image: ghcr.io/czlonkowski/n8n-mcp:2.82.1
     port: 3000
     env:
       # Default is stdio, which never opens a port.
