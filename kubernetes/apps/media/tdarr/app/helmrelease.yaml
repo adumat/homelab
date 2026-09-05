@@ -68,6 +68,22 @@ spec:
       node:
         annotations:
           reloader.stakater.com/auto: "true"
+        pod:
+          # Keep the two transcode nodes on different hosts so the encodes use
+          # separate CPUs instead of competing for one. Scoped to the `node*`
+          # controllers only - the server is idle and may sit anywhere.
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values: ["tdarr"]
+                      - key: app.kubernetes.io/controller
+                        operator: In
+                        values: ["node", "node2"]
+                  topologyKey: kubernetes.io/hostname
         containers:
           app:
             image:
@@ -76,6 +92,46 @@ spec:
             env:
               <<: *env
               nodeName: cluster-node-1
+              serverIP: tdarr.media.svc.cluster.local
+              serverPort: 8266
+            securityContext:
+              allowPrivilegeEscalation: false
+            # The FFmpeg worker. CPU is the real resource here: x265 will use
+            # everything it is given. Left generous because SD encoding is the
+            # only workload and it is not latency-sensitive.
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                memory: 4Gi
+      node2:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        pod:
+          # Keep the two transcode nodes on different hosts so the encodes use
+          # separate CPUs instead of competing for one. Scoped to the `node*`
+          # controllers only - the server is idle and may sit anywhere.
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                      - key: app.kubernetes.io/name
+                        operator: In
+                        values: ["tdarr"]
+                      - key: app.kubernetes.io/controller
+                        operator: In
+                        values: ["node", "node2"]
+                  topologyKey: kubernetes.io/hostname
+        containers:
+          app:
+            image:
+              repository: haveagitgat/tdarr_node
+              tag: 2.86.01@sha256:7542459ac5ed5cd299600530e9625b9d590629d5dc391c0016773f5d6aa3fe75
+            env:
+              <<: *env
+              nodeName: cluster-node-2
               serverIP: tdarr.media.svc.cluster.local
               serverPort: 8266
             securityContext:
@@ -141,12 +197,26 @@ spec:
           node:
             app:
               - path: /app/configs
+      node2-config:
+        type: emptyDir
+        advancedMounts:
+          node2:
+            app:
+              - path: /app/configs
       # Scratch, and only the node transcodes. The server's internal node is
       # disabled in the UI precisely so nothing else wants this.
       cache:
         existingClaim: tdarr-cache
         advancedMounts:
           node:
+            app:
+              - path: /temp
+      # Separate claim: miroir-local is ReadWriteOnce and node-pinned, so the
+      # two workers cannot share one.
+      cache2:
+        existingClaim: tdarr-cache2
+        advancedMounts:
+          node2:
             app:
               - path: /temp
       # THE SAFETY BOUNDARY. Two paths, nothing else.
