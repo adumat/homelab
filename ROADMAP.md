@@ -2709,11 +2709,68 @@ undocumented in another phase.
       the `oidc-auth` component no longer sets. Proven 2026-07-30 — kopia lives in
       `volsync-system`, is not in the grant, and attaches fine
 
+### Phase 11 — the paper archive
+
+Five ring binders of unsorted paper in the office. The goal is three things in one pass:
+organise it physically, digitise it, and destroy whatever is past its retention window.
+
+paperless-ngx has been deployed for months and is **effectively unused — 22 documents
+against 43 document types, 30 tags, 22 correspondents and 8 storage paths.** A taxonomy
+built in advance and then abandoned, which is the failure mode this phase has to survive,
+so the scheme it lands on is deliberately *smaller* than what is already there.
+
+Design at `docs/superpowers/specs/2026-09-06-paper-archive-digitisation-design.md`.
+Its core is that paper lives in one of three zones separated by **whose clock runs**:
+`Originali` (the paper is the asset, never shredded), `Lunga Conservazione` (dossiers whose
+clock starts from an event — fine lavori, presentazione, cessazione), and `Anni` (loose
+sheets whose clock is their own date, section shredded wholesale at year+5). The threshold
+follows the art. 2948 / 2946 c.c. break at five years. Retention governs **destroying
+paper, not deleting documents** — the digital index is permanent, which is exactly what
+makes shredding safe.
+
+Nothing needs to be built. `BarcodePlugin`, folder-as-tag and `PAPERLESS_AI_ENABLED`
+already cover the whole pipeline.
+
+- [ ] **11.1 — configure before any paper moves.** Enable `PAPERLESS_CONSUMER_ENABLE_BARCODES`
+      and `PAPERLESS_AI_ENABLED` pointed at litellm; prune the duplicate document types
+      (`Referto`/`Referto Medico`, `Modello 730`/`Dichiarazione dei Redditi`,
+      `Fattura`/`Fattura Sanitaria`) and the year tags `2023`–`2026`; add the three zone tags,
+      one tag per immobile, and the `dossier` custom field (paperless has **zero** custom
+      fields today); write the workflow that tags everything `inbox` so nothing reaches the
+      archive unreviewed.
+- [ ] **11.2 — the scanner.** Being sourced on the used market. Required, in order of how
+      often it is missing: **scan to SMB network folder standalone** (make-or-break — most
+      consumer scanners only scan-to-PC, which puts a computer permanently back in the loop),
+      duplex ADF, saved destination profiles on the device (this is what makes folder-as-tag
+      work), automatic blank-page removal (**paperless does not strip blanks**), ultrasonic
+      double-feed detection. ⚠️ **Verify SMBv2/3** — budget and older devices ship SMBv1 only
+      and modern Unraid disables it; this is the most common failure for scan-to-share.
+      No network work needed: VLAN 20 already has `access: servers: full`.
+- [ ] **11.3 — pilot on one binder, and measure.** Triage, scan, review one binder end to
+      end. The measured rate is what decides whether the remaining four are two evenings or
+      twenty — do not trust a datasheet.
+- [ ] **11.4 — the remaining four binders**, one session each. Triage into shred / scan /
+      quarantine, pulling detrazioni into their dossiers as they surface. **Nothing is
+      shredded until it has been scanned and reviewed.**
+- [ ] **11.5 — retire paperless-ai.** `PAPERLESS_AI_ENABLED` is native in paperless-ngx 3.x
+      with full LLM backend, model and embedding settings, so the separate deployment is
+      redundant. Phase 7 already recorded that it "had never called" litellm — zero
+      `chat/completions` in litellm's lifetime. An app, a PVC and a kopiur backup doing
+      nothing.
+- [ ] ⚠️ **The highest-risk category is `Detrazioni`, and it is spread across every binder.**
+      Detrazioni run on **multiple properties**, a dossier lives ~16 years (10 years of rate
+      plus 5 of accertamento on the last), and a single missing **bonifico parlante** voids a
+      ten-year deduction stream. These documents are exactly the kind found filed loose among
+      old bollette. Do a dedicated pre-pass hunting fatture, bonifici, CILA/SCIA and ENEA
+      receipts *before* general triage.
+- [ ] **Steady state, once the backlog is cleared:** each January, shred the `Anni` section
+      that has aged out and check which dossiers reached the date written on their cover.
+      That is the whole recurring cost, and keeping it near zero is the point of the layout.
+
 ## Loose ends (not a phase)
 
 - [ ] Investigate the issue caused by exposing both external and internal gateways simultaneously — appears to cause problems in Chrome (e.g., mixed routing, cookie conflicts, or certificate mismatches between the two gateways)
 
 - [ ] Improve Home Assistant dashboard
 - [ ] Add Syncthing
-- [ ] Find a way to use AI to automatically catalog documents in Paperless-ngx
 - [ ] Review and merge `mise-upgrade-dependencies` branch (mise upgrades + Romm removal)
