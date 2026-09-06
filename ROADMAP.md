@@ -2738,13 +2738,25 @@ already cover the whole pipeline.
       one tag per immobile, and the `dossier` custom field (paperless has **zero** custom
       fields today); write the workflow that tags everything `inbox` so nothing reaches the
       archive unreviewed.
-- [ ] **11.2 — the scanner.** Being sourced on the used market. Required, in order of how
-      often it is missing: **scan to SMB network folder standalone** (make-or-break — most
-      consumer scanners only scan-to-PC, which puts a computer permanently back in the loop),
-      duplex ADF, saved destination profiles on the device (this is what makes folder-as-tag
-      work), automatic blank-page removal (**paperless does not strip blanks**), ultrasonic
-      double-feed detection. ⚠️ **Verify SMBv2/3** — budget and older devices ship SMBv1 only
-      and modern Unraid disables it; this is the most common failure for scan-to-share.
+- [ ] **11.2 — the scanner, which also replaces the Epson WF-2820.** Sourcing used, so it
+      must print as well as scan. In priority order: **duplex ADF (automatic two-sided
+      scanning) — non-negotiable**; **scan to SMB network folder or FTP, standalone** (most
+      consumer devices only scan-to-PC, which puts a computer permanently back in the loop);
+      saved destination profiles on the device, i.e. a touchscreen or Lexmark-style numbered
+      Shortcuts, since that is what makes folder-as-tag work; **page count under ~50k**; and
+      laser rather than inkjet — at ~50 pages/month the machine idles for days, which is what
+      clogs inkjet heads.
+      ⚠️ **Search the business tier, not SOHO.** Fifteen used MFPs assessed 2026-09-06 and
+      **not one** had a duplex ADF: automatic two-sided scanning is a business/enterprise
+      feature, and those machines sell *cheaper* used because nobody wants a 30 kg box.
+      **The duplex variant is often one letter from the simplex one** — Lexmark MX310dn is
+      simplex, MX410de is the same machine with a duplex ADF — so check the exact suffix,
+      never the family. Search by model number: Lexmark MX410de/MX511de/MX611de, Kyocera
+      ECOSYS M2540dn/M2635dn/M2640idw, HP LJ Enterprise M527dn/M528, HP Color LJ Pro
+      M477fdw/M479fdw, Brother MFC-L5750DW/L6900DW.
+      ⚠️ **SMB dialect** is the most common failure — older firmware is SMBv1 only and modern
+      Unraid disables it. **FTP is the insurance**: Unraid serves it natively, reaching the
+      same share with no new container. Also check for **lease locks** on ex-corporate units.
       No network work needed: VLAN 20 already has `access: servers: full`.
 - [ ] **11.3 — pilot on one binder, and measure.** Triage, scan, review one binder end to
       end. The measured rate is what decides whether the remaining four are two evenings or
