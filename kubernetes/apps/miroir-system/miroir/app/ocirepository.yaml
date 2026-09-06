@@ -19,5 +19,5 @@ spec:
     # v1.36.3, and the CSI sidecars (provisioner v6.3.0, snapshotter v8.6.0,
     # resizer v2.2.1) are unchanged from 0.11.x, so the blast radius is the
     # driver itself rather than the sidecar chain.
-    tag: 0.12.0
+    tag: 0.12.2
   url: oci://ghcr.io/home-operations/charts/miroir
