@@ -50,7 +50,7 @@ spec:
           app:
             image:
               repository: ghcr.io/authelia/authelia
-              tag: 4.39.20
+              tag: 4.39.22
             env:
               X_AUTHELIA_CONFIG: /config/configuration.yaml
               # Enables Go templating in the config file so {{ secret "..." }}
