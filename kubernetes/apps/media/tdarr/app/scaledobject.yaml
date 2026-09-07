@@ -20,10 +20,13 @@ spec:
       metadata:
         serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
         # See components/nfs-scaler for the fail-open / fail-closed asymmetry.
-        # tdarr is NOT scaled by that component: it renders TWO Deployments
-        # (tdarr-server, tdarr-node) and the component targets a single
-        # Deployment named ${APP}, which matches neither. Same reason immich
-        # hand-rolls its own.
+        # tdarr is NOT scaled by that component: it renders THREE Deployments
+        # (tdarr-server, tdarr-node, tdarr-node2) and the component targets a
+        # single Deployment named ${APP}, which matches none of them. Same
+        # reason immich hand-rolls its own.
+        #
+        # Every Deployment here needs its own ScaledObject. node2 was added
+        # without one and deadlocked the app - see the note on tdarr-node2.
         #
         # Parking matters more here than for a reader: tdarr WRITES to the
         # media exports, so a stale handle must stop it, not slow it.
@@ -56,6 +59,44 @@ spec:
         # Identical trigger to tdarr-server: both Deployments mount the same
         # two NFS exports, so both must park together. The node is the one
         # actually mid-transcode when a handle goes stale.
+        query: >-
+          (max(nfs_server_reachable) or vector(1))
+          * on() (1 - (max(min_over_time(nfs:mount_stale:app{namespace="media",app="tdarr"}[5m])) or vector(0)))
+        threshold: "1"
+        ignoreNullValues: "0"
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/keda.sh/scaledobject_v1alpha1.json
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: tdarr-node2
+spec:
+  advanced:
+    restoreToOriginalReplicaCount: true
+  pollingInterval: 30
+  cooldownPeriod: 60
+  minReplicaCount: 0
+  maxReplicaCount: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: tdarr-node2
+  triggers:
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-operated.observability.svc.cluster.local:9090
+        # node2 was added without a ScaledObject and that deadlocked the whole
+        # app on 2026-09-06. It mounts the same two exports as tdarr-node, so it
+        # goes stale the same way - but with nothing to park it, nothing healed
+        # it either.
+        #
+        # The trap is that nfs:mount_stale:app aggregates by APP, not by
+        # Deployment: node2's stale `series` handle set media/tdarr=1, which
+        # held tdarr-server and tdarr-node at 0 while node2 itself kept running
+        # on the broken mount. The one Deployment that could not self-heal took
+        # down the two that could, and it presented as "tdarr will not schedule".
+        #
+        # Same query as the other two on purpose - all three park together.
         query: >-
           (max(nfs_server_reachable) or vector(1))
           * on() (1 - (max(min_over_time(nfs:mount_stale:app{namespace="media",app="tdarr"}[5m])) or vector(0)))
