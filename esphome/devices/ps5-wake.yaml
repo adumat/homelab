@@ -201,6 +201,16 @@ sensor:
     accuracy_decimals: 0
     update_interval: 30s
     entity_category: diagnostic
+  # The gate's effect, made observable: the boot log line cannot be seen, since
+  # the API only forwards logs to a CONNECTED client and boot finishes first.
+  # 0 = unwitnessed (power event, or never seen), 1 = was on, 2 = was rest.
+  # Must survive an OTA reboot and read 0 after a mains cut.
+  - platform: template
+    name: keepalive last solid state
+    lambda: 'return id(last_solid);'
+    accuracy_decimals: 0
+    update_interval: 30s
+    entity_category: diagnostic
   - platform: template
     name: keepalive silent streak
     lambda: 'return id(silent_streak);'
