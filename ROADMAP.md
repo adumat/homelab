@@ -1960,6 +1960,47 @@ charmander from a tenth of line rate to parity with the rest of the cluster. Ful
 safe-to-pull checks, the clean resync, the uncordon, and the 3-diskful volumes left in place — is
 in **🔴 Urgent** at the top.
 
+#### 🔴 PNO cannot survive a real power failure — measured 2026-09-08
+
+⚠️ **The detailed findings live in `docs/superpowers/specs/2026-08-17-pno-v2-findings.md`, which is
+GITIGNORED.** Summarised here because that file exists on one laptop with no working backups.
+
+Measured during a planned shutdown ahead of an announced power cut — the first real timing of a
+graceful shutdown:
+
+| stage | measured |
+|---|---|
+| workers (both, issued together) | **11 s** |
+| control planes (3, issued together but serialised internally) | **4 min 27 s** |
+| elizabeth (array STARTED, no parity check) | 1 min 41 s |
+| total | **~6 min 20 s** |
+
+Trigger chain is `AT ONBATT * START-TIMER onbatt_shutdown 120` → FSD → shutdown in reverse boot
+priority → `shutdown_wait_timeout: 600`. **Battery runtime at full load is under 10 minutes**
+(owner-confirmed; at 19 % load / 94 W the pack reported 22.7 min and ran flat to 2 % during the
+real outage). So the budget after the 120 s debounce is under 8 minutes against ~6:20 needed —
+and at a 7-minute battery it **fails, cutting elizabeth mid-shutdown**, the one host where that
+costs a parity check.
+
+**Requirements for v2:**
+
+- **Graduated trigger, not one debounce.** 120 s spends 20–30 % of the budget protecting hosts
+  that are cheap to lose. Tier it: **workers at ~t=0** (11 s, stateless, a false positive costs
+  one WOL), **control planes ~30 s**, **elizabeth last but started earlier than today**.
+- **Shut the control planes down in parallel** — 4:27 is 70 % of the sequence and they were
+  already issued together, so the serialisation is inside the shutdown path.
+- **`shutdown_wait_timeout` must be below measured battery runtime**, so it fails loudly instead
+  of letting the battery end the sequence silently.
+- **A maintenance mode that outlives a restart**, and **never WOL a host this instance shut
+  down** — PNO read the graceful shutdown as a crash and woke elizabeth back up, three times.
+- **Suppression must survive doco-cd**, which reverts `docker stop` within ~2 minutes. Only
+  stopping `doco-cd-<host>` first works, and nothing documents that.
+- **Measure `ups.load` / `ups.realpower` / `battery.runtime` under normal load** to replace the
+  single owner estimate this all rests on.
+
+Also found: `upssched-cmd` logs `"Battery timeout (300s)"` while the timer is **120 s** — a stale
+message that actively misleads during an outage.
+
 #### 🔴 power-nap-over never picked up the renames
 
 The blackout recovery service on donkey is **still configured with the old node names and the
