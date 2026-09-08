@@ -2322,6 +2322,26 @@ Hardware already in the house, metrics absent.
     - Impact if it persists: every panic resets the keepalive globals, converting a witnessed
       shutdown into an unwitnessed one and losing the grace period. Degrades the design, does not
       break the core invariant — the console still gets woken.
+  - ✅ **Panic mitigated 2026-09-08 (option 2).** Every hang/crash class already reboots — verified
+      in the build's sdkconfig: `ESP_SYSTEM_PANIC_PRINT_REBOOT`, `ESP_TASK_WDT_PANIC=y` (5 s),
+      `ESP_INT_WDT` (300 ms), `BOOTLOADER_WDT` (9 s) — so the device **cannot wedge silently** and the
+      crash self-recovers. The only real damage was losing witnessed/unwitnessed state, so
+      `last_solid` now persists, gated on `esp_reset_reason()`: kept after panic/watchdog/OTA,
+      cleared after any power event. The gate is what makes persisting safe — a stale `last_solid`
+      after a blackout would impose a 15 min grace on the recovery this device exists for.
+      Verified: `last_solid` = 2 at 64 s uptime after an OTA reboot.
+    - The gate's boot log line is **unobservable** — the API forwards logs only to a *connected*
+      client and boot finishes first, the same trap as the original boot dump. Hence the
+      `keepalive last solid state` sensor: the effect is visible where the log line never can be.
+  - **web_server basic auth removed** (it sent the password reversibly; ESPHome warns `basic` is the
+      default). The page is now unauthenticated on the IoT VLAN, and `clients → iot` is `full`.
+  - ⚠️ **ps5-wake is still NOT in Home Assistant** — confirmed via the HA API: five ESPHome config
+      entries exist (hvac-controller, iron-outlet, Power Sockets, power-outlet, intercom-controller)
+      and ps5-wake is not one of them. That is the direct confirmation of the `reboot_timeout` root
+      cause. Adding it is a UI action: integrations cannot be created over the HA API, so it needs
+      Settings → Devices & Services → Add Integration → ESPHome, host `ps5-wake.lan`, plus the
+      `ps5_wake_api_encryption` secret. **Keep `reboot_timeout: 0s` afterwards** — the point is that
+      the device must not reboot when the cluster, and therefore HA, is gone.
   - Remaining: tests 3 (full 15 min grace, impossible until the reboot fix) and 5 (cooldown) need
       physical access to the console.
 - [x] **PS5 wake device — WORKING 2026-08-27. It powers the console on from fully off.**
