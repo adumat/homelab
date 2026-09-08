@@ -37,6 +37,24 @@ substitutions:
 esphome:
   name: ps5-wake
   friendly_name: ps5-wake
+  on_boot:
+    # priority 200: after globals have restored (they set up at 600).
+    priority: 200
+    then:
+      - lambda: |-
+          // last_solid survives reboots, but it is only MEANINGFUL if the console
+          // did not lose power with us. Trust it after a crash or an OTA; discard
+          // it after any power event, so a blackout stays "unwitnessed" and gets
+          // recovered immediately instead of waiting out the grace period.
+          const esp_reset_reason_t r = esp_reset_reason();
+          const bool console_state_still_valid =
+              r == ESP_RST_PANIC || r == ESP_RST_TASK_WDT ||
+              r == ESP_RST_INT_WDT || r == ESP_RST_WDT || r == ESP_RST_SW;
+          if (!console_state_still_valid)
+            id(last_solid) = 0;
+          ESP_LOGI("keepalive", "boot reset_reason=%d, last_solid=%d (%s)", (int) r,
+                   id(last_solid),
+                   console_state_still_valid ? "kept" : "cleared: power event");
 
 esp32:
   variant: esp32
@@ -132,9 +150,6 @@ web_server:
   port: 80
   version: 3
   local: true
-  auth:
-    username: ${web_user}
-    password: ${web_password}
 
 text:
   - platform: template
@@ -217,9 +232,14 @@ globals:
     type: int
     restore_value: false
     initial_value: '0'
+  # The ONE global that persists: it decides witnessed vs unwitnessed. A crash
+  # reboot must not silently turn a deliberate shutdown into a power cut. Only
+  # written when it actually changes, so no NVS wear. See on_boot for the gate —
+  # persisting it WITHOUT that gate would be actively wrong, since after a real
+  # blackout it would impose a 15 min grace on the recovery this device exists for.
   - id: last_solid          # 0 none, 1 on, 2 rest
     type: int
-    restore_value: false
+    restore_value: true
     initial_value: '0'
   - id: witnessed_off_ms
     type: uint32_t
