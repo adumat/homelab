@@ -283,6 +283,10 @@ dns_records:
     # UniFi controller inform endpoint (stable thanks to lbipam pin).
     - name: unifi
       ip: 10.1.11.5
+    # SMTP relay (maddy) for LAN devices that send mail themselves — the XM3250
+    # sends supply and jam alerts. Stable thanks to lbipam pin.
+    - name: smtp
+      ip: 10.1.11.4
   clusterone.lan:
     - name: k8s
       ip: 10.1.10.40

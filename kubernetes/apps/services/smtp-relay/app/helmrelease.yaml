@@ -77,6 +77,9 @@ spec:
       app:
         controller: smtp-relay
         type: LoadBalancer
+        annotations:
+          # Pinned so LAN devices can be pointed at smtp.lan (see infra/data/networks.yaml).
+          lbipam.cilium.io/ips: "10.1.11.4"
         ports:
           http:
             primary: true
