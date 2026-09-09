@@ -2827,6 +2827,18 @@ already cover the whole pipeline.
       PVC stays `Pending` until a pod mounts it — **create the consumer pod first**. Waiting for
       `Bound` before scheduling a pod deadlocks, and the populator's own condition says so:
       `populator: waiting for a pod to schedule the claiming PVC`.
+- [x] **11.1b — cluster18 restore verified 2026-09-09.** Recovered the barman object store
+      (`garage-postgresql`, serverName `postgres18-0`) into a throwaway single-instance cluster
+      and queried the paperless database directly: **`documents=22 tags=30 types=43`, identical
+      to live**, with real titles intact. The PVC holds the PDFs, this holds everything that
+      makes them findable — both halves now pass, so paper may be destroyed.
+      ⚠️ **The trap, and the reason a drill is worth doing:** the recovery cluster must pin
+      **`imageName`** to the source's major version. Left unset it takes the operator default
+      (18.4 today) and dies with *"database files are incompatible with server … initialized by
+      PostgreSQL version 17"*. The live cluster18 does pin `17.6-bookworm`, so there is no
+      standing risk — but anyone restoring in a real incident would hit this wall first.
+      Bonus finding: one cluster18 restore recovers **12 databases** — lldap, vaultwarden, n8n,
+      romm and the whole *arr stack alongside paperless.
 - [ ] **11.2b — set the printer up, walking its web interface together.** Scan target
       `\\elizabeth.lan\cloud\paperless\incoming\<tag>` with one Shortcut per tag, so
       picking a destination *is* the tagging step; 300 dpi greyscale PDF; device OCR **off**;
