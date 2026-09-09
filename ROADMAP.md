@@ -2799,26 +2799,42 @@ already cover the whole pipeline.
       one tag per immobile, and the `dossier` custom field (paperless has **zero** custom
       fields today); write the workflow that tags everything `inbox` so nothing reaches the
       archive unreviewed.
-- [ ] **11.2 — the scanner, which also replaces the Epson WF-2820.** Sourcing used, so it
-      must print as well as scan. In priority order: **duplex ADF (automatic two-sided
-      scanning) — non-negotiable**; **scan to SMB network folder or FTP, standalone** (most
-      consumer devices only scan-to-PC, which puts a computer permanently back in the loop);
-      saved destination profiles on the device, i.e. a touchscreen or Lexmark-style numbered
-      Shortcuts, since that is what makes folder-as-tag work; **page count under ~50k**; and
-      laser rather than inkjet — at ~50 pages/month the machine idles for days, which is what
-      clogs inkjet heads.
-      ⚠️ **Search the business tier, not SOHO.** Fifteen used MFPs assessed 2026-09-06 and
-      **not one** had a duplex ADF: automatic two-sided scanning is a business/enterprise
-      feature, and those machines sell *cheaper* used because nobody wants a 30 kg box.
-      **The duplex variant is often one letter from the simplex one** — Lexmark MX310dn is
-      simplex, MX410de is the same machine with a duplex ADF — so check the exact suffix,
-      never the family. Search by model number: Lexmark MX410de/MX511de/MX611de, Kyocera
-      ECOSYS M2540dn/M2635dn/M2640idw, HP LJ Enterprise M527dn/M528, HP Color LJ Pro
-      M477fdw/M479fdw, Brother MFC-L5750DW/L6900DW.
-      ⚠️ **SMB dialect** is the most common failure — older firmware is SMBv1 only and modern
-      Unraid disables it. **FTP is the insurance**: Unraid serves it natively, reaching the
-      same share with no new container. Also check for **lease locks** on ex-corporate units.
-      No network work needed: VLAN 20 already has `access: servers: full`.
+- [x] **11.2 — the scanner. Bought 2026-09-09: Lexmark XM3250, EUR 50.** Replaces the Epson
+      WF-2820 rather than sitting beside it. Enterprise ex-managed-print: **100-sheet
+      single-pass duplex DADF, 100 sides/minute duplex**, 7-inch e-Task touchscreen, network
+      folder (SMB) + FTP Shortcuts standalone, mono laser. 83,570 pages against a
+      175,000/month duty cycle, **Imaging Unit and Maintenance Kit both OK**, toner low at
+      ~1,700 pages (~34 months at 50/month, and irrelevant to scanning). No admin password,
+      and the service manual documents a mainboard jumper reset.
+      **This is what stopped the scanner being the constraint**: ~600 sheets is ~6 ADF loads
+      and ~12 minutes of machine time, against the twenty-plus evenings a 30-sheet simplex
+      feeder implied. So `ENABLE_COLLATE_DOUBLE_SIDED` stays off, and the bottleneck is now
+      entirely triage and the `inbox` review.
+      **The durable lesson, because it will recur:** sixteen used MFPs assessed and only this
+      one had a duplex ADF. That is structural — automatic two-sided scanning is a
+      business/enterprise feature, and those machines sell *cheaper* used than SOHO gear
+      because nobody wants a 30 kg box. And **the duplex variant is often one letter from the
+      simplex one** (MX310dn simplex vs MX410de DADF), so check the exact suffix, never the
+      family.
+- [ ] **11.2b — set the printer up, walking its web interface together.** Scan target
+      `\\elizabeth.lan\cloud\paperless\incoming\<tag>` with one Shortcut per tag, so
+      picking a destination *is* the tagging step; 300 dpi greyscale PDF; device OCR **off**;
+      **Blank Page Removal on** (duplex makes a blank back per single-sided sheet and
+      paperless does not strip blanks); SMTP `smtp.lan:25` from `xm3250@garuso.uk`; an **EWS
+      admin password**; and switching off unused services — the fax line is not connected.
+      ⚠️ **Internal storage is a deliberate decision, not a default.** This class of Lexmark
+      retains scanned images, and this machine is about to hold the household's fiscal,
+      medical and property documents — so its erase and encryption settings get chosen on
+      purpose. Same fact is why it sits at `10.1.20.12`, outside the guest-reachable
+      `10.1.20.16/28`.
+      **Done already:** DHCP reservation, `smtp.lan` (relay LB IP pinned). **LDAP was set up
+      and then withdrawn on purpose** — it buys nothing here and LLDAP has no STARTTLS or
+      LDAPS, so binding would put usernames, emails and group memberships in cleartext on a
+      device VLAN; the dormant read-only `lexmark` account remains, in-cluster only.
+      First-run checks: the SMB write lands, **paperless can delete what it consumed**, a
+      dedicated Unraid user scoped to the `cloud` share, a datetime filename pattern (scanners
+      restart at `scan001.pdf`), and page counts matching across a duplex load — there is no
+      ultrasonic double-feed detection, so a double-feed corrupts a document silently.
 - [ ] **11.3 — pilot on one binder, and measure.** Triage, scan, review one binder end to
       end. The measured rate is what decides whether the remaining four are two evenings or
       twenty — do not trust a datasheet.
