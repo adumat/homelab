@@ -2816,6 +2816,17 @@ already cover the whole pipeline.
       because nobody wants a 30 kg box. And **the duplex variant is often one letter from the
       simplex one** (MX310dn simplex vs MX410de DADF), so check the exact suffix, never the
       family.
+- [x] **11.1a — kopiur restore of the paperless PVC verified 2026-09-09.** Restored the newest
+      snapshot (`paperless-20260909010501`) into a throwaway PVC: the `media` subtree came back
+      **68 files / 22.7 MB, matching the live volume exactly**, and a sampled PDF opened with a
+      valid `%PDF-` header at 212,356 bytes — so the bytes are real, not merely present.
+      This had never been tested, and `components/kopiur/restore.yaml` warns in its own comments
+      that `onMissingSnapshot: Continue` makes a misconfigured repository indistinguishable from
+      an empty volume.
+      ⚠️ **Gotcha for any future restore:** `miroir-replicated` is `WaitForFirstConsumer`, so the
+      PVC stays `Pending` until a pod mounts it — **create the consumer pod first**. Waiting for
+      `Bound` before scheduling a pod deadlocks, and the populator's own condition says so:
+      `populator: waiting for a pod to schedule the claiming PVC`.
 - [ ] **11.2b — set the printer up, walking its web interface together.** Scan target
       `\\elizabeth.lan\cloud\paperless\incoming\<tag>` with one Shortcut per tag, so
       picking a destination *is* the tagging step; 300 dpi greyscale PDF; device OCR **off**;
