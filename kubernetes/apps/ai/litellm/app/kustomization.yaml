@@ -9,3 +9,4 @@ resources:
   - ./models.yaml
   - ./mcpservers.yaml
   - ./virtualkey.yaml
+  - ./virtualkey-paperless.yaml

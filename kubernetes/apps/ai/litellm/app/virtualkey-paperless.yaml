@@ -1,0 +1,14 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMVirtualKey
+metadata:
+  name: paperless
+spec:
+  budgetDuration: 30d
+  keyAlias: paperless
+  # Its own budget so paperless's spend is attributable and cannot exhaust the
+  # interactive key. The document backlog is a few hundred one-time calls.
+  maxBudget: "5"
+  proxyRef: main
+  secretKey: LITELLM_API_KEY
+  secretName: litellm-key-paperless

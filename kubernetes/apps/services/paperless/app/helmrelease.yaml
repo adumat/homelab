@@ -66,6 +66,21 @@ spec:
               # AI Classifier
               PAPERLESS_ENABLE_NLTK: "1"
               PAPERLESS_NUMBER_OF_SUGGESTED_DATES: "4"
+              # LLM suggestions. The built-in classifier needs training data and has
+              # almost none (22 documents), so it contributes nothing at the start of a
+              # 600-sheet backlog; the LLM is what makes the cold start usable.
+              # "openai-like" is the literal value - "openai" is not in the choice set
+              # {ollama, openai-like}. ALLOW_INTERNAL_ENDPOINTS already defaults true,
+              # so a cluster-internal endpoint needs no override.
+              PAPERLESS_AI_ENABLED: "true"
+              PAPERLESS_AI_LLM_BACKEND: openai-like
+              PAPERLESS_AI_LLM_ENDPOINT: http://main.ai.svc.cluster.local:4000
+              PAPERLESS_AI_LLM_MODEL: auto
+              PAPERLESS_AI_LLM_OUTPUT_LANGUAGE: Italian
+              # Barcode separator sheets, so one ADF load can hold many documents.
+              # Splitting fires only on an exact match of PATCHT, so the payment
+              # barcodes on Italian bollette cannot trigger it.
+              PAPERLESS_CONSUMER_ENABLE_BARCODES: "true"
               # optional integrations
               PAPERLESS_TIKA_ENABLED: 1
               PAPERLESS_TIKA_GOTENBERG_ENDPOINT: http://localhost:3000
