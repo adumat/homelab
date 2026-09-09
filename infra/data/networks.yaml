@@ -294,10 +294,6 @@ dns_records:
     # sends supply and jam alerts. Stable thanks to lbipam pin.
     - name: smtp
       ip: 10.1.11.4
-    # LLDAP's LDAP port only (3890) for LAN devices that bind directly. This is
-    # NOT the admin UI, which stays behind Authelia at lldap.${DOMAIN}.
-    - name: lldap
-      ip: 10.1.11.7
   clusterone.lan:
     - name: k8s
       ip: 10.1.10.40
