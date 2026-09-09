@@ -2839,6 +2839,29 @@ already cover the whole pipeline.
       standing risk — but anyone restoring in a real incident would hit this wall first.
       Bonus finding: one cluster18 restore recovers **12 databases** — lldap, vaultwarden, n8n,
       romm and the whole *arr stack alongside paperless.
+- [x] **11.1c — minimum configuration done 2026-09-09.** LLM suggestions and barcode
+      separators enabled and verified *in the running container* (`AI_ENABLED True`,
+      `openai-like`, model `auto`, endpoint `main.ai.svc:4000`, key present, `PATCHT`), with
+      paperless's own litellm virtual key and a EUR 5/30d budget. Taxonomy cut to **11 tags**
+      (5 created, 24 dropped) and the six consume folders created. `Scontrino` and `Garanzia`
+      added as document types; `Referto Medico` and `Dichiarazione dei Redditi` dropped as
+      duplicates.
+      ⚠️ **`famiglia` was the `tn_parent` of the four person tags, and deleting it silently
+      destroyed them.** paperless's nested tags use **django-treenode** (`tn_parent_id`, not
+      `parent`), whose FK cascades — so removing a parent tag takes its children and all their
+      document links with it, with no warning and no confirmation. Caught because the tag count
+      came out 7 instead of 11; proven from `auditlog_logentry`, where the four children are
+      logged as deleted *immediately before* the parent. Restored from a pre-change snapshot
+      (Elisa 4, Matteo 9, Nicolò 2, Sofia 1 documents, all intact). **Always snapshot the
+      taxonomy before deleting a tag, and check `tn_children_count` first.**
+      ⚠️ **Auto-matching mislabels confidently.** Every pre-existing tag, type and correspondent
+      carries `matching_algorithm=6` (auto). A near-empty test PDF was consumed and came out
+      tagged `solo digitale` with type `Tessera Sanitaria` and correspondent `Stato`. The
+      `inbox` gate is what makes this survivable — nothing auto-assigned can be trusted without
+      review.
+      ✅ **`is_inbox_tag` needs no workflow**: the test document arrived carrying `inbox` on its
+      own, and paperless deleted the file from `incoming/` after consuming it — so the
+      delete-permission half of the contract also passes.
 - [ ] **11.2b — set the printer up, walking its web interface together.** Scan target
       `\\elizabeth.lan\cloud\paperless\incoming\<tag>` with one Shortcut per tag, so
       picking a destination *is* the tagging step; 300 dpi greyscale PDF; device OCR **off**;
