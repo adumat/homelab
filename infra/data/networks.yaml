@@ -125,7 +125,14 @@ zones:
       - name: switch-living
         mac: 'd8:07:b6:d7:94:67'
         ip: 10.1.20.11
-      # Shared devices (10.1.20.20-29) — accessible from Guest VLAN
+      # Deliberately OUTSIDE the guest-reachable block below: this MFP holds SMB write
+      # credentials for the Unraid 'cloud' share and its internal disk retains scanned
+      # document images.
+      - name: lexmark-printer
+        mac: '00:21:b7:b7:7f:34'
+        ip: 10.1.20.12
+      # Shared devices — accessible from the Guest VLAN, whose alias is 10.1.20.16/28,
+      # i.e. .16 through .31 (which includes both PS5 reservations below).
       - name: lg-tv
         mac: 'c0:d7:aa:8e:ca:18'
         ip: 10.1.20.20
