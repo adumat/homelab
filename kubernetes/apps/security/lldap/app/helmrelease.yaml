@@ -138,23 +138,6 @@ spec:
             port: 3890
             targetPort: 3890
 
-      # A SECOND service, deliberately, rather than making the one above a
-      # LoadBalancer: that service also carries 17170, the admin web UI, whose
-      # only protection is Authelia in front of the HTTPRoute. Exposing it on a
-      # LAN address would bypass authentication entirely. This one publishes the
-      # LDAP port and nothing else, for LAN devices that must bind directly —
-      # today the Lexmark XM3250. Reachable as lldap.lan; see
-      # infra/data/networks.yaml.
-      ldap:
-        controller: lldap
-        type: LoadBalancer
-        annotations:
-          lbipam.cilium.io/ips: "10.1.11.7"
-        ports:
-          ldap:
-            port: 3890
-            targetPort: 3890
-
     persistence:
       bootstrap-users:
         type: secret

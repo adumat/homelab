@@ -6,6 +6,7 @@ resources:
   - ./helmrelease.yaml
   - ./externalsecret.yaml
   - ./httproute.yaml
+  - ./service-ldap.yaml
 configMapGenerator:
   - name: lldap-groups
     files:
