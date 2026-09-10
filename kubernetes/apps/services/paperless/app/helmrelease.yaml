@@ -77,6 +77,14 @@ spec:
               PAPERLESS_AI_LLM_ENDPOINT: http://main.ai.svc.cluster.local:4000
               PAPERLESS_AI_LLM_MODEL: auto
               PAPERLESS_AI_LLM_OUTPUT_LANGUAGE: Italian
+              # Without an embedding index the AI cannot see the existing taxonomy at
+              # all: candidates come from a similarity search over already-archived
+              # documents, and ai_classifier degrades SILENTLY to empty candidates on
+              # retrieval failure. The model is then forced to invent new names, so it
+              # proposed creating "Ricevuta" when that type already existed, plus an
+              # English "Receipt" beside it. huggingface runs locally - litellm serves
+              # no embedding model - so this costs nothing per document.
+              PAPERLESS_AI_LLM_EMBEDDING_BACKEND: huggingface
               # Barcode separator sheets, so one ADF load can hold many documents.
               # Splitting fires only on an exact match of PATCHT, so the payment
               # barcodes on Italian bollette cannot trigger it.
@@ -107,7 +115,9 @@ spec:
                 cpu: 100m
                 memory: 768Mi
               limits:
-                memory: 2Gi
+                # Raised from 2Gi for the local huggingface embedding model, which is
+                # loaded in-process alongside the app.
+                memory: 3Gi
           gotenberg:
             image:
               repository: docker.io/gotenberg/gotenberg
