@@ -9,7 +9,12 @@ spec:
   # the old ConfigMap was written and routerSettings.fallbacks references it.
   modelName: auto
   params:
-    model: gemini/gemini-2.0-flash
+    # Google retires Gemini model ids and returns 404 with the replacement named in
+    # the error body. A 404 is not a retryable class for litellm, so the request dies
+    # instead of load-balancing to auto-openai below - the group looks redundant but
+    # does not protect against this. Bumped 2.0 -> 3.6 on 2026-09-10 after paperless
+    # became the first real consumer and surfaced it.
+    model: gemini/gemini-3.6-flash
     apiKeyRef:
       name: litellm-secrets
       key: GEMINI_API_KEY
@@ -45,7 +50,7 @@ metadata:
 spec:
   modelName: gemini-flash
   params:
-    model: gemini/gemini-2.0-flash
+    model: gemini/gemini-3.6-flash
     apiKeyRef:
       name: litellm-secrets
       key: GEMINI_API_KEY
