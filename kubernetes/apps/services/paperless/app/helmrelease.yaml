@@ -63,6 +63,18 @@ spec:
               PAPERLESS_OCR_LANGUAGES: ita eng
               PAPERLESS_OCR_LANGUAGE: ita
               PAPERLESS_DATE_ORDER: DMY
+              # OOMKilled 2026-09-11 consuming large-format scans (a planimetria
+              # held a 123-megapixel image). THREADS_PER_WORKER becomes ocrmypdf's
+              # "jobs" and it defaults to 8 here, so with use_threads=True eight
+              # pages are rasterised concurrently IN-PROCESS and peak memory is
+              # multiplied by eight. Measured: 970Mi steady, 2219Mi ten minutes
+              # into the batch, then past the 3Gi ceiling in under 30s. Eight
+              # threads are pointless at cpu: 100m anyway.
+              # Cost of 2: wall-clock on multi-page documents. No functional loss.
+              PAPERLESS_THREADS_PER_WORKER: "2"
+              # Bounds ImageMagick (barcode detection and thumbnails) so it spills
+              # to disk instead of RAM. Unset means unlimited. Bytes, not a suffix.
+              PAPERLESS_CONVERT_MEMORY_LIMIT: "268435456"
               # AI Classifier
               PAPERLESS_ENABLE_NLTK: "1"
               PAPERLESS_NUMBER_OF_SUGGESTED_DATES: "4"
@@ -115,9 +127,15 @@ spec:
                 cpu: 100m
                 memory: 768Mi
               limits:
-                # Raised from 2Gi for the local huggingface embedding model, which is
-                # loaded in-process alongside the app.
-                memory: 3Gi
+                # 2Gi -> 3Gi for the local huggingface embedding model, loaded
+                # in-process alongside the app.
+                # 3Gi -> 4Gi after the 2026-09-11 OOM. Capping threads is the real
+                # fix, but a SINGLE 123-megapixel page needs ~1Gi on its own
+                # (123MP x 3B, x2-3 for working copies), so 2 threads on top of a
+                # 970Mi baseline can still reach ~3Gi. The node absorbs this: it
+                # sits at 37% working set, and retiring paperless-ai returned 2Gi
+                # of limit budget in the same change.
+                memory: 4Gi
           gotenberg:
             image:
               repository: docker.io/gotenberg/gotenberg
