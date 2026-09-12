@@ -9,5 +9,22 @@ spec:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy
   ref:
-    tag: 1.22.0
+    # ⚠️ PINNED to 1.21.1 - do NOT let Renovate take 1.22.0 again.
+    #
+    # 1.22.0 (app v0.22.0) stopped honouring
+    # `external-dns.alpha.kubernetes.io/target: external.${DOMAIN}` on the
+    # envoy-external Gateway. It published the Gateway's PRIVATE LB address
+    # (10.1.11.2) as a proxied A record instead of a CNAME to the tunnel;
+    # Cloudflare refuses that with `9003 Target 10.1.11.2 is not allowed for a
+    # proxied record`.
+    #
+    # With `policy: sync` that is destructive, not merely inert: the good
+    # records were DELETED and the replacements rejected, so all 15 external
+    # hostnames went NXDOMAIN and every external service was unreachable.
+    # Found 2026-09-12 after PR #545 automerged; 744 consecutive soft errors.
+    #
+    # Before trying 1.22.0 again, move the target annotation onto each external
+    # HTTPRoute (none carry it today - it lives only on the Gateway) and verify
+    # a CNAME is produced BEFORE letting sync policy near the zone.
+    tag: 1.21.1
   url: oci://ghcr.io/home-operations/charts-mirror/external-dns

@@ -89,6 +89,13 @@
         "ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
         "ghcr.io/controlplaneio-fluxcd/charts/flux-instance",
         "ghcr.io/external-secrets/charts/external-secrets",
+        // Added 2026-09-12 after 1.22.0 automerged and took every external
+        // hostname NXDOMAIN. v0.22.0 stopped honouring the target annotation
+        // on the Gateway and published the private LB IP as a proxied A
+        // record; Cloudflare rejected it, and `policy: sync` had already
+        // deleted the good records. Failure of DNS impairs reaching the
+        // things you would fix it with, which is exactly the criterion above.
+        "ghcr.io/home-operations/charts-mirror/external-dns",
         "quay.io/jetstack/charts/cert-manager",
         "ghcr.io/authelia/authelia",
         "ghcr.io/lldap/lldap",
