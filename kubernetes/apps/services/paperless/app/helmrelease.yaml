@@ -59,6 +59,16 @@ spec:
               PAPERLESS_CONSUMER_POLLING: "60"
               PAPERLESS_CONSUMER_RECURSIVE: "true"
               PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+              # Without this, an identical file is consumed ANYWAY. In 3.x
+              # pre_check_duplicate() only raises ConsumeFileDuplicateError inside
+              # `if settings.CONSUMER_DELETE_DUPLICATES:`; otherwise it logs
+              # "Consuming duplicate ..." and carries on, and Document.checksum is
+              # db_index=True but NOT unique, so the database accepts it too.
+              # Measured: 29 exact-hash duplicates reached the archive this way
+              # (24 removed by hand on 2026-09-10, 5 more on 2026-09-13).
+              # With it on, the incoming copy is unlinked and the stored document
+              # is untouched — which is what a re-fed ADF sheet should do.
+              PAPERLESS_CONSUMER_DELETE_DUPLICATES: "true"
               # Configure OCR
               PAPERLESS_OCR_LANGUAGES: ita eng
               PAPERLESS_OCR_LANGUAGE: ita
