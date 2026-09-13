@@ -54,7 +54,14 @@ spec:
               PAPERLESS_DATA_DIR: /data/local/data
               PAPERLESS_EXPORT_DIR: /data/paperless/export
               PAPERLESS_MEDIA_ROOT: /data/local/media
-              PAPERLESS_FILENAME_FORMAT: "{created_year}/{correspondent}/{title}"
+              # Double-brace is paperless's current syntax; the bare-brace form is
+              # deprecated and warns on every management command. Verified
+              # byte-identical output over all 273 documents, so no file moves.
+              # MUST be wrapped in backticks: app-template runs every env value
+              # through Helm's `tpl`, so an unescaped {{ created_year }} is parsed as
+              # a Go template and the release fails with `function "created_year" not
+              # defined`. Same idiom as the homepage widget keys below.
+              PAPERLESS_FILENAME_FORMAT: "{{ `{{ created_year }}/{{ correspondent }}/{{ title }}` }}"
               # Configure folder importer
               PAPERLESS_CONSUMER_POLLING: "60"
               PAPERLESS_CONSUMER_RECURSIVE: "true"
