@@ -46,7 +46,7 @@ spec:
     # Docker Hub, NOT ghcr. ghcr.io/grafana/mcp-grafana is a 404 - the only
     # component here not on ghcr, so a cold pull hits Docker Hub rate limits.
     # Spegel and the image-pull workflow mitigate it.
-    image: docker.io/grafana/mcp-grafana:1.4.0
+    image: docker.io/grafana/mcp-grafana:1.4.1
     port: 8000
     args:
       # Default transport is stdio and default --address is localhost:8000,
@@ -84,7 +84,7 @@ spec:
     name: mcp-secrets
     key: N8N_MCP_AUTH_TOKEN
   workload:
-    image: ghcr.io/czlonkowski/n8n-mcp:2.84.0
+    image: ghcr.io/czlonkowski/n8n-mcp:2.84.4
     port: 3000
     env:
       # Default is stdio, which never opens a port.
