@@ -26,5 +26,5 @@ spec:
     # Before trying 1.22.0 again, move the target annotation onto each external
     # HTTPRoute (none carry it today - it lives only on the Gateway) and verify
     # a CNAME is produced BEFORE letting sync policy near the zone.
-    tag: 1.21.1
+    tag: 1.22.0
   url: oci://ghcr.io/home-operations/charts-mirror/external-dns
