@@ -27,7 +27,7 @@ spec:
           pgpass:
             image:
               repository: docker.io/dpage/pgadmin4
-              tag: 9.15.0
+              tag: 9.18.0
             command:
               - /bin/sh
               - -c
@@ -51,7 +51,7 @@ spec:
           app:
             image:
               repository: docker.io/dpage/pgadmin4
-              tag: 9.15.0
+              tag: 9.18.0
             env:
               TZ: Europe/Rome
               PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
