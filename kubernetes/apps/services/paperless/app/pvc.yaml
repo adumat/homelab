@@ -11,7 +11,7 @@ spec:
     - ReadWriteMany
   nfs:
     server: elizabeth.lan
-    path: /mnt/user/cloud
+    path: /mnt/user/paperless
   mountOptions:
     - nfsvers=4
     - soft

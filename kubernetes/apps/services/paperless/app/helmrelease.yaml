@@ -232,6 +232,3 @@ spec:
         existingClaim: paperless-media
         globalMounts:
           - path: /data/paperless
-            subPath: paperless
-          - path: /data/ocis
-            subPath: ocis

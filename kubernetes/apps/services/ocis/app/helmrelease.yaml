@@ -143,11 +143,6 @@ spec:
             subPath: data
           - path: /etc/ocis
             subPath: config
-      media:
-        existingClaim: ocis-media
-        globalMounts:
-          - path: /data/paperless
-            subPath: paperless
       tmpfs:
         type: emptyDir
         globalMounts:
