@@ -1085,11 +1085,43 @@ problem *and* stale mounts *and* slow backups, all from the same root cause.
 The most annoying recurring failure in the cluster, and it is **not solved**. You need to
 recognise it, because it shows up disguised as something else.
 
-**What happens.** Unraid drops NFS connections when the mover or the parity check runs. The
-client on the node is left with a file handle that is no longer valid: from then on every
-operation on that mount fails with `ESTALE`, and it **does not heal on its own** — only a
-remount fixes it. The mounts are `soft` (see below), so I/O returns an error rather than
-hanging forever, but the mount stays poisoned.
+**What happens.** `/mnt/user` is shfs, Unraid's FUSE layer, and it does not hand out stable
+inode numbers. When shfs reassigns the fileid for a path an NFS client has cached, the client
+invalidates the handle and every later operation returns `ESTALE`. It **does not heal on its
+own**. The mounts are `soft` (see below), so I/O returns an error rather than hanging forever,
+but the mount stays poisoned.
+
+The kernel says so outright, and this is the line to grep for:
+
+```
+NFS: server elizabeth.lan error: fileid changed
+```
+
+⚠️ **A remount does not fix it, and neither does deleting the pod.** The poison is the node's
+NFS client state for that server, not the mount: verified 2026-09-21 by deleting the consumer,
+watching kubelet unmount, and finding the freshly-created mount stale on its first `stat`. Only
+a reboot of that node clears it.
+
+**It is per-node, not per-export.** Diagnosed 2026-09-21 on charmander, which had 13 `fileid
+changed` errors while every other node had zero. One maintenance Job proved it in a single run:
+pod `…-f9jhx` on charmander died on a stale handle, pod `…-ml8rm` on magikarp completed, same
+export, minutes apart. Two subdirectories of the same export on the same node disagreed too —
+`backups/volsync` served kopia fine while `backups/kopiur` was dead. So before blaming the
+server, find out whether *another node* can read it:
+
+```bash
+mise exec -- talosctl -n <node-ip> dmesg | grep -c 'fileid changed'
+```
+
+⚠️ **kopiur's own message misdiagnoses this.** It reports `ProbeDeadlineExceeded` and advises
+raising `spec.bootstrap.failurePolicy.activeDeadlineSeconds`. The backend is not slow; the
+mover never started. Read the mover pod's events, not the ClusterRepository condition.
+
+⚠️ **The movers are Jobs, so `nfs-scaler` cannot cover them.** KEDA scales Deployments to zero;
+a Job has nothing to scale. The 14 scaler-covered apps self-heal, kopiur's movers do not — which
+is why a repository outage persists while everything else recovers. Until the repository moves
+off NFS, the recovery for a stuck mover is to keep it off the bad node (cordon) and reboot that
+node.
 
 **How it presents.** Almost never as an "NFS error":
 
@@ -1123,6 +1155,11 @@ mise exec -- kubectl delete pod <pod> -n <ns>
 # if it hangs in Terminating because the unmount blocks:
 mise exec -- kubectl delete pod <pod> -n <ns> --force --grace-period=0
 ```
+
+This works for the common case, where only that pod's mount is affected. It does **not** work
+once the node's NFS client state is poisoned — see the `fileid changed` case above, where the
+replacement pod's fresh mount is stale on its first `stat`. Then the sequence is: cordon the
+node so the workload lands elsewhere, confirm it succeeds there, and reboot the bad node.
 
 **Recovery is automatic.** The `nfs-scaler` component — now on **all 14** NFS consumers, not
 8 — scales an app to zero when either elizabeth is unreachable or that app's own mount has been
