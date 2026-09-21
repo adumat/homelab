@@ -26,9 +26,3 @@ spec:
       expr: |-
         !has(status.phase) || !(status.phase in ['Pending', 'Running'])
       timeout: 2m
-    # 6m so ceph has time to peer after a node powercycle.
-    - apiVersion: ceph.rook.io/v1
-      kind: CephCluster
-      expr: |-
-        status.ceph.health in ['HEALTH_OK']
-      timeout: 6m
