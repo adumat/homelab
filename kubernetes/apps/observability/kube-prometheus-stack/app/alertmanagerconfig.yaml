@@ -32,6 +32,16 @@ spec:
           - name: instance
             value: elizabeth.lan:9100
             matchType: =
+      # Info alerts are inventory, not incidents, and they drown the ones that
+      # are: MiroirVolumeRemoteConsumer alone holds 14 series firing
+      # continuously, so a 12h repeatInterval turned Pushover into noise nobody
+      # reads. Routes are first-match, so this must stay above the fall-through
+      # to the default receiver.
+      - receiver: "null"
+        matchers:
+          - name: severity
+            value: info
+            matchType: =
       - receiver: pushover
         matchers:
           - name: severity
