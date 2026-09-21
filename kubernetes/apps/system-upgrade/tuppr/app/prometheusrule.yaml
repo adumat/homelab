@@ -1,0 +1,57 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tuppr
+  namespace: system-upgrade
+  labels:
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: tuppr.rules
+      rules:
+        # A parked upgrade is silent: tuppr keeps the CR Ready=True while it
+        # retries the health checks forever, every node keeps the
+        # tuppr.home-operations.com/outdated taint, and nothing else complains.
+        # The v1.13.10 bump sat in HealthChecking for 28 days before anyone
+        # noticed, because no rule watched this.
+        #
+        # `max by` is required, not cosmetic: tuppr runs 2 replicas and only the
+        # leader populates the inventory loop, so the follower reports 0 for
+        # every phase. Without the aggregation each pod is its own series and a
+        # leader change restarts the `for` clock.
+        #
+        # ⚠️ Verified 2026-09-21 against a deliberately-true control
+        # (`max by (upgrade_type) (tuppr_upgrades) > -1`), which returned both
+        # upgrade types while this expression returned only talos. Re-run that
+        # control after any edit: a phase label that stops matching returns
+        # empty, which is indistinguishable from a healthy cluster.
+        - alert: TupprUpgradeStalled
+          annotations:
+            summary: >-
+              tuppr {{ $labels.upgrade_type }} upgrade has been non-terminal for 24h
+            description: >-
+              The upgrade is neither Completed nor Failed, so it is retrying a gate it
+              cannot pass - usually a healthCheck naming a kind whose CRD is gone, or
+              one whose objects never leave a transient phase. Read the CR's phase and
+              the operator log: kubectl get talosupgrade -o yaml; kubectl logs -n
+              system-upgrade -l app.kubernetes.io/name=tuppr | grep -i 'health check'.
+          expr: |-
+            max by (upgrade_type) (tuppr_upgrades{phase!~"Completed|Failed"}) > 0
+          for: 24h
+          labels:
+            severity: warning
+        - alert: TupprUpgradeFailed
+          annotations:
+            summary: >-
+              tuppr {{ $labels.upgrade_type }} upgrade reached Failed
+            description: >-
+              A node upgrade failed outright. Nodes may be left cordoned or partially
+              upgraded; check completedNodes/failedNodes on the CR before retrying.
+          expr: |-
+            max by (upgrade_type) (tuppr_upgrades{phase="Failed"}) > 0
+          for: 15m
+          labels:
+            severity: critical
