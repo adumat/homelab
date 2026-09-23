@@ -50,12 +50,17 @@ spec:
                 spec:
                   failureThreshold: 180
                   periodSeconds: 5
+            # romm forks three uvicorn workers and sits near 1Gi at idle, so the
+            # stock 1Gi limit is a ceiling it reaches rather than a bound it
+            # respects - it OOM-killed roughly every 30 minutes at that value.
+            # 2Gi is headroom over the observed floor, not a measured peak: the
+            # true ceiling cannot be read while the limit truncates it.
             resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
+                memory: 512Mi
               limits:
-                memory: 1Gi
+                memory: 2Gi
     service:
       app:
         ports:
