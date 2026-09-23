@@ -21,15 +21,30 @@ spec:
         # name from kube_pod_info's created_by_name matches the ScaledObject
         # name for every app including immich.
         #
-        # The `-[^-]+$` strip removes the ReplicaSet hash. Verified 2026-08-22
-        # that all 14 NFS pods are ReplicaSet-owned; a StatefulSet-owned pod
-        # would have no hash and this would strip a real name segment.
+        # The `-[^-]+$` strip removes the ReplicaSet hash, so the join is only
+        # meaningful for ReplicaSet-owned pods - hence the explicit
+        # created_by_kind filter.
+        #
+        # Without it a kopiur mover Job is read as a Deployment: the mover
+        # mounts the repository over NFS, its created_by_name is the Job
+        # (`<app>-<timestamp>`), and the strip turns that into `<app>`. The rule
+        # then reports the app as an uncovered NFS consumer. It is unsatisfiable
+        # by construction - KEDA scales Deployments, so a Job can never have a
+        # ScaledObject - and it only surfaces when a mover outlives the `for`
+        # window below, which a wedged mover does. Seen 2026-09-23 on
+        # database/mosquitto, whose app mounts no NFS at all.
+        #
+        # ⚠️ A StatefulSet-owned NFS consumer is invisible to this rule, not
+        # covered by it. That is unchanged by the filter - the hash strip
+        # already mangled or dropped such names - but it means adding one would
+        # need this expression extended, not just the component.
         - record: nfs:mount_present:deploy
           expr: |-
             max by (namespace, deployment) (
               label_replace(
                   label_replace(nfs_mount_stale, "uid", "$1", "pod_uid", "(.+)")
-                * on (uid) group_left (namespace, created_by_name) kube_pod_info,
+                * on (uid) group_left (namespace, created_by_name)
+                  kube_pod_info{created_by_kind="ReplicaSet"},
                 "deployment", "$1", "created_by_name", "(.+)-[^-]+$")
             ) >= bool 0
         # The August 2026 incident hit metube and pyload-ng because they mounted
