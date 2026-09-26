@@ -1,8 +1,6 @@
 cluster:
   allowSchedulingOnControlPlanes: true
   apiServer:
-    admissionControl:
-      $$patch: delete
     extraArgs:
       # https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/
       enable-aggregator-routing: true
@@ -12,10 +10,9 @@ cluster:
       # unlike Authentik's /application/o/headlamp/. Must stay identical to
       # OIDC_ISSUER_URL in headlamp's ExternalSecret or the ID token is rejected.
       #
-      # The domain comes from AUTH_DOMAIN in the gitignored talenv.secrets.yaml:
-      # this repo is public, and this line was previously the only place the base
-      # domain was hardcoded in the tracked Talos tree.
-      oidc-issuer-url: https://${AUTH_DOMAIN}
+      # The domain is injected from the base-domain Bitwarden item so it never
+      # appears in the tracked Talos tree.
+      oidc-issuer-url: https://auth.bws://88234b63-9f5f-4a52-88ba-b42b00fde831
       oidc-client-id: headlamp
       oidc-username-claim: preferred_username
       oidc-groups-claim: groups

@@ -1,9 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
 ---
+# Node inventory. Rendered into machine configs by machineconfig.yaml.j2 and
+# also read by scripts/check-nodes.sh, check-tso.sh and power-nap-over.
 clusterName: kubernetes
-
-talosVersion: "${talosVersion}"
-kubernetesVersion: "${kubernetesVersion}"
 
 endpoint: https://k8s.clusterone.lan:6443
 additionalApiServerCertSans: &sans
@@ -11,12 +9,37 @@ additionalApiServerCertSans: &sans
   - &vip "10.1.10.40" # Cluster LB
   - k8s.clusterone.lan
 
-# Disable built-in Flannel to use Cilium
-cniConfig:
-  name: none
-
 clusterPodNets: ["10.42.0.0/16"]
 clusterSvcNets: ["10.43.0.0/16"]
+
+# POSTed to factory.talos.dev by `just talos gen-schematic-id`; the returned ID
+# names the installer image.
+schematic:
+  customization:
+    extraKernelArgs:
+      - -init_on_alloc # Less security, faster puter
+      - -init_on_free # Less security, faster puter
+      - -selinux # Less security, faster puter
+      - apparmor=0 # Less security, faster puter
+      - init_on_alloc=0 # Less security, faster puter
+      - init_on_free=0 # Less security, faster puter
+      - intel_iommu=on # PCI Passthrough
+      - iommu=pt # PCI Passthrough
+      - mitigations=off # Less security, faster puter
+      - panic=10 # Reboot 10s after a panic instead of sitting dead forever
+      - security=none # Less security, faster puter
+      - talos.auditd.disabled=1 # Less security, faster puter
+    systemExtensions:
+      officialExtensions:
+        - siderolabs/drbd # miroir replicated volumes
+        - siderolabs/i915 # Intel iGPU
+        - siderolabs/intel-ucode # Intel iGPU
+        - siderolabs/iscsi-tools # longhorn iSCSI
+        - siderolabs/mei # Intel iGPU
+        - siderolabs/nfsrahead # NFS Performance
+        - siderolabs/nut-client # UPS Shutdown
+        - siderolabs/nvme-cli # longhorn NVMe
+        - siderolabs/util-linux-tools # longhorn
 
 nodes:
   - hostname: "bulbasaur"
@@ -45,85 +68,6 @@ nodes:
           diskSelector:
             match: system_disk
           maxSize: 200GiB
-    userVolumes: &uservolumes
-      - name: local-hostpath
-        provisioning:
-          diskSelector:
-            match: system_disk
-          # 10GiB, not 50. `grow: true` means it still claims everything left
-          # after EPHEMERAL, so the only thing minSize controls is whether the
-          # volume can be created at all.
-          #
-          # ⚠️ At 50GiB it could not: phase 3 sized EPHEMERAL in GiB against GB
-          # disk capacities, leaving 38GiB free on the 256GB SanDisks and 21GiB
-          # on the 120GB KINGSTON. Three of four miroir agents then hung in
-          # ContainerCreating on `mkdir /var/mnt/local-hostpath: read-only file
-          # system`, which blocks every PVC in the cluster. Only bulbasaur's
-          # 500GB disk had room.
-          #
-          # Every node needs this path to exist even where miroir uses lvmthin
-          # on a separate NVMe, because agent.loopfileBaseDirs is cluster-wide.
-          minSize: 10GiB
-          grow: true
-    schematic: &schematic
-      customization:
-        extraKernelArgs:
-          - -init_on_alloc # Less security, faster puter
-          - -init_on_free # Less security, faster puter
-          - -selinux # Less security, faster puter
-          - apparmor=0 # Less security, faster puter
-          - init_on_alloc=0 # Less security, faster puter
-          - init_on_free=0 # Less security, faster puter
-          - intel_iommu=on # PCI Passthrough
-          - iommu=pt # PCI Passthrough
-          - mitigations=off # Less security, faster puter
-          - panic=10 # Reboot 10s after a panic instead of sitting dead forever
-          - security=none # Less security, faster puter
-          - talos.auditd.disabled=1 # Less security, faster puter
-        systemExtensions:
-          officialExtensions:
-            - siderolabs/drbd # miroir replicated volumes
-            - siderolabs/i915 # Intel iGPU
-            - siderolabs/intel-ucode # Intel iGPU
-            - siderolabs/iscsi-tools # longhorn iSCSI
-            - siderolabs/mei # Intel iGPU
-            - siderolabs/nfsrahead # NFS Performance
-            - siderolabs/nut-client # UPS Shutdown
-            - siderolabs/nvme-cli # longhorn NVMe
-            - siderolabs/util-linux-tools # longhorn
-    certSANs: *sans
-    extensionServices: &extensionServices
-      - name: nut-client
-        configFiles:
-          - content: |-
-              MONITOR ups@nut-server-room.lan 1 slaveuser ${NUT_MONITOR_PASSWORD} secondary
-              SHUTDOWNCMD "/sbin/poweroff --force"
-              DEADTIME 120
-            mountPath: /usr/local/etc/nut/upsmon.conf
-    patches:
-      - "@./patches/nodes/bulbasaur-ethernet.yaml"
-      - "@./patches/nodes/bulbasaur-logging.yaml"
-    nodeLabels: &controlPlaneLabels
-      intel.feature.node.kubernetes.io/gpu: 'true'
-  # - hostname: "kube-dell"
-  #   ipAddress: "192.168.1.31"
-  #   installDiskSelector:
-  #     model: "SK hynix SC401 S"
-  #   machineSpec: *x64MachineSpec
-  #   controlPlane: false
-  #   networkInterfaces:
-  #     - deviceSelector:
-  #         hardwareAddr: "e4:b9:7a:eb:57:90"
-  #         driver: e1000e
-  #       dhcp: true
-  #       mtu: 1500
-  #   volumes: *volumes
-  #   userVolumes: *uservolumes
-  #   schematic: *schematic
-  #   certSANs: *sans
-  #   extensionServices: *extensionServices
-  #   nodeLabels:
-  #     intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "charmander"
     ipAddress: "10.1.10.11"
     installDiskSelector:
@@ -145,14 +89,6 @@ nodes:
           diskSelector:
             match: system_disk
           maxSize: 100GiB
-    userVolumes: *uservolumes
-    schematic: *schematic
-    certSANs: *sans
-    extensionServices: *extensionServices
-    patches:
-      - "@./patches/nodes/charmander-ethernet.yaml"
-      - "@./patches/nodes/charmander-logging.yaml"
-    nodeLabels: *controlPlaneLabels
   - hostname: "magikarp"
     ipAddress: "10.1.10.21"
     installDiskSelector:
@@ -172,15 +108,6 @@ nodes:
           diskSelector:
             match: system_disk
           maxSize: 90GiB
-    userVolumes: *uservolumes
-    schematic: *schematic
-    certSANs: *sans
-    extensionServices: *extensionServices
-    patches:
-      - "@./patches/nodes/magikarp-ethernet.yaml"
-      - "@./patches/nodes/magikarp-logging.yaml"
-    nodeLabels: &workerNodeLabels
-      intel.feature.node.kubernetes.io/gpu: 'true'
   - hostname: "squirtle"
     ipAddress: "10.1.10.12"  # moved from .22 so all control planes sit in .1x
     installDiskSelector:
@@ -202,14 +129,6 @@ nodes:
           diskSelector:
             match: system_disk
           maxSize: 200GiB
-    userVolumes: *uservolumes
-    schematic: *schematic
-    certSANs: *sans
-    extensionServices: *extensionServices
-    patches:
-      - "@./patches/nodes/squirtle-ethernet.yaml"
-      - "@./patches/nodes/squirtle-logging.yaml"
-    nodeLabels: *controlPlaneLabels
   - hostname: "snorlax"
     ipAddress: "10.1.10.23"
     installDiskSelector:
@@ -229,27 +148,3 @@ nodes:
           diskSelector:
             match: system_disk
           maxSize: 200GiB
-    userVolumes: *uservolumes
-    schematic: *schematic
-    certSANs: *sans
-    extensionServices: *extensionServices
-    patches:
-      - "@./patches/nodes/snorlax-ethernet.yaml"
-      - "@./patches/nodes/snorlax-logging.yaml"
-    nodeLabels: *workerNodeLabels
-
-# Global patches
-patches:
-  - "@./patches/global/machine-files.yaml"    # spegel/NFS Mount
-  - "@./patches/global/machine-kernel.yaml"   # drbd module for miroir
-  - "@./patches/global/machine-kubelet.yaml"  # kubelet tweaks
-  - "@./patches/global/machine-network.yaml"  # search Domain
-  - "@./patches/global/machine-sysctls.yaml"  # network tweaks
-  - "@./patches/global/machine-longhorn.yaml" # longhorn settings
-  - "@./patches/global/machine-watchdog.yaml" # hardware watchdog, self-heal a hung node
-
-# Controller patches
-controlPlane:
-  patches:
-    - "@./patches/controller/cluster.yaml"
-    - "@./patches/controller/talos-api-access.yaml"

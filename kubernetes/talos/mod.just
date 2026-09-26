@@ -35,17 +35,36 @@ download-image version schematic:
 
 [doc('Generate schematic ID from Talos schematic')]
 gen-schematic-id:
-    yq -e '.nodes[0].schematic' "{{ talos_dir }}/talconfig.yaml" | curl -sX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -r '.id'
-
-[doc('Generate Talos config')]
-gen-config:
-    just template "{{ talos_dir }}/talsecret.yaml.j2" > "{{ talos_dir }}/talsecret.yaml"
-    just template "{{ talos_dir }}/talenv.secrets.yaml.j2" > "{{ talos_dir }}/talenv.secrets.yaml"
-    talhelper genconfig -e "{{ talos_dir }}/talenv.yaml" -e "{{ talos_dir }}/talenv.secrets.yaml"
+    yq -e '.schematic' "{{ talos_dir }}/talconfig.yaml" | curl -sX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -r '.id'
 
 [doc('Render Talos config for a node')]
 render-config node:
-    bat "{{ talos_dir }}/clusterconfig/kubernetes-$(yq -e '.nodes[] | select(.ipAddress == "{{ node }}") | .hostname' "{{ talos_dir }}/talconfig.yaml").yaml"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # No -e on the controlPlane lookup: yq exits 1 when the value is false.
+    host=$(yq -e '.nodes[] | select(.ipAddress == "{{ node }}") | .hostname' "{{ talos_dir }}/talconfig.yaml")
+    patches=("{{ talos_dir }}"/patches/global/*.yaml)
+    if [[ "$(yq '.nodes[] | select(.ipAddress == "{{ node }}") | .controlPlane' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
+        patches+=("{{ talos_dir }}"/patches/controller/*.yaml)
+    fi
+    # Secrets are injected before patching (talosctl rejects unparsable certs) and
+    # again after, for the references the patches themselves carry.
+    just template "{{ talos_dir }}/machineconfig.yaml.j2" \
+        "{{ talos_dir }}/talconfig.yaml" "{{ talos_dir }}/talenv.yaml" \
+        -a none --strict -D "node=${host}" -D "schematic=$(just talos gen-schematic-id)" \
+        | talosctl machineconfig patch /dev/stdin $(printf -- '-p @%s ' "${patches[@]}") \
+        | "{{ justfile_dir() }}/scripts/bws-inject"
+
+[doc('Generate talosconfig (client credentials) from the secrets bundle')]
+gen-talosconfig out=env('TALOSCONFIG'):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cfg="{{ talos_dir }}/talconfig.yaml"
+    talosctl gen config "$(yq -e '.clusterName' "$cfg")" "$(yq -e '.endpoint' "$cfg")" \
+        --with-secrets <(just template "{{ talos_dir }}/talsecret.yaml.j2") \
+        --output-types talosconfig --output "{{ out }}" --force
+    talosctl --talosconfig "{{ out }}" config endpoint $(yq '.nodes[] | select(.controlPlane) | .ipAddress' "$cfg")
+    talosctl --talosconfig "{{ out }}" config node $(yq '.nodes[].ipAddress' "$cfg")
 
 [doc('Reboot a node')]
 reboot-node node:
