@@ -83,7 +83,6 @@
     {
       description: "Recovery-critical: never automerge (MUST be the last rule)",
       matchPackageNames: [
-        "ghcr.io/home-operations/charts-mirror/cilium",
         "quay.io/cilium/charts/cilium",
         "ghcr.io/siderolabs/kubelet",
         "ghcr.io/controlplaneio-fluxcd/charts/flux-operator",
