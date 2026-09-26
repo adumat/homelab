@@ -26,3 +26,10 @@ spec:
       expr: |-
         !has(status.phase) || !(status.phase in ['Pending', 'Running'])
       timeout: 2m
+    # A node that just rebooted rejoins as a DRBD resync target. Until every
+    # volume is Ready again, the next node may hold the only UpToDate replica.
+    - apiVersion: miroir.home-operations.com/v1alpha1
+      kind: MiroirVolume
+      expr: |-
+        has(status.phase) && status.phase == 'Ready'
+      timeout: 15m
