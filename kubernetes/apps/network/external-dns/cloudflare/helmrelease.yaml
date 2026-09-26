@@ -24,6 +24,14 @@ spec:
             name: *secret
             key: *name
     extraArgs:
+      # v0.22.0 switched the default annotation prefix to the GA
+      # `external-dns.kubernetes.io/` and removed the alpha fallback. Every
+      # annotation in this repo still uses the alpha prefix, and k8s-gateway
+      # (a separate project) hard-codes it, so renaming them is not an option.
+      # Without this flag the `target` annotation on the envoy-external Gateway
+      # is invisible: external-dns falls back to the Gateway's private LB IP
+      # and publishes proxied A records, which Cloudflare rejects with 9003.
+      - --annotation-prefix=external-dns.alpha.kubernetes.io/
       - --cloudflare-dns-records-per-page=1000
       - --cloudflare-proxied
       - --crd-source-apiversion=externaldns.k8s.io/v1alpha1
