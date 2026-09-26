@@ -16,7 +16,7 @@ Docker Compose services and a Kubernetes cluster, all deployed via GitOps.
 │   ├── bootstrap/        # Cluster bootstrap (helmfile, resources)
 │   ├── components/       # Shared Kustomize components
 │   ├── flux/             # Flux cluster configuration
-│   └── talos/            # Talos node configuration (talhelper)
+│   └── talos/            # Talos node configuration (minijinja + talosctl)
 └── scripts/              # Shared shell utilities
 ```
 
