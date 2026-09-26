@@ -1,0 +1,176 @@
+{#- Base machine config for one node; patches/ are layered on by `just talos render-config`.
+    Context: talconfig.yaml + talenv.yaml, plus `node` (hostname) and `schematic` (factory ID). -#}
+{%- set n = nodes | selectattr("hostname", "eq", node) | first -%}
+{%- set cp = n.controlPlane -%}
+{%- set nic = n.networkInterfaces[0] -%}
+{%- set s = "bws://87fa3076-5b4c-488b-b515-b3f100f054fc" -%}
+---
+version: v1alpha1
+debug: false
+persist: true
+machine:
+  type: {{ "controlplane" if cp else "worker" }}
+  token: {{ s }}/.trustdinfo.token
+  ca:
+    crt: {{ s }}/.certs.os.crt
+    key: {{ s ~ "/.certs.os.key" if cp else '""' }}
+  certSANs:
+{%- for san in additionalApiServerCertSans %}
+    - {{ san }}
+{%- endfor %}
+  kubelet:
+    image: ghcr.io/siderolabs/kubelet:{{ kubernetesVersion }}
+    defaultRuntimeSeccompProfileEnabled: true
+    disableManifestsDirectory: true
+  install:
+    diskSelector:
+      model: {{ n.installDiskSelector.model }}
+    image: factory.talos.dev/{{ n.machineSpec.mode }}-installer{{ "-secureboot" if n.machineSpec.secureboot }}/{{ schematic }}:{{ talosVersion }}
+    wipe: false
+    grubUseUKICmdline: true
+  features:
+    diskQuotaSupport: true
+    kubePrism:
+      enabled: true
+      port: 7445
+    hostDNS:
+      enabled: true
+      forwardKubeDNSToHost: true
+  logging:
+    destinations:
+      - endpoint: tcp://127.0.0.1:5170
+        format: json_lines
+        extraTags:
+          node: {{ n.hostname }}
+  nodeLabels:
+    intel.feature.node.kubernetes.io/gpu: "true"
+cluster:
+  id: {{ s }}/.cluster.id
+  secret: {{ s }}/.cluster.secret
+  controlPlane:
+    endpoint: {{ endpoint }}
+  clusterName: {{ clusterName }}
+  network:
+    cni:
+      name: none
+    dnsDomain: cluster.local
+    podSubnets:
+{%- for net in clusterPodNets %}
+      - {{ net }}
+{%- endfor %}
+    serviceSubnets:
+{%- for net in clusterSvcNets %}
+      - {{ net }}
+{%- endfor %}
+  token: {{ s }}/.secrets.bootstraptoken
+  ca:
+    crt: {{ s }}/.certs.k8s.crt
+    key: {{ s ~ "/.certs.k8s.key" if cp else '""' }}
+  discovery:
+    enabled: true
+    registries:
+      kubernetes:
+        disabled: true
+      service: {}
+{%- if cp %}
+  secretboxEncryptionSecret: {{ s }}/.secrets.secretboxencryptionsecret
+  aggregatorCA:
+    crt: {{ s }}/.certs.k8saggregator.crt
+    key: {{ s }}/.certs.k8saggregator.key
+  serviceAccount:
+    key: {{ s }}/.certs.k8sserviceaccount.key
+  apiServer:
+    image: registry.k8s.io/kube-apiserver:{{ kubernetesVersion }}
+    certSANs:
+{%- for san in additionalApiServerCertSans %}
+      - {{ san }}
+{%- endfor %}
+    auditPolicy:
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+  controllerManager:
+    image: registry.k8s.io/kube-controller-manager:{{ kubernetesVersion }}
+  proxy:
+    image: registry.k8s.io/kube-proxy:{{ kubernetesVersion }}
+  scheduler:
+    image: registry.k8s.io/kube-scheduler:{{ kubernetesVersion }}
+  etcd:
+    ca:
+      crt: {{ s }}/.certs.etcd.crt
+      key: {{ s }}/.certs.etcd.key
+{%- endif %}
+---
+apiVersion: v1alpha1
+kind: HostnameConfig
+auto: "off"
+hostname: {{ n.hostname }}
+---
+apiVersion: v1alpha1
+kind: ExtensionServiceConfig
+name: nut-client
+configFiles:
+  - content: |-
+      MONITOR ups@nut-server-room.lan 1 slaveuser bws://07518fe9-65db-4960-95cc-b3f00157d8fa secondary
+      SHUTDOWNCMD "/sbin/poweroff --force"
+      DEADTIME 120
+    mountPath: /usr/local/etc/nut/upsmon.conf
+---
+apiVersion: v1alpha1
+kind: VolumeConfig
+name: EPHEMERAL
+provisioning:
+  diskSelector:
+    match: system_disk
+  maxSize: {{ (n.volumes | selectattr("name", "eq", "EPHEMERAL") | first).provisioning.maxSize }}
+---
+apiVersion: v1alpha1
+kind: UserVolumeConfig
+name: local-hostpath
+provisioning:
+  diskSelector:
+    match: system_disk
+  # 10GiB, not 50. `grow: true` means it still claims everything left
+  # after EPHEMERAL, so the only thing minSize controls is whether the
+  # volume can be created at all.
+  #
+  # ⚠️ At 50GiB it could not: phase 3 sized EPHEMERAL in GiB against GB
+  # disk capacities, leaving 38GiB free on the 256GB SanDisks and 21GiB
+  # on the 120GB KINGSTON. Three of four miroir agents then hung in
+  # ContainerCreating on `mkdir /var/mnt/local-hostpath: read-only file
+  # system`, which blocks every PVC in the cluster. Only bulbasaur's
+  # 500GB disk had room.
+  #
+  # Every node needs this path to exist even where miroir uses lvmthin
+  # on a separate NVMe, because agent.loopfileBaseDirs is cluster-wide.
+  minSize: 10GiB
+  grow: true
+---
+apiVersion: v1alpha1
+kind: LinkAliasConfig
+name: ethSel0
+selector:
+  match: glob("{{ nic.deviceSelector.hardwareAddr }}", mac(link.hardware_addr)) && glob("{{ nic.deviceSelector.driver }}", link.driver)
+---
+apiVersion: v1alpha1
+kind: DHCPv4Config
+name: ethSel0
+{%- if nic.vip is defined %}
+---
+apiVersion: v1alpha1
+kind: Layer2VIPConfig
+name: {{ nic.vip.ip }}
+link: ethSel0
+{%- endif %}
+---
+apiVersion: v1alpha1
+kind: LinkConfig
+name: ethSel0
+mtu: {{ nic.mtu }}
+---
+apiVersion: v1alpha1
+kind: EthernetConfig
+name: eno1
+features:
+  tx-tcp-segmentation: false

@@ -1,15 +1,14 @@
 # Talos Patching
 
-This directory contains Kustomization patches that are added to the talhelper configuration file.
+Strategic-merge patches layered onto `machineconfig.yaml.j2` by `just talos render-config`,
+via `talosctl machineconfig patch`.
 
-<https://www.talos.dev/v1.7/talos-guides/configuration/patching/>
+<https://www.talos.dev/latest/talos-guides/configuration/patching/>
 
-## Patch Directories
+- `global/`: applied to every node
+- `controller/`: applied to control-plane nodes only
 
-Under this `patches` directory, there are several sub-directories that can contain patches that are added to the talhelper configuration file.
-Each directory is optional and therefore might not created by default.
+Per-node values (hostname, disk, NIC, VIP, EPHEMERAL size) come from `talconfig.yaml` and are
+templated directly into `machineconfig.yaml.j2`, not patched.
 
-- `global/`: patches that are applied to both the controller and worker configurations
-- `controller/`: patches that are applied to the controller configurations
-- `worker/`: patches that are applied to the worker configurations
-- `${node-hostname}/`: patches that are applied to the node with the specified name
+A patch may carry `bws://` references: the rendered output is passed through `bws-inject`.
