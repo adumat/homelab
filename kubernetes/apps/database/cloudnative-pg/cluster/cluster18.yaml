@@ -8,6 +8,10 @@ metadata:
     cnpg.io/skipEmptyWalArchiveCheck: 'enabled'
 spec:
   instances: 2
+  # Promote the up-to-date replica rather than restart the primary in place: a
+  # restart kept cluster18 unwritable for ~3m. CNPG then rejects changing the
+  # image and postgresql parameters in one edit - make them separately.
+  primaryUpdateMethod: switchover
   # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/postgresql
   imageName: ghcr.io/cloudnative-pg/postgresql:17.6-bookworm
   # imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
