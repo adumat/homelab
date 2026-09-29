@@ -7,10 +7,6 @@ metadata:
 spec:
   image: ghcr.io/dragonflydb/dragonfly:v1.40.2@sha256:18afa43e911f1dff18c7d1eb452361876d9702bb1cdff5c5d75c69617a4065c9
   replicas: 2
-  # Operator defaults this to true (since v1.6.x), which generates a
-  # same-namespace-only NetworkPolicy on :6379 and breaks cross-namespace
-  # consumers (home/immich, security/authelia, services/paperless).
-  networkPolicyEnabled: false
   env:
     - name: MAX_MEMORY
       valueFrom:
