@@ -24,7 +24,7 @@ uv = "latest"
 "aqua:kubernetes-sigs/kustomize" = "5.8.1"
 "aqua:mikefarah/yq" = "4.53.3"
 "aqua:kubernetes/kubectl" = "1.36.3"
-"aqua:siderolabs/talos" = "1.13.7"
+"aqua:siderolabs/talos" = "1.14.1"
 "aqua:yannh/kubeconform" = "0.8.0"
 "pipx:makejinja" = "2.8.2"
 helm-diff = { version = "3.15.10", bin = "diff", bin_path = "diff/bin", rename_exe = "helm-diff", exe = "diff" }

@@ -25,7 +25,7 @@ machine:
   install:
     diskSelector:
       model: {{ n.installDiskSelector.model }}
-    image: factory.talos.dev/{{ n.machineSpec.mode }}-installer{{ "-secureboot" if n.machineSpec.secureboot }}/{{ schematic }}:{{ talosVersion }}
+    image: factory.talos.dev/{{ machineSpec.mode }}-installer{{ "-secureboot" if machineSpec.secureboot }}/{{ schematic }}:{{ talosVersion }}
     wipe: false
     grubUseUKICmdline: true
   features:
@@ -36,6 +36,21 @@ machine:
     hostDNS:
       enabled: true
       forwardKubeDNSToHost: true
+  # Ships kernel and service logs off-node so a hang leaves evidence behind; without it a
+  # hardware hang, panic trace or MCE vanishes on reboot.
+  #
+  # Goes to fluent-bit, NOT to VictoriaLogs directly: Talos emits json_lines only (see
+  # sender_jsonlines.go) while VictoriaLogs' syslog listener accepts RFC3164/RFC5424 only.
+  # Talos drops silently on a destination it cannot deliver to, so the direct path would look
+  # deployed and ship nothing.
+  #
+  # 127.0.0.1, NOT the ClusterIP name. The Talos HOST has no cluster DNS - resolv.conf is
+  # 127.0.0.53 - so fluent-bit.observability.svc.cluster.local does not resolve there, and
+  # Talos silently drops. fluent-bit runs hostNetwork so 5170 is bound on the node.
+  #
+  # extraTags is per-node because Talos does NOT template it - the map is copied verbatim -
+  # and the only keys Talos guarantees are msg, talos-time and talos-level. Without it the
+  # node identity is lost, since the ClusterIP load-balances a node's logs to an arbitrary pod.
   logging:
     destinations:
       - endpoint: tcp://127.0.0.1:5170
@@ -123,7 +138,7 @@ name: EPHEMERAL
 provisioning:
   diskSelector:
     match: system_disk
-  maxSize: {{ (n.volumes | selectattr("name", "eq", "EPHEMERAL") | first).provisioning.maxSize }}
+  maxSize: {{ n.ephemeralMaxSize }}
 ---
 apiVersion: v1alpha1
 kind: UserVolumeConfig
