@@ -580,7 +580,7 @@ Talos patches are **not** applied by Flux: they need `talosctl apply-config`. Be
 prove the change is the one you meant:
 
 ```sh
-just talos render-config <ip> | talosctl -n <ip> apply-config --dry-run -f /dev/stdin
+mise exec -- just talos render-config <ip> | mise exec -- talosctl -n <ip> apply-config --dry-run -f /dev/stdin
 ```
 
 Then `just talos apply-node <ip>`, one node at a time. Feature-flag changes apply without a
@@ -692,10 +692,10 @@ one, so path 3 parks the whole run. Annotate every node with `factory-url` **and
 
 Get the ID with `just talos gen-schematic-id` — it POSTs the schematic to the factory, which
 both registers it and returns the ID. Confirm it actually changed; an unchanged ID means the
-edit missed `.nodes[0].schematic`, which is what that recipe reads.
+edit missed the top-level `.schematic` in `talconfig.yaml`, which is what that recipe reads.
 
 ⚠️ **Remove the annotations once the rollout is verified — but in this order.** First
-`just talos gen-config` and `just talos apply-node <ip>` on every node, so
+`just talos apply-node <ip>` on every node, so
 `.machine.install.image` carries the new schematic and matches what is running; only then
 `kubectl annotate node --all tuppr.home-operations.com/factory-url- .../schematic-`. Removing
 them first leaves the runtime schematic absent from the install-image path, which is the case
