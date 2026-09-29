@@ -12,7 +12,6 @@
 /cluster.yaml
 /nodes.yaml
 /kubernetes/talos/talsecret.yaml
-/kubernetes/talos/talenv.secrets.yaml
 # Kubernetes
 kubeconfig
 talosconfig

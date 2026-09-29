@@ -9,6 +9,10 @@ additionalApiServerCertSans: &sans
   - &vip "10.1.10.40" # Cluster LB
   - k8s.clusterone.lan
 
+machineSpec:
+  mode: metal
+  secureboot: false
+
 clusterPodNets: ["10.42.0.0/16"]
 clusterSvcNets: ["10.43.0.0/16"]
 
@@ -46,105 +50,62 @@ nodes:
     ipAddress: "10.1.10.10"
     installDiskSelector:
       model: "Samsung SSD 970 EVO Plus 500GB"
-    machineSpec: &x64MachineSpec
-      mode: metal
-      arch: amd64
-      secureboot: false
-      useUKI: false
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "1c:69:7a:a5:93:fc"
           driver: e1000e
-        dhcp: true
         mtu: 1500
         vip:
           ip: *vip
-    volumes:
-      # Was a shared `&volumes` anchor pinned at 50GiB, which is why /var could never be
-      # sized per machine and filled three times. Now explicit per node.
-      - name: EPHEMERAL
-        provisioning:
-          diskSelector:
-            match: system_disk
-          maxSize: 200GiB
+    # Was a shared `&volumes` anchor pinned at 50GiB, which is why /var could never be
+    # sized per machine and filled three times. Now explicit per node.
+    ephemeralMaxSize: 200GiB
   - hostname: "charmander"
     ipAddress: "10.1.10.11"
     installDiskSelector:
       model: "WDC PC SN720 SDAPNTW-256G-1006"
-    machineSpec: *x64MachineSpec
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "f8:b4:6a:a5:87:ed"
           driver: e1000e
-        dhcp: true
         mtu: 1500
         vip:
           ip: *vip
-    volumes:
-      # charmander: sized for its own disk
-      - name: EPHEMERAL
-        provisioning:
-          diskSelector:
-            match: system_disk
-          maxSize: 100GiB
+    ephemeralMaxSize: 100GiB
   - hostname: "magikarp"
     ipAddress: "10.1.10.21"
     installDiskSelector:
       model: "KINGSTON SA400S3"
-    machineSpec: *x64MachineSpec
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e8:6a:64:a4:89:ca"
           driver: e1000e
-        dhcp: true
         mtu: 1500
-    volumes:
-      # magikarp: sized for its own disk
-      - name: EPHEMERAL
-        provisioning:
-          diskSelector:
-            match: system_disk
-          maxSize: 90GiB
+    ephemeralMaxSize: 90GiB
   - hostname: "squirtle"
     ipAddress: "10.1.10.12"  # moved from .22 so all control planes sit in .1x
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
-    machineSpec: *x64MachineSpec
     controlPlane: true
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e8:6a:64:f6:ff:af"
           driver: e1000e
-        dhcp: true
         mtu: 1500
         vip:
           ip: *vip
-    volumes:
-      # squirtle: sized for its own disk
-      - name: EPHEMERAL
-        provisioning:
-          diskSelector:
-            match: system_disk
-          maxSize: 200GiB
+    ephemeralMaxSize: 200GiB
   - hostname: "snorlax"
     ipAddress: "10.1.10.23"
     installDiskSelector:
       model: "SanDisk SD9TB8W2"
-    machineSpec: *x64MachineSpec
     controlPlane: false
     networkInterfaces:
       - deviceSelector:
           hardwareAddr: "e8:6a:64:76:2a:18"
           driver: e1000e
-        dhcp: true
         mtu: 1500
-    volumes:
-      # snorlax: sized for its own disk
-      - name: EPHEMERAL
-        provisioning:
-          diskSelector:
-            match: system_disk
-          maxSize: 200GiB
+    ephemeralMaxSize: 200GiB

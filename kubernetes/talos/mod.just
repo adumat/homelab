@@ -22,7 +22,7 @@ download-image version schematic:
     # secureboot ISO will not boot these nodes.
     # No -e on yq: it exits 1 when the value is false, which under set -e would
     # kill the recipe instead of selecting the non-secureboot path.
-    if [[ "$(yq '.nodes[0].machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
+    if [[ "$(yq '.machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
         suffix="-secureboot"
     else
         suffix=""
@@ -35,7 +35,7 @@ download-image version schematic:
 
 [doc('Generate schematic ID from Talos schematic')]
 gen-schematic-id:
-    yq -e '.schematic' "{{ talos_dir }}/talconfig.yaml" | curl -sX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -r '.id'
+    yq -e '.schematic' "{{ talos_dir }}/talconfig.yaml" | curl -sfX POST --data-binary @- "https://factory.talos.dev/schematics" | jq -er '.id'
 
 [doc('Render Talos config for a node')]
 render-config node:
@@ -43,16 +43,23 @@ render-config node:
     set -euo pipefail
     # No -e on the controlPlane lookup: yq exits 1 when the value is false.
     host=$(yq -e '.nodes[] | select(.ipAddress == "{{ node }}") | .hostname' "{{ talos_dir }}/talconfig.yaml")
-    patches=("{{ talos_dir }}"/patches/global/*.yaml)
+    # Captured here, not inline in the pipeline, where set -e would not see a failure and an
+    # installer image of `metal-installer/null:<version>` would render and apply cleanly.
+    schematic=$(just talos gen-schematic-id)
+    [[ "$schematic" =~ ^[0-9a-f]{64}$ ]] || { echo "bad schematic ID: '${schematic}'" >&2; exit 1; }
+    shopt -s nullglob
+    files=("{{ talos_dir }}"/patches/global/*.yaml)
     if [[ "$(yq '.nodes[] | select(.ipAddress == "{{ node }}") | .controlPlane' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
-        patches+=("{{ talos_dir }}"/patches/controller/*.yaml)
+        files+=("{{ talos_dir }}"/patches/controller/*.yaml)
     fi
+    patches=()
+    for f in "${files[@]}"; do patches+=(-p "@${f}"); done
     # Secrets are injected before patching (talosctl rejects unparsable certs) and
     # again after, for the references the patches themselves carry.
     just template "{{ talos_dir }}/machineconfig.yaml.j2" \
         "{{ talos_dir }}/talconfig.yaml" "{{ talos_dir }}/talenv.yaml" \
-        -a none --strict -D "node=${host}" -D "schematic=$(just talos gen-schematic-id)" \
-        | talosctl machineconfig patch /dev/stdin $(printf -- '-p @%s ' "${patches[@]}") \
+        -a none --strict -D "node=${host}" -D "schematic=${schematic}" \
+        | talosctl machineconfig patch /dev/stdin "${patches[@]}" \
         | "{{ justfile_dir() }}/scripts/bws-inject"
 
 [doc('Generate talosconfig (client credentials) from the secrets bundle')]
@@ -60,8 +67,10 @@ gen-talosconfig out=env('TALOSCONFIG'):
     #!/usr/bin/env bash
     set -euo pipefail
     cfg="{{ talos_dir }}/talconfig.yaml"
+    # Rendered first so a failed bws lookup stops here instead of feeding an empty bundle.
+    bundle=$(just template "{{ talos_dir }}/talsecret.yaml.j2")
     talosctl gen config "$(yq -e '.clusterName' "$cfg")" "$(yq -e '.endpoint' "$cfg")" \
-        --with-secrets <(just template "{{ talos_dir }}/talsecret.yaml.j2") \
+        --with-secrets <(printf '%s\n' "$bundle") \
         --output-types talosconfig --output "{{ out }}" --force
     talosctl --talosconfig "{{ out }}" config endpoint $(yq '.nodes[] | select(.controlPlane) | .ipAddress' "$cfg")
     talosctl --talosconfig "{{ out }}" config node $(yq '.nodes[].ipAddress' "$cfg")
@@ -111,7 +120,7 @@ upgrade-node node version *args:
     # machineSpec.secureboot is enough and cannot silently disagree with the image.
     # No -e on yq: it exits 1 when the value is false, which under set -e would
     # kill the recipe instead of selecting the non-secureboot path.
-    if [[ "$(yq '.nodes[0].machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
+    if [[ "$(yq '.machineSpec.secureboot' "{{ talos_dir }}/talconfig.yaml")" == "true" ]]; then
         variant="metal-installer-secureboot"
     else
         variant="metal-installer"
