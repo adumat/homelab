@@ -96,6 +96,11 @@
         // things you would fix it with, which is exactly the criterion above.
         "ghcr.io/home-operations/charts-mirror/external-dns",
         "quay.io/jetstack/charts/cert-manager",
+        // Operator and its CRD bundle stay grouped together, so they are only
+        // listed here, not in groups.json5. Its NetworkPolicy leftover cut
+        // immich and paperless off Dragonfly, which Authelia also depends on.
+        "ghcr.io/dragonflydb/operator",
+        "dragonflydb/dragonfly-operator",
         "ghcr.io/authelia/authelia",
         "ghcr.io/lldap/lldap",
         "ghcr.io/cloudnative-pg/charts/cloudnative-pg",
