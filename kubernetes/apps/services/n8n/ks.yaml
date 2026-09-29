@@ -33,7 +33,9 @@ spec:
       # n8n stores workflows and execution history in Postgres; the PVC holds
       # only ~/.n8n (config, the instance id, and any binary-data spillover).
       KOPIUR_CAPACITY: 2Gi
-      CRON_EXPRESSION: '0 4 * * *'
+      # Keep clear of elizabeth's 04:00 UTC Unraid mover: shfs reassigns NFS file IDs
+      # while it runs, and the kopiur mover's repository mount goes stale mid-backup.
+      CRON_EXPRESSION: '10 2 * * *'
     substituteFrom:
       - name: cluster-secrets
         kind: Secret
