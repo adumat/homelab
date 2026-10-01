@@ -11,5 +11,5 @@ spec:
   ref:
     # >= 1.22.0 depends on `--annotation-prefix` in the HelmRelease; with
     # `policy: sync`, losing that flag deletes every external DNS record.
-    tag: 1.22.0
+    tag: 1.23.0
   url: oci://ghcr.io/home-operations/charts-mirror/external-dns
