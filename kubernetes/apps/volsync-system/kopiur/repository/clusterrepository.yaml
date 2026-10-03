@@ -45,3 +45,48 @@ spec:
       runAsUser: 1000
       runAsGroup: 1000
     ttlSecondsAfterFinished: 300
+---
+apiVersion: kopiur.home-operations.com/v1alpha1
+kind: ClusterRepository
+metadata:
+  name: garage
+spec:
+  allowedNamespaces:
+    all: true
+  # S3 rather than NFS: movers are Jobs, which nfs-scaler cannot recover, so a
+  # stale NFS handle on the node a mover lands on fails that backup outright.
+  #
+  # No `auth` block: the AWS_* keys live in the password Secret, which is the
+  # one the mover loads with envFrom.
+  backend:
+    s3:
+      bucket: kopiur
+      endpoint: elizabeth.lan:3900
+      # Must match garage.toml's s3_region; garage rejects any other SigV4 scope.
+      region: us-east-1
+      tls:
+        disableTls: true
+  create:
+    enabled: true
+  credentialProjection:
+    allowed: true
+  encryption:
+    passwordSecretRef:
+      name: kopiur-garage-secret
+      namespace: volsync-system
+      key: KOPIA_PASSWORD
+  identityDefaults:
+    hostnameExpr: namespace
+    usernameExpr: namespace + '-' + policyName
+  moverDefaults:
+    cache:
+      capacity: 1Gi
+      mode: Ephemeral
+      storageClassName: miroir-local
+    podSecurityContext:
+      fsGroup: 1000
+      fsGroupChangePolicy: OnRootMismatch
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+    ttlSecondsAfterFinished: 300
