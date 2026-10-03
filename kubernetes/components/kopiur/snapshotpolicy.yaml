@@ -32,7 +32,7 @@ spec:
     storageClassName: "${KOPIUR_STAGING_STORAGECLASS:=miroir-replicated}"
   repository:
     kind: ClusterRepository
-    name: nas
+    name: garage
   # Mirrors the VolSync retention this replaces. Overridable because a source
   # that is already a rolling window - Prometheus, victoria-logs - gains nothing
   # from 24 hourly copies of itself.
