@@ -856,6 +856,10 @@ way GNU grep does — it reported a real one-file difference as zero. Use `/usr/
 `/usr/bin/diff` when the answer matters. It has also silently returned nothing for
 `ls -a | grep -i just`, and `grep -B` straddles YAML document boundaries.
 
+⚠️ **The shell is zsh: brace a variable before a colon.** `$R:charmander` expands as `$R` with
+the `:c` modifier and passes a mangled name; `drbdadm` then reports the resource as "not
+defined" while the real one is fine. Write `"${R}:charmander"`.
+
 ### Deleting an app: the backups survive, the PVC does not go away
 
 Two facts that sound like each other's opposite. Both proven by removing karakeep, 2026-08-20.
@@ -882,7 +886,7 @@ non-obvious things about finding them again:
 - the catalog does not refresh on a tight interval, so they may not appear at all until you ask:
 
 ```sh
-kubectl annotate clusterrepository nas \
+kubectl annotate clusterrepository garage \
   kopiur.home-operations.com/catalog-scan-requested-at="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --overwrite
 # then watch .status.catalog.lastRefreshAt and .discoveredBackupCount
 ```
@@ -1143,8 +1147,10 @@ recognise it, because it shows up disguised as something else.
 
 **What happens.** `/mnt/user` is shfs, Unraid's FUSE layer, and it does not hand out stable
 inode numbers. When shfs reassigns the fileid for a path an NFS client has cached, the client
-invalidates the handle and every later operation returns `ESTALE`. It **does not heal on its
-own**. The mounts are `soft` (see below), so I/O returns an error rather than hanging forever,
+invalidates the handle and every later operation returns `ESTALE`. The trigger is shfs's
+`remember=330` (Unraid's `fuse_remember` tunable): it forgets a path's inode after 330 s idle
+and issues a new one on the next lookup. `-1` (never forget) would stop it, at the cost of
+unbounded shfs memory on an 8 GB host — rejected. It **does not heal on its own**. The mounts are `soft` (see below), so I/O returns an error rather than hanging forever,
 but the mount stays poisoned.
 
 The kernel says so outright, and this is the line to grep for:
@@ -1169,15 +1175,20 @@ server, find out whether *another node* can read it:
 mise exec -- talosctl -n <node-ip> dmesg | grep -c 'fileid changed'
 ```
 
+⚠️ **Probe read-write, not read-only.** On 2026-10-03 charmander and magikarp mounted the
+kopiur export `readOnly: true` cleanly while every read-write mount of the same export died
+with `stale file handle` at container creation. A read-only probe pod proves nothing about a
+writer.
+
 ⚠️ **kopiur's own message misdiagnoses this.** It reports `ProbeDeadlineExceeded` and advises
 raising `spec.bootstrap.failurePolicy.activeDeadlineSeconds`. The backend is not slow; the
 mover never started. Read the mover pod's events, not the ClusterRepository condition.
 
 ⚠️ **The movers are Jobs, so `nfs-scaler` cannot cover them.** KEDA scales Deployments to zero;
-a Job has nothing to scale. The 14 scaler-covered apps self-heal, kopiur's movers do not — which
-is why a repository outage persists while everything else recovers. Until the repository moves
-off NFS, the recovery for a stuck mover is to keep it off the bad node (cordon) and reboot that
-node.
+a Job has nothing to scale. The 14 scaler-covered apps self-heal, Jobs do not. This is why the
+kopiur repository moved to garage S3 (`ClusterRepository/garage`) on 2026-10-03; `nas` is the
+retired NFS one. Any other Job that mounts NFS still needs the manual recovery: cordon the bad
+node and reboot it.
 
 **How it presents.** Almost never as an "NFS error":
 
