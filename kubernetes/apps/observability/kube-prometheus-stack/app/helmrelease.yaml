@@ -30,6 +30,8 @@ spec:
         alertmanagerConfiguration:
           name: alertmanager
         externalUrl: https://alertmanager.${DOMAIN}
+        replicas: 2
+        podAntiAffinity: hard
         resources:
           requests:
             cpu: 10m
