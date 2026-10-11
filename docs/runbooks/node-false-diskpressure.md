@@ -1,10 +1,8 @@
 # A rolling upgrade can leave nodes falsely tainted DiskPressure
 
 After a reboot a node may come back asserting `DiskPressure` with its `NoSchedule` taint, and
-it does not always self-heal. This is worse here than it sounds: **Rook pins each mon and OSD
-to its node with `nodeSelector`**, so one tainted node keeps that mon and OSD `Pending`
-forever, Ceph never returns to `HEALTH_OK`, and `HEALTH_OK` is exactly what tuppr's health
-check gates on — the rollout parks partway rather than finishing.
+it does not always self-heal. Every pod pinned to that node stays `Pending` until it clears,
+and a `miroir-local` volume pins its pod to its node.
 
 Ask kubelet for the numbers, not the node. `talosctl usage /var` and kubelet's `statfs`
 disagreed by ~12 GB, so trust:

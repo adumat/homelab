@@ -20,7 +20,7 @@ containers on three hosts, and a few home-grown applications.
 | CNI | Cilium — BGP, native routing, kube-proxy replacement, DSR + maglev |
 | Ingress | Envoy Gateway (Gateway API). **Never `Ingress`** |
 | Storage | miroir (DRBD9) — `miroir-replicated` default (replicas 2 + diskless tie-breaker), `miroir-local` node-pinned |
-| Backup | VolSync + Kopia |
+| Backup | kopiur (kopia) → `ClusterRepository/garage`, S3 on elizabeth |
 | Databases | CloudNative-PG, Dragonfly |
 | Auth | Authelia + LLDAP, OIDC through Envoy `SecurityPolicy` |
 | Secrets | Bitwarden Secrets Manager + External Secrets Operator |
@@ -89,7 +89,7 @@ Then add `./<app>/ks.yaml` to the `resources` list in the namespace's
 |---|---|
 | `services/it-tools` | minimal app with a route and OIDC |
 | `services/paperless` | secrets, CNPG, config files |
-| `home/frigate` | GPU via DRA, persistence, NFS |
+| `home/frigate` | GPU via DRA (`gpu`), kopiur backup, NFS |
 | `observability/silence-operator` | non-app-template chart with its own `OCIRepository` |
 
 ### `ks.yaml`
@@ -107,7 +107,7 @@ spec:
     labels:
       app.kubernetes.io/name: *app
   components:                      # only the ones actually needed
-    - ../../../../components/persistence
+    - ../../../../components/kopiur
   dependsOn:
     - name: miroir-config
       namespace: miroir-system
@@ -141,14 +141,17 @@ Available in every Kustomization that does `substituteFrom`:
 
 ## Components
 
-Four, under `kubernetes/components/`. Added to `spec.components` in a `ks.yaml`.
+Under `kubernetes/components/`. Added to `spec.components` in a `ks.yaml`. To see who uses
+one: `grep -l components/<name>$ kubernetes/apps/*/*/ks.yaml`.
 
-| Component | Consumers | Purpose |
-|---|---|---|
-| `common` | 15 (in namespace `kustomization.yaml` files, not in `ks.yaml`) | creates the Namespace, Flux alerts, the app-template `OCIRepository`, the SOPS secret |
-| `persistence` | 18 | PVC + VolSync `ReplicationSource`/`Destination` |
-| `oidc-auth` | 14 | OIDC `SecurityPolicy` + the client's `ExternalSecret` |
-| `nfs-scaler` | 8 | KEDA `ScaledObject` that scales apps to zero when NFS is unhealthy |
+| Component | Purpose |
+|---|---|
+| `common` | creates the Namespace, Flux alerts, the app-template `OCIRepository`, the SOPS secret. Lives in namespace `kustomization.yaml` files, not in `ks.yaml` |
+| `kopiur` | the PVC plus its kopiur `SnapshotPolicy`/`SnapshotSchedule`/`Restore`: backup, and restore on recreate. Needs `KOPIUR_CAPACITY` and `CRON_EXPRESSION` |
+| `kopiur-external` | the same, minus the PVC, for volumes a chart or operator insists on creating |
+| `oidc-auth` | OIDC `SecurityPolicy` + the client's `ExternalSecret` |
+| `nfs-scaler` | KEDA `ScaledObject` that scales apps to zero when NFS is unhealthy |
+| `gpu` | the Intel GPU DRA `ResourceClaimTemplate` |
 
 `common` is a special case: it lives in the namespace's `kustomization.yaml`, and the
 `Namespace` it contains has `name: _`, renamed by the parent kustomization's `namespace:`
@@ -357,12 +360,11 @@ obvious fix is wrong, and some make things worse.
 | Pods stuck `Terminating`, apps that see no files, `fileid changed`, `NfsMountStale`, `KubeJobFailed` on `qbittorrent-tools` | [nfs-stale-handles](docs/runbooks/nfs-stale-handles.md) |
 | Many MiroirVolumes `Degraded` on one node; `drbdadm` exits 10 with `conflicting use of device-minor` | [drbd-duplicate-minor](docs/runbooks/drbd-duplicate-minor.md) |
 | One volume: `MiroirVolumeOutOfSync`, a peer stuck at `Connecting`, a miroir agent pod stuck `Terminating`; `drbdsetup` in state `D` | [drbd-hung-drbdsetup](docs/runbooks/drbd-hung-drbdsetup.md) |
-| A node back from reboot tainted `DiskPressure`; a tuppr rollout parks partway | [node-false-diskpressure](docs/runbooks/node-false-diskpressure.md) |
+| A node back from reboot tainted `DiskPressure` | [node-false-diskpressure](docs/runbooks/node-false-diskpressure.md) |
 | Adding a Talos system extension; a tuppr upgrade refusing on a schematic mismatch | [talos-extension-rollout](docs/runbooks/talos-extension-rollout.md) |
 | Every backup on a repository failing `decrypt blob: ciphertext too short` | [kopia-zero-length-blobs](docs/runbooks/kopia-zero-length-blobs.md) |
 | A kopiur snapshot failing `PermissionDenied`; choosing a mover UID | [kopiur-mover-uid](docs/runbooks/kopiur-mover-uid.md) |
 | A Kustomization stuck `Ready=Unknown` on a `Restore` reported `InProgress` | [flux-wait-kopiur-restore](docs/runbooks/flux-wait-kopiur-restore.md) |
-| Moving an app between VolSync and kopiur; `spec is immutable after creation` on its PVC | [kopiur-vs-volsync](docs/runbooks/kopiur-vs-volsync.md) |
 | Recreating a PVC from a backup, or migrating one to another backend | [pvc-migration](docs/runbooks/pvc-migration.md) |
 | Removing an app, or finding its backups afterwards | [deleting-an-app](docs/runbooks/deleting-an-app.md) |
 | ARC listener crash-looping on `ephemeralrunnersets ... not found` | [arc-listener-stale-runnerset](docs/runbooks/arc-listener-stale-runnerset.md) |
@@ -536,15 +538,12 @@ Modules load on `apply-config` — no new schematic and no reboot. The agents on
 startup, so `kubectl rollout restart ds/miroir-agent -n miroir-system` afterwards or they
 stay in local-only mode.
 
-### miroir shares host ports with host-network Ceph
+### miroir: chart values that must agree with things the chart cannot see
 
-`drbd.portBase` defaults to **7000**, which is Ceph's mgr dashboard. Rook here runs
-`provider: host` and miroir's agents run hostNetwork, so they contend for the same node
-ports. Ceph's range on this cluster is `ms_bind_port_min` 6800 to `ms_bind_port_max`
-**7568** — check it rather than assuming the 7300 default — so miroir starts at **7700**,
-one ascending port per replicated volume.
+The agents run hostNetwork and DRBD takes **one ascending host port per replicated volume**
+from `drbd.portBase` (7700). Keep that range clear of any other hostNetwork listener.
 
-Two more miroir gotchas: `agent.loopfileBaseDirs` must repeat every `loopfile.baseDir`,
+`agent.loopfileBaseDirs` must repeat every `loopfile.baseDir`,
 because the topology lives in CRs the chart cannot read at render time while the hostPath
 mounts are pod spec; and a loopfile pool needs its `baseDir` to be reflink-capable (XFS
 `reflink=1` or btrfs) or the agent refuses the pool outright.
