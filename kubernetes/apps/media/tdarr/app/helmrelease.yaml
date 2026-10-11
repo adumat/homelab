@@ -18,7 +18,7 @@ spec:
           app:
             image:
               repository: haveagitgat/tdarr
-              tag: 2.95.01@sha256:6b4dcd9a20dc80a26d06b50378bdfa6955f2d37e413bf4c52d93a4bb37e74afc
+              tag: 3.00.00@sha256:7ba5325ea64951181a30f2a8d5bbc4fc0985e4c275ea1d09d15491b47b4cd8d6
             env: &env
               TZ: Europe/Rome
               PUID: 1000
@@ -88,7 +88,7 @@ spec:
           app:
             image:
               repository: haveagitgat/tdarr_node
-              tag: 2.95.01@sha256:7a56924b2f567b306abfd155a70874ee0b45ff69c9f63ed93e6177ae57622df7
+              tag: 3.00.00@sha256:4d8e8d8b4159003858b255a3e44fb1564dbb599e996350c0c44a2ace25a46217
             env:
               <<: *env
               nodeName: cluster-node-1
@@ -128,7 +128,7 @@ spec:
           app:
             image:
               repository: haveagitgat/tdarr_node
-              tag: 2.95.01@sha256:7a56924b2f567b306abfd155a70874ee0b45ff69c9f63ed93e6177ae57622df7
+              tag: 3.00.00@sha256:4d8e8d8b4159003858b255a3e44fb1564dbb599e996350c0c44a2ace25a46217
             env:
               <<: *env
               nodeName: cluster-node-2
