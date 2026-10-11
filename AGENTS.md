@@ -24,7 +24,7 @@ containers on three hosts, and a few home-grown applications.
 | Databases | CloudNative-PG, Dragonfly |
 | Auth | Authelia + LLDAP, OIDC through Envoy `SecurityPolicy` |
 | Secrets | Bitwarden Secrets Manager + External Secrets Operator |
-| Charts | bjw-s `app-template` 5.0.1, via `chartRef` → shared `OCIRepository` |
+| Charts | bjw-s `app-template`, via `chartRef` → shared `OCIRepository` |
 | Router and hypervisor | OpenTofu against OPNsense and Proxmox |
 | Docker on hosts | doco-cd (GitOps for compose) on donkey, elizabeth, navi |
 
@@ -60,7 +60,7 @@ scripts/                     # shared shell utilities
 docs/superpowers/            # specs and plans (NOT tracked in git)
 ```
 
-The 15 namespaces under `kubernetes/apps/` are discovered by Flux **automatically**: there
+The namespaces under `kubernetes/apps/` are discovered by Flux **automatically**: there
 is no parent `kustomization.yaml` in `kubernetes/apps/` to update when you add one. Just
 create the directory with its own `kustomization.yaml`.
 
@@ -322,8 +322,8 @@ on manifests that passed before. Warnings do not fail the run; a non-zero exit d
 `kustomization.yaml`, `secret.sops.yaml`, `talconfig.yaml`, `talenv.yaml`,
 `talos/patches/`, `/dashboards/`, `/resources/`, `bootstrap/helmfile.d/`.
 
-Available `just` recipes: `check-nodes`, `mount`/`unmount`/`mounts`, plus the `bootstrap`,
-`kube` and `talos` modules.
+Available `just` recipes: `backup-audit`, `check-nodes`, `setup`,
+`mount`/`unmount`/`unmount-all`/`mounts`, plus the `bootstrap`, `kube` and `talos` modules.
 
 ---
 
@@ -412,8 +412,8 @@ and every consumer must set both `APP` and `OIDC_ROUTE`. Forget the second and y
 
 `APP` is the identity (client_id, Bitwarden item, policy name); `OIDC_ROUTE` is the
 HTTPRoute to attach to. They usually match, but not for chart-generated routes
-(`kube-prometheus-stack-alertmanager`, `victoria-logs-server`) nor
-for `home-assistant-code`.
+(`kube-prometheus-stack-alertmanager`, `kube-prometheus-stack-prometheus`,
+`victoria-logs-server`) nor for `home-assistant-code`.
 
 ### `${VAR:=default}` cannot be used in pattern-validated fields
 

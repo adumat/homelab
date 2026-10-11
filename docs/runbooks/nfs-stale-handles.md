@@ -43,7 +43,7 @@ raising `spec.bootstrap.failurePolicy.activeDeadlineSeconds`. The backend is not
 mover never started. Read the mover pod's events, not the ClusterRepository condition.
 
 ⚠️ **The movers are Jobs, so `nfs-scaler` cannot cover them.** KEDA scales Deployments to zero;
-a Job has nothing to scale. The 14 scaler-covered apps self-heal, Jobs do not. This is why the
+a Job has nothing to scale. The 16 scaler-covered apps self-heal, Jobs do not. This is why the
 kopiur repository moved to garage S3 (`ClusterRepository/garage`) on 2026-10-03; `nas` is the
 retired NFS one. Any other Job that mounts NFS still needs the manual recovery: cordon the bad
 node and reboot it.
@@ -86,8 +86,8 @@ once the node's NFS client state is poisoned — see the `fileid changed` case a
 replacement pod's fresh mount is stale on its first `stat`. Then the sequence is: cordon the
 node so the workload lands elsewhere, confirm it succeeds there, and reboot the bad node.
 
-**Recovery is automatic.** The `nfs-scaler` component — now on **all 14** NFS consumers, not
-8 — scales an app to zero when either elizabeth is unreachable or that app's own mount has been
+**Recovery is automatic.** The `nfs-scaler` component — on **every** NFS consumer, 16 apps —
+scales an app to zero when either elizabeth is unreachable or that app's own mount has been
 stale for 5 minutes, then back up, which is what forces a clean remount. Scaling to zero *is*
 the pod deletion above, so no controller holds delete permissions.
 
@@ -109,7 +109,7 @@ that pinned **every** mount fails with `mount.nfs: Protocol not supported`. Inli
 `type: nfs` volumes die, PVs with explicit `mountOptions` survive, and `showmount`/`rpcinfo`
 look perfectly healthy.
 
-Nine apps mount NFS inline with `type: nfs` (frigate, home-assistant, kopia, qbittorrent,
-radarr, sonarr, filebrowser, jellyfin, romm): those are the exposed ones.
+Fourteen apps mount NFS inline with `type: nfs`, and those are the exposed ones:
+`grep -rl 'type: nfs' kubernetes/apps --include=helmrelease.yaml` lists them.
 
 A structural fix is on the roadmap. Until it lands, this section is the procedure.

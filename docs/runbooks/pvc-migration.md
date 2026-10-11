@@ -12,7 +12,7 @@ may be minutes later in a different operation. Always check before starting:
 kubectl get pvc <app> -n <ns> -o jsonpath='{.metadata.deletionTimestamp}'   # must be empty
 ```
 
-**2. KEDA restarts the app even with the HelmRelease suspended.** Eight apps carry
+**2. KEDA restarts the app even with the HelmRelease suspended.** Sixteen apps carry
 `components/nfs-scaler`, whose `ScaledObject` (min 0 / max 1) will scale a Deployment back to 1
 regardless of `flux suspend hr`. That both bypasses any verification gate and holds the PVC open
 so it cannot be deleted. Pause it explicitly, and unpause on every exit path:
@@ -22,8 +22,8 @@ kubectl annotate scaledobject <app> -n <ns> autoscaling.keda.sh/paused-replicas=
 kubectl annotate scaledobject <app> -n <ns> autoscaling.keda.sh/paused-replicas-
 ```
 
-Affected: `frigate`, `home-assistant`, `kopia`, `qbittorrent`, `radarr`, `sonarr`, `jellyfin`,
-`romm`.
+Affected: every app with `components/nfs-scaler` in its `ks.yaml`
+(`grep -l 'components/nfs-scaler$' kubernetes/apps/*/*/ks.yaml`).
 
 **3. Verify with a per-file checksum manifest, and wait for the pod to finish.** A `du` total or
 a directory listing proves nothing — a populator PVC binds and mounts happily while empty. Run
