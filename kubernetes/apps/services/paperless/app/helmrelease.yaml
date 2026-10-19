@@ -62,8 +62,10 @@ spec:
               # a Go template and the release fails with `function "created_year" not
               # defined`. Same idiom as the homepage widget keys below.
               PAPERLESS_FILENAME_FORMAT: "{{ `{{ created_year }}/{{ correspondent }}/{{ title }}` }}"
-              # Configure folder importer
-              PAPERLESS_CONSUMER_POLLING: "60"
+              # Configure folder importer. Polling is mandatory: inotify never fires for
+              # files the scanner writes to the NAS over SMB. 3.x silently ignores the
+              # old PAPERLESS_CONSUMER_POLLING name.
+              PAPERLESS_CONSUMER_POLLING_INTERVAL: "10"
               PAPERLESS_CONSUMER_RECURSIVE: "true"
               PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
               # Without this, an identical file is consumed ANYWAY. In 3.x
