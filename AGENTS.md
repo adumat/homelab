@@ -715,6 +715,134 @@ the Primary's node-id, and checking `out-of-sync:0` between them:
 mise exec -- kubectl exec -n miroir-system <agent-pod> -c agent -- drbdsetup get-gi <pvc> <primary-node-id> 0
 ```
 
+### An `/unregistered/` DRBD connection loops forever — and floods the logs
+
+A third kernel-side leftover, again cleared only by a reboot. When the agent takes a resource
+down and recreates it while a peer connection is still `Connecting`, the old connection can
+survive the teardown detached from any resource. Its threads then reconnect in a tight loop:
+
+```
+drbd /unregistered/<pvc> <peer>: No destination address, err=-89
+```
+
+Hit 2026-10-12 08:40 on charmander with romm's volume, during a mount retry, and it ran for
+six days unnoticed. **The volume itself stays healthy** — `drbdsetup status` shows the
+recreated resource `UpToDate` and connected to every peer. The cost is elsewhere: ~290 kernel
+lines/s, 165 million lines in VictoriaLogs, and a kernel ring buffer holding only ~8 s of
+history, which **erases the evidence for any other fault on that node**. CPU cost was
+negligible.
+
+**It is not harmless to leave.** It recurred on bulbasaur from 2026-10-20 ~04:00 (romm's
+neighbour `pvc-479a28b1`, peer magikarp), and at 2026-10-21 04:12 bulbasaur crashed with no
+shutdown sequence in its logs, its last act tearing down DRBD resources. No crash dump
+survived, so the link is not proven — but that crash started the cascade in the next two
+traps.
+
+`DrbdUnregisteredConnectionLoop` (fluent-bit counts the lines, see its `prometheusrule.yaml`)
+now fires on the rate. A single `/unregistered/<pvc>: Terminating worker thread` line at boot
+is normal; a loop prints `No destination address` hundreds of times a second:
+
+```sh
+mise exec -- talosctl -n <ip> dmesg | grep -c 'unregistered.*No destination'   # must be 0
+```
+
+`drbdsetup` cannot address it, because it no longer belongs to a resource. Reboot the node
+(control planes one at a time), then re-run the duplicate-minor checks.
+
+### Talos's own LVM scan wedges on a blocked DRBD device and pins it open
+
+Since 1.14, Talos's `LVMScanController` runs host `/sbin/lvm vgs/pvs/lvs -a` after every
+block-device event. It has **no device filter**, so it reads every `/dev/drbd*`. When a DRBD
+device's I/O is blocked — lost quorum, or a resync stuck in `WFBitMapT` — the scan enters `D`
+state inside `__drbd_make_request` and holds the device open indefinitely. Two consequences,
+both seen 2026-10-21 on bulbasaur, magikarp and snorlax:
+
+- **Mounts fail on every other node** with `device /dev/drbdN not writable (is the volume in
+  use on another node?)`. The holder is a Secondary showing `open:yes` in `drbdsetup status`
+- **A reboot hangs** in `unmountPodMounts` — see the next trap
+
+The `lvm` process is a victim, not the cause: something blocked the DRBD device first. It is
+also not miroir's: the agent image filters `/dev/drbd` and `/dev/nbd` in its own
+`lvmlocal.conf`, but that only applies inside its container. Recognise it by the exact
+command line:
+
+```sh
+mise exec -- talosctl -n <ip> processes | awk '$3 ~ /^D/'
+# /sbin/lvm vgs -a -o +all --reportformat json --units b --nosuffix
+mise exec -- talosctl -n <ip> read /proc/<pid>/stack     # __drbd_make_request
+```
+
+**There is no configuration fix.** `EtcFileConfig` rejects the whole `lvm/` prefix
+(`lvmlocal.conf` included) as managed by Talos, and user udev rules land in `99-talos.rules`,
+after LVM's own rule has already fired. Upstream: siderolabs/talos#14554 (same wedge with
+Ceph RBD), ceph/ceph-csi#6617.
+
+Release it by unblocking the device, not by touching `lvm`: on the node holding it open, drop
+only the **stalled peer link** and let the agent reconnect it. The pending read then fails or
+completes and the scan exits. A peer-scoped disconnect keeps the other links up:
+
+```sh
+mise exec -- kubectl exec -n miroir-system <agent-on-that-node> -c agent -- \
+  sh -c 'drbdadm disconnect <pvc>:<stalled-peer> && drbdadm adjust <pvc>'
+```
+
+⚠️ Never a resource-wide `drbdadm disconnect` on a non-UpToDate replica — see "Disconnecting
+an Outdated replica" below.
+
+### A reboot can hang forever in `unmountPodMounts`, and no `talosctl` mode preempts it
+
+With a process in `D` state on a pod volume, the Talos shutdown sequence stops at phase
+`umount` (7/14) and never advances. The node keeps answering ping and the API, reporting
+`stage: rebooting`, while every container is already stopped — so it serves nothing.
+
+`talosctl reboot --mode force` does **not** help: the stuck sequence holds the lock, and the
+second request fails after a minute with `reboot failed: failed to acquire lock: timeout` in
+`talosctl logs machined`. `powercycle` is the same request with a different final step. The
+only remote power control, `infra/docs/rack-power-cycle.md`, cuts the whole UPS — not an
+option for one node. **Press the power button.**
+
+It is crash-safe at that point: the containers stopped when the sequence reached phase 5, so
+nothing is writing. ext4 replays its journal and DRBD resyncs on boot. Hit 2026-10-21 on
+magikarp: reboot requested 08:19, stuck at 08:24:50, physical power cycle at ~08:44.
+
+### Disconnecting an Outdated replica can promote it to UpToDate — without a resync
+
+A resource-wide `drbdadm disconnect` + reconnect on a replica that is `Outdated` can come back
+with DRBD logging `Upgrading local disk to UpToDate after unstable/weak (and no resync)`, and
+**marking the genuinely current peer `Outdated`** instead. The flags then point at the wrong
+copy, and the next mount would serve and extend stale data.
+
+Hit 2026-10-21 on paperless's volume, on bulbasaur. It was harmless only because the copies
+turned out identical. If it happens, freeze the consumer first (scale to 0 **and**
+`autoscaling.keda.sh/paused-replicas="0"` if it carries `nfs-scaler`), then compare the
+replicas as below before letting anything mount.
+
+### Before forcing anything in DRBD, compare the replicas' files read-only
+
+When DRBD's flags cannot be trusted — every replica `Consistent`, or a disconnect promoted the
+wrong one — decide from the data, not the flags. **Raw device checksums prove nothing**: they
+differed on all three replicas of a volume whose files were byte-identical, because blocks the
+filesystem does not use need not match.
+
+Mount each replica's backing device through a read-only loop with `noload`, which skips the
+journal replay and so writes nothing, then hash the files. From each node's agent:
+
+```sh
+b=$(drbdsetup status <pvc> --verbose | sed -n 's/.*backing_dev:\([^ ]*\).*/\1/p')
+L=$(losetup -r -f --show "$b"); mkdir -p /tmp/cmp; mount -t ext4 -o ro,noload "$L" /tmp/cmp
+cd /tmp/cmp && find . -type f -print0 | sort -z | xargs -0 -r md5sum > /tmp/manifest
+cd / && umount /tmp/cmp && losetup -d "$L"
+```
+
+The backing path differs per pool (`/dev/vg-miroir/<pvc>` or
+`/var/mnt/local-hostpath/miroir/dev/<pvc>`). ext4 never reaches DRBD's internal metadata at the
+end of the device, so the whole backing device mounts cleanly; `--sizelimit` is only needed
+for raw hashing.
+
+Identical manifests make the choice free: `drbdadm primary --force <pvc> && drbdadm secondary
+<pvc>` on any of them, and the rest resync from it. Different manifests: compare against the
+last kopiur snapshot and pick deliberately — that choice discards the others.
+
 ### Testing that data survived a reboot: never use a Pod that can restart
 
 A bare Pod defaults to `restartPolicy: Always`. If its command writes the fixture, a node
