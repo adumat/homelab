@@ -786,8 +786,9 @@ mise exec -- kubectl exec -n miroir-system <agent-on-that-node> -c agent -- \
   sh -c 'drbdadm disconnect <pvc>:<stalled-peer> && drbdadm adjust <pvc>'
 ```
 
-⚠️ Never a resource-wide `drbdadm disconnect` on a non-UpToDate replica — see "Disconnecting
-an Outdated replica" below.
+⚠️ **If that replica is `Outdated`, freeze the consumer first and invalidate it afterwards.**
+Even a peer-scoped disconnect triggers the no-resync promotion described below. See
+"Disconnecting an Outdated replica".
 
 ### A reboot can hang forever in `unmountPodMounts`, and no `talosctl` mode preempts it
 
@@ -807,15 +808,28 @@ magikarp: reboot requested 08:19, stuck at 08:24:50, physical power cycle at ~08
 
 ### Disconnecting an Outdated replica can promote it to UpToDate — without a resync
 
-A resource-wide `drbdadm disconnect` + reconnect on a replica that is `Outdated` can come back
-with DRBD logging `Upgrading local disk to UpToDate after unstable/weak (and no resync)`, and
-**marking the genuinely current peer `Outdated`** instead. The flags then point at the wrong
-copy, and the next mount would serve and extend stale data.
+Disconnecting any link of a replica that is `Outdated`, even a single peer's, can come back
+with DRBD logging `Upgrading local disk to UpToDate after unstable/weak (and no resync)`. The
+reconnect then reports `uuid_compare()=no-sync` and **clears the out-of-sync bitmap**. The
+flags then say UpToDate over stale blocks, and the next mount would serve and extend stale
+data. A resource-wide disconnect can also mark the genuinely current peer `Outdated`.
 
-Hit 2026-10-21 on paperless's volume, on bulbasaur. It was harmless only because the copies
-turned out identical. If it happens, freeze the consumer first (scale to 0 **and**
-`autoscaling.keda.sh/paused-replicas="0"` if it carries `nfs-scaler`), then compare the
-replicas as below before letting anything mount.
+- Hit 2026-10-21 on paperless's volume, on bulbasaur (resource-wide). It was harmless only
+  because the copies turned out identical.
+- Hit again 2026-10-24 on mosquitto's volume, on bulbasaur, with a peer-scoped disconnect of
+  the `WFBitMapT` link. The bitmap held 41912 dirty bits, and afterwards the link to the
+  other UpToDate peer still showed `out-of-sync:132068` with both sides "UpToDate".
+
+Freeze the consumer first (scale to 0 **and** `autoscaling.keda.sh/paused-replicas="0"` if it
+carries `nfs-scaler`). When at least one peer is unambiguously UpToDate, do not compare
+anything: discard the suspect copy on its own node and let it fully resync:
+
+```sh
+mise exec -- kubectl exec -n miroir-system <agent-on-that-node> -c agent -- drbdadm invalidate <pvc>
+# then confirm out-of-sync:0 towards every peer before unfreezing
+```
+
+When no peer can be trusted, compare the replicas as below before letting anything mount.
 
 ### Before forcing anything in DRBD, compare the replicas' files read-only
 
