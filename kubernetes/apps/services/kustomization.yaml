@@ -9,6 +9,7 @@ resources:
   - ./atuin/ks.yaml
   - ./filebrowser/ks.yaml
   - ./homepage/ks.yaml
+  - ./ippopeto/ks.yaml
   - ./it-tools/ks.yaml
   - ./paperless/ks.yaml
   - ./ocis/ks.yaml
