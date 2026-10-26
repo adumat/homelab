@@ -4,3 +4,6 @@
 [submodule "services/paradox-dgp-mqtt"]
 	path = services/paradox-dgp-mqtt
 	url = https://github.com/adumat/paradox-dgp-mqtt.git
+[submodule "services/ippopeto"]
+	path = services/ippopeto
+	url = https://github.com/adumat/ippopeto.git
