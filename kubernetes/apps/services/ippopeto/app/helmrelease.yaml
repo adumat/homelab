@@ -20,7 +20,7 @@ spec:
           app:
             image:
               repository: ghcr.io/adumat/ippopeto
-              tag: "0.2.0"
+              tag: "0.3.0"
             env:
               TZ: Europe/Rome
               # worst case 4 rooms x 12 clients x ~7 KB/s stays under the ~8 Mbit/s home uplink
