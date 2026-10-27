@@ -32,7 +32,7 @@ spec:
           app:
             image:
               repository: ghcr.io/paperless-ngx/paperless-ngx
-              tag: 3.3.3
+              tag: 3.3.4
             env:
               # Configure application
               PAPERLESS_URL: https://paperless.${DOMAIN}
@@ -158,7 +158,7 @@ spec:
           gotenberg:
             image:
               repository: docker.io/gotenberg/gotenberg
-              tag: 8.38.1
+              tag: 8.39.0
             ports:
               - containerPort: 3000
             command:
