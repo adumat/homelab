@@ -1237,8 +1237,10 @@ mover never started. Read the mover pod's events, not the ClusterRepository cond
 
 ⚠️ **The movers are Jobs, so `nfs-scaler` cannot cover them.** KEDA scales Deployments to zero;
 a Job has nothing to scale. The 14 scaler-covered apps self-heal, Jobs do not. This is why the
-kopiur repository moved to garage S3 (`ClusterRepository/garage`) on 2026-10-03; `nas` is the
-retired NFS one. Any other Job that mounts NFS still needs the manual recovery: cordon the bad
+kopiur repository moved to garage S3 (`ClusterRepository/garage`) on 2026-10-03. The retired NFS
+repository `nas` was removed from git on 2026-10-28, because its hourly catalog-discovery Job kept
+dying on stale handles and paging; its data is still on elizabeth at `/mnt/user/backups/kopiur`,
+password in the `kopiur-nas` Bitwarden secret. Any other Job that mounts NFS still needs the manual recovery: cordon the bad
 node and reboot it.
 
 **How it presents.** Almost never as an "NFS error":
