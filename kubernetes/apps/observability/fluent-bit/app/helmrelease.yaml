@@ -86,6 +86,21 @@ spec:
           remove k_docker_id
           remove k_container_image
 
+        # A DRBD connection that survives its resource's teardown reconnects forever as
+        # "drbd /unregistered/<pvc>", ~290 lines/s, and no other signal shows it: the volume
+        # stays healthy. It preceded bulbasaur's crash by a day. Logs still flow on unchanged.
+        [FILTER]
+          name log_to_metrics
+          match talos.*
+          tag drbd_metrics
+          metric_mode counter
+          metric_name unregistered_connection_lines
+          metric_namespace drbd
+          metric_description Kernel log lines from a DRBD connection detached from its resource
+          regex msg drbd /unregistered/
+          label_field node
+          flush_interval_sec 30
+
       customParsers: |-
         [PARSER]
           name containerd
@@ -116,6 +131,12 @@ spec:
           json_date_format iso8601
           compress gzip
           log_response_payload false
+
+        [OUTPUT]
+          name prometheus_exporter
+          match drbd_metrics
+          host 0.0.0.0
+          port 2021
     # Talos must reach this listener from the HOST, where there is no cluster DNS
     # (resolv.conf is 127.0.0.53) and no guarantee of ClusterIP routing. hostNetwork binds
     # 5170 on the node itself so Talos can use 127.0.0.1:5170 - no DNS, no Cilium dependency.
@@ -129,7 +150,14 @@ spec:
         containerPort: 5170
         protocol: TCP
         name: talos-logs
+      - port: 2021
+        containerPort: 2021
+        protocol: TCP
+        name: log-metrics
     dashboards:
       enabled: true
     serviceMonitor:
       enabled: true
+      additionalEndpoints:
+        - port: log-metrics
+          path: /metrics
