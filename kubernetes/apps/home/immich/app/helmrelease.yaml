@@ -17,6 +17,7 @@ spec:
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
               tag: v3.3.5
             env:
+              TZ: Europe/Rome
               REDIS_HOSTNAME: dragonfly.database.svc.cluster.local
               REDIS_PORT: "6379"
               REDIS_DBINDEX: "1"
