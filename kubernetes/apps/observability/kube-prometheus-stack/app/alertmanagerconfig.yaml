@@ -32,6 +32,14 @@ spec:
           - name: instance
             value: elizabeth.lan:9100
             matchType: =
+      # nfs-scaler remounts a stale app within ~5 minutes, and Unraid's nightly
+      # mover makes several go stale at once. NfsMountStaleUnrecovered (20m) is
+      # the page for the case where that recovery fails.
+      - receiver: "null"
+        matchers:
+          - name: alertname
+            value: NfsMountStale
+            matchType: =
       # Info alerts are inventory, not incidents, and they drown the ones that
       # are: MiroirVolumeRemoteConsumer alone holds 14 series firing
       # continuously, so a 12h repeatInterval turned Pushover into noise nobody
