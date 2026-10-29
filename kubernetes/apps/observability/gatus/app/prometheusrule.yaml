@@ -11,7 +11,9 @@ spec:
         - alert: GatusEndpointDown
           expr: |-
             gatus_results_endpoint_success{group=~"external|services"} == 0
-          for: 5m
+          # Longer than an nfs-scaler remount cycle (~6m), which takes the app
+          # down on purpose.
+          for: 10m
           annotations:
             summary: >-
               The {{ $labels.name }} endpoint is down
