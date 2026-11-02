@@ -107,7 +107,6 @@
         "ghcr.io/home-operations/charts/miroir",
         "ghcr.io/home-operations/charts/kopiur",
         "ghcr.io/prometheus-community/charts/kube-prometheus-stack",
-        "docker.io/envoyproxy/gateway-helm",
         "mirror.gcr.io/envoyproxy/gateway-helm",
         "/siderolabs/installer/",
         "/siderolabs/talosctl/",
