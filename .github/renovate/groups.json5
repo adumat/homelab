@@ -222,6 +222,21 @@
       matchPackageNames: ["ghcr.io/grafana/helm-charts/grafana-operator"],
       minimumGroupSize: 1,
     },
+    {
+      description: "KEDA (all locations)",
+      groupName: "observability-stack",
+      matchPackageNames: ["ghcr.io/home-operations/charts-mirror/keda"],
+      minimumGroupSize: 1,
+    },
+    {
+      description: "CoreDNS + Spegel (all locations)",
+      groupName: "kube-system-stack",
+      matchPackageNames: [
+        "ghcr.io/coredns/charts/coredns",
+        "ghcr.io/spegel-org/helm-charts/spegel",
+      ],
+      minimumGroupSize: 1,
+    },
 
     // ── Recovery-critical: one PR per package, never grouped ──────────
     //
