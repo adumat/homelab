@@ -21,12 +21,17 @@ spec:
     - name: certificates
       rules:
         - alert: CertManagerCertExpirySoon
+          # The renewal-time term keeps short-renewBefore certs (barman-cloud's
+          # internal CA certs renew 15d before expiry) from firing while their
+          # renewal is still in the future.
           expr: |
             avg by (exported_namespace, namespace, name) (certmanager_certificate_expiration_timestamp_seconds - time()) < (21 * 24 * 3600)
+            and on (exported_namespace, namespace, name)
+            avg by (exported_namespace, namespace, name) (time() - certmanager_certificate_renewal_timestamp_seconds) > 0
           for: 5m
           annotations:
             summary: >-
-              The cert {{ $labels.name }} is {{ $value | humanizeDuration }} from expiry, it should have renewed over a week ago
+              The cert {{ $labels.name }} is {{ $value | humanizeDuration }} from expiry and its scheduled renewal has passed
           labels:
             severity: critical
 
