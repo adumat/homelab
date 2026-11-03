@@ -36,6 +36,8 @@ spec:
               VPN_TYPE: wireguard
               VPN_INTERFACE: wg0
               WIREGUARD_ENDPOINT_PORT: 51820
+              # Europe for latency, Italy excluded so the exit never geolocates home.
+              SERVER_COUNTRIES: "Albania,Austria,Belgium,Bulgaria,Croatia,Cyprus,Czech Republic,Denmark,Estonia,Finland,France,Germany,Greece,Hungary,Ireland,Netherlands,Norway,Poland,Portugal,Romania,Serbia,Slovakia,Slovenia,Spain,Sweden,Switzerland,UK,Ukraine"
               VPN_PORT_FORWARDING: off
               # VPN_PORT_FORWARDING_PROVIDER: protonvpn
               # 8000 is gluetun's control server, opened so the VPN can be checked
