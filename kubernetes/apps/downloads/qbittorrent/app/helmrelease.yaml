@@ -57,6 +57,23 @@ spec:
                     - "/bin/sh"
                     - "-c"
                     - "(ip rule del table 51820; ip -6 rule del table 51820) || true"
+            probes:
+              # gluetun can stop retrying after an upstream outage and sit with a
+              # dead tunnel until restarted. An empty public IP is the only honest
+              # signal (see the control-server note above); 10m outlasts a normal
+              # reconnect and stays under VpnTunnelDown's 15m.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  exec:
+                    command:
+                      - /bin/sh
+                      - -c
+                      - wget -qO- http://127.0.0.1:8000/v1/publicip/ip | grep -q '"public_ip":"[0-9a-f]'
+                  periodSeconds: 60
+                  timeoutSeconds: 10
+                  failureThreshold: 10
             resources:
               limits:
                 squat.ai/tun: "1"
