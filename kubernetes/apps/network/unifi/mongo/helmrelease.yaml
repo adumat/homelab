@@ -22,6 +22,10 @@ spec:
           app:
             image:
               repository: docker.io/mongo
+              # featureCompatibilityVersion is deliberately left one major behind
+              # so a tag revert stays a valid rollback. Before the next major,
+              # raise it to the running major or mongod will refuse to start:
+              #   db.adminCommand({setFeatureCompatibilityVersion: "9.0", confirm: true})
               tag: '9.0.4'
             envFrom:
               - secretRef:
