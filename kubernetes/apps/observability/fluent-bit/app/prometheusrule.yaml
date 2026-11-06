@@ -1,0 +1,25 @@
+---
+# yaml-language-server: $schema=https://kubernetes-schemas.pages.dev/monitoring.coreos.com/prometheusrule_v1.json
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fluent-bit-rules
+spec:
+  groups:
+    - name: fluent-bit.rules
+      rules:
+        # A leaked connection loops at ~290 lines/s. A single "/unregistered/ ... Terminating
+        # worker thread" line is normal at boot, so the threshold has to be a rate, not presence.
+        - alert: DrbdUnregisteredConnectionLoop
+          expr: |-
+            sum by (node) (rate(drbd_counter_unregistered_connection_lines[5m])) > 1
+          for: 10m
+          annotations:
+            summary: >-
+              DRBD connection on {{ $labels.node }} is looping detached from its resource
+            description: >-
+              {{ $value | humanize }} kernel lines/s of "drbd /unregistered/". The volume itself
+              stays healthy and drbdsetup cannot reach the leaked connection. Only a reboot of
+              {{ $labels.node }} clears it; left alone it has preceded a node crash. See AGENTS.md.
+          labels:
+            severity: warning
