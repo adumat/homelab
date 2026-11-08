@@ -116,13 +116,18 @@ uart:
 
 modbus:
   - uart_id: modbus_uart
-    id: modbus_client
+    id: modbus_bus
 
 modbus_controller:
   - id: modbus_hvac
-    modbus_id: modbus_client
+    modbus_id: modbus_bus
     address: 0x1
     update_interval: 15s
+  # Parameters and setpoints rarely change: polling them with the sensors would only load the bus.
+  - id: modbus_hvac_params
+    modbus_id: modbus_bus
+    address: 0x1
+    update_interval: 15h
 
 # buzzer
 output:
@@ -140,7 +145,7 @@ light:
     chipset: ws2812
     pin: GPIO38
     num_leds: 1
-    rgb_order: RGB
+    channel_colors: RGB
     name: "RGB LED"
     id: rgb_led
 
@@ -299,7 +304,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: modbus_hvac
     id: t08_temp_aux
-    name: "T08 Temperatura ambiente/aux"
+    name: "T08 Temperatura ambiente aux"
     register_type: holding
     address: 107
     value_type: S_WORD
@@ -364,37 +369,34 @@ number:
   #   max_value: 9999
   #   step: 1
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r08
     name: "r08 fascia solo cal"
     register_type: holding
     address: 1507
     value_type: S_WORD
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r22
     name: "r22 fascia solo pdc"
     register_type: holding
     address: 1521
     value_type: S_WORD
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r28
     name: "r28 METTI = R08"
     register_type: holding
     address: 1527
     value_type: S_WORD
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r10
     name: "r10 caldaia supporto heat"
     register_type: holding
@@ -403,10 +405,9 @@ number:
     # min_value: 0
     # max_value: 1
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r12
     name: "r12 ritardo r10"
     register_type: holding
@@ -415,10 +416,9 @@ number:
     # min_value: 0
     # max_value: 60
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r15
     name: "r15 caldaia supporto sanitary"
     register_type: holding
@@ -427,10 +427,9 @@ number:
     # min_value: 0
     # max_value: 1
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r16
     name: "r16 ritardo r15"
     register_type: holding
@@ -439,22 +438,20 @@ number:
     # min_value: 0
     # max_value: 60
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r23
-    name: "r23 caldaia a supporto heat(4)/sanitary(6)"
+    name: "r23 caldaia a supporto heat(4) sanitary(6)"
     register_type: holding
     address: 1522
     value_type: U_WORD
     # min_value: 0
     # max_value: 6
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     id: r37
     name: "r37"
     register_type: holding
@@ -463,11 +460,10 @@ number:
     # min_value: 0
     # max_value: 2
     step: 1
-    skip_updates: 3600
     mode: BOX
   - platform: modbus_controller
     id: cool_temp_target
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     name: "Cool temperature target"
     register_type: holding
     address: 1001
@@ -480,10 +476,9 @@ number:
     # accuracy_decimals: 1
     # filters:
     #   - multiply: 0.1
-    skip_updates: 3600
   - platform: modbus_controller
     id: heat_temp_target
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     name: "Heat temperature target"
     register_type: holding
     address: 1002
@@ -496,10 +491,9 @@ number:
     # accuracy_decimals: 1
     # filters:
     #   - multiply: 0.1
-    skip_updates: 3600
   - platform: modbus_controller
     id: san_temp_target
-    modbus_controller_id: modbus_hvac
+    modbus_controller_id: modbus_hvac_params
     name: "Sanitary temperature target"
     register_type: holding
     address: 1003
@@ -512,4 +506,3 @@ number:
     # accuracy_decimals: 1
     # filters:
     #   - multiply: 0.1
-    skip_updates: 3600
