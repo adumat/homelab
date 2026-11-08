@@ -65,6 +65,13 @@ binary_sensor:
         - button.press: restart_button
 
   - platform: template
+    name: "Compressore in funzione"
+    device_class: running
+    lambda: |-
+      if (!id(compressor_frequency).has_state()) return {};
+      return id(compressor_frequency).state > 0;
+
+  - platform: template
     name: "Allarme attivo"
     device_class: problem
     lambda: |-
@@ -540,6 +547,39 @@ sensor:
     accuracy_decimals: 1
     filters:
       - multiply: 0.1
+
+  # Undocumented registers, identified by diffing scans with the compressor stopped and running.
+  # 480 tracks the relay outputs (bit 6 = circulator, bits 2 and 8 follow the compressor); kept raw
+  # until the remaining bits, such as the boiler call, are identified.
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: compressor_frequency
+    name: "Frequenza compressore"
+    register_type: holding
+    address: 617
+    value_type: U_WORD
+    unit_of_measurement: "Hz"
+    device_class: frequency
+    state_class: measurement
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Uscite digitali raw"
+    entity_category: diagnostic
+    register_type: holding
+    address: 480
+    value_type: U_WORD
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Codice stato macchina"
+    entity_category: diagnostic
+    register_type: holding
+    address: 490
+    value_type: U_WORD
+    accuracy_decimals: 0
 
   # Alarm bitmasks 950-956, decoded into codes by the "Allarmi" text sensor
   - platform: modbus_controller
