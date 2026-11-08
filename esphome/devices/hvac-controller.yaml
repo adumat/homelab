@@ -109,6 +109,37 @@ binary_sensor:
     register_type: holding
     address: 7217
     bitmask: 0x0001
+  # Undocumented bits, identified by watching a DHW cycle and the return to plant heating.
+  # 481 bit 12 rises r12 (1 min) after heating starts and drops in DHW, so it is the likely
+  # boiler call (DO3, H81=29), not yet confirmed against the boiler itself.
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Valvola sanitario"
+    entity_category: diagnostic
+    register_type: holding
+    address: 480
+    bitmask: 0x0020
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Sanitario in corso"
+    entity_category: diagnostic
+    register_type: holding
+    address: 7216
+    bitmask: 0x0080
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Riscaldamento impianto"
+    entity_category: diagnostic
+    register_type: holding
+    address: 483
+    bitmask: 0x0001
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Chiamata caldaia (da confermare)"
+    entity_category: diagnostic
+    register_type: holding
+    address: 481
+    bitmask: 0x1000
 
 
 switch:
