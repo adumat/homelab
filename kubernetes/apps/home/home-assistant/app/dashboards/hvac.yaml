@@ -105,6 +105,20 @@ views:
             features:
               - type: toggle
           - type: tile
+            entity: input_number.hvac_run_time
+            name: Auto Off After
+            features:
+              - type: numeric-input
+                style: buttons
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: timer.hvac_auto_off
+            name: Auto Off In
+            color: deep-orange
+            grid_options:
+              columns: 6
+          - type: tile
             entity: switch.hvac_controller_pump_gf
             name: Pump GF
             color: blue
