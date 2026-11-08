@@ -27,6 +27,34 @@ views:
             grid_options:
               columns: 6
           - type: tile
+            entity: binary_sensor.hvac_controller_chiamata_caldaia_da_confermare
+            name: Boiler Call (unconfirmed)
+            icon: mdi:water-boiler
+            color: deep-orange
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: binary_sensor.hvac_controller_riscaldamento_impianto
+            name: Plant Heating
+            icon: mdi:radiator
+            color: red
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: binary_sensor.hvac_controller_sanitario_in_corso
+            name: Hot Water Cycle
+            icon: mdi:water-thermometer
+            color: purple
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: binary_sensor.hvac_controller_valvola_sanitario
+            name: DHW Valve
+            icon: mdi:valve
+            color: purple
+            grid_options:
+              columns: 6
+          - type: tile
             entity: sensor.hvac_controller_modalita_macchina
             name: Machine Mode
             grid_options:
@@ -215,7 +243,7 @@ views:
             grid_options:
               columns: full
           - type: history-graph
-            title: Compressor (24h)
+            title: Generators (24h)
             hours_to_show: 24
             entities:
               - entity: sensor.hvac_controller_frequenza_compressore
@@ -224,6 +252,12 @@ views:
                 name: Heat/Cool Demand
               - entity: binary_sensor.hvac_controller_compressore_in_funzione
                 name: Compressor
+              - entity: binary_sensor.hvac_controller_chiamata_caldaia_da_confermare
+                name: Boiler Call
+              - entity: binary_sensor.hvac_controller_riscaldamento_impianto
+                name: Plant Heating
+              - entity: binary_sensor.hvac_controller_sanitario_in_corso
+                name: Hot Water Cycle
               - entity: binary_sensor.hvac_controller_sbrinamento_in_corso
                 name: Defrost
             grid_options:
