@@ -165,6 +165,38 @@ button:
     internal: false
     entity_category: config
 
+  - platform: template
+    name: "Modbus scan start"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: |-
+          if (id(scan_active)) return;
+          uint16_t from = (uint16_t) id(scan_from).state;
+          uint16_t to = (uint16_t) id(scan_to).state;
+          if (to < from) {
+            ESP_LOGW("scan", "range %u-%u is empty", from, to);
+            return;
+          }
+          id(scan_addr) = from;
+          id(scan_end) = (uint32_t) to + 1;
+          id(scan_count) = 0;
+          id(scan_single) = false;
+          id(scan_result) = 0;
+          id(scan_found) = 0;
+          id(scan_inflight) = false;
+          id(scan_active) = true;
+          ESP_LOGI("scan", "started %u-%u", from, to);
+
+  - platform: template
+    name: "Modbus scan stop"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: |-
+          id(scan_active) = false;
+          ESP_LOGI("scan", "stopped at %u", (unsigned) id(scan_addr));
+
   # Switch per avviare la lettura manualmente
   # - platform: template
   #   name: "Trigger lettura registro"
@@ -360,6 +392,32 @@ sensor:
 
 # Input per scegliere il registro da leggere
 number:
+  - platform: template
+    id: scan_from
+    name: "Modbus scan from"
+    entity_category: config
+    disabled_by_default: true
+    mode: box
+    min_value: 0
+    max_value: 65535
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 0
+
+  - platform: template
+    id: scan_to
+    name: "Modbus scan to"
+    entity_category: config
+    disabled_by_default: true
+    mode: box
+    min_value: 0
+    max_value: 65535
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 1100
+
   # - platform: template
   #   name: "Registro Modbus da leggere"
   #   id: modbus_register_number
@@ -506,3 +564,105 @@ number:
     # accuracy_decimals: 1
     # filters:
     #   - multiply: 0.1
+
+# Read-only register scanner over [Modbus scan from, Modbus scan to]. The bus allows a single master,
+# so it runs here, sharing the hub with the regular polling. Only holding registers are read: this unit
+# answers input-register reads from the same address space. Blocks of 10 are tried first; a block the
+# device rejects or ignores is re-read one register at a time, because one invalid address fails the
+# whole block.
+globals:
+  - id: scan_active
+    type: bool
+    initial_value: "false"
+  - id: scan_addr
+    type: uint32_t
+    initial_value: "0"
+  # One past the last address, hence 32 bits: the range may end at 65535
+  - id: scan_end
+    type: uint32_t
+    initial_value: "0"
+  - id: scan_count
+    type: uint16_t
+    initial_value: "0"
+  - id: scan_single
+    type: bool
+    initial_value: "false"
+  - id: scan_block_end
+    type: uint32_t
+    initial_value: "0"
+  - id: scan_inflight
+    type: bool
+    initial_value: "false"
+  # 0 = nothing pending, 1 = last read answered, -1 = last read failed
+  - id: scan_result
+    type: int8_t
+    initial_value: "0"
+  - id: scan_issue
+    type: bool
+    initial_value: "false"
+  - id: scan_found
+    type: uint32_t
+    initial_value: "0"
+
+interval:
+  - interval: 200ms
+    then:
+      - lambda: |-
+          id(scan_issue) = false;
+          if (!id(scan_active) || id(scan_inflight)) return;
+
+          if (id(scan_result) == 1) {
+            id(scan_addr) += id(scan_count);
+          } else if (id(scan_result) == -1) {
+            if (!id(scan_single) && id(scan_count) > 1) {
+              id(scan_single) = true;
+              id(scan_block_end) = id(scan_addr) + id(scan_count);
+            } else {
+              id(scan_addr) += 1;
+            }
+          }
+          id(scan_result) = 0;
+          if (id(scan_single) && id(scan_addr) >= id(scan_block_end)) id(scan_single) = false;
+
+          if (id(scan_addr) >= id(scan_end)) {
+            ESP_LOGI("scan", "done, %u registers answered", (unsigned) id(scan_found));
+            id(scan_active) = false;
+            return;
+          }
+          uint32_t left = id(scan_end) - id(scan_addr);
+          id(scan_count) = id(scan_single) ? 1 : (uint16_t) std::min<uint32_t>(10, left);
+          id(scan_inflight) = true;
+          id(scan_issue) = true;
+      - if:
+          condition:
+            lambda: return id(scan_issue);
+          then:
+            - modbus_client.read_holding_registers:
+                modbus_id: modbus_bus
+                address: 0x1
+                start_address: !lambda return (uint16_t) id(scan_addr);
+                count: !lambda return id(scan_count);
+                on_response:
+                  - lambda: |-
+                      for (size_t i = 0; i < values.size(); i++) {
+                        ESP_LOGI("scan", "HR %u = %u (s16 %d, 0x%04X)", (unsigned) (id(scan_addr) + i), values[i],
+                                 (int16_t) values[i], values[i]);
+                      }
+                      id(scan_found) += values.size();
+                      id(scan_result) = 1;
+                      id(scan_inflight) = false;
+                on_error:
+                  - lambda: |-
+                      ESP_LOGV("scan", "HR %u+%u exception %d", (unsigned) id(scan_addr), id(scan_count),
+                               (int) exception_code);
+                      id(scan_result) = -1;
+                      id(scan_inflight) = false;
+                # Returning false skips the retry: silence is an answer when probing.
+                on_no_response: !lambda |-
+                  id(scan_result) = -1;
+                  id(scan_inflight) = false;
+                  return false;
+                # Refused by the hub (queue full): leave the result unset so the same read is reissued.
+                on_not_sent:
+                  - lambda: |-
+                      id(scan_inflight) = false;
