@@ -64,6 +64,45 @@ binary_sensor:
       then:
         - button.press: restart_button
 
+  - platform: template
+    name: "Allarme attivo"
+    device_class: problem
+    lambda: |-
+      if (!id(alarm_codes).has_state()) return {};
+      return id(alarm_codes).state != "Nessuno";
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Sbrinamento richiesto"
+    register_type: holding
+    address: 7214
+    bitmask: 0x2000
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Sbrinamento in corso"
+    register_type: holding
+    address: 7214
+    bitmask: 0x4000
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Antilegionella in corso"
+    register_type: holding
+    address: 7216
+    bitmask: 0x0020
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Antilegionella fallita"
+    device_class: problem
+    register_type: holding
+    address: 7216
+    bitmask: 0x0040
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Secondo setpoint attivo"
+    register_type: holding
+    address: 7217
+    bitmask: 0x0001
+
 
 switch:
   - platform: gpio
@@ -389,6 +428,207 @@ sensor:
     accuracy_decimals: 1
     filters:
       - multiply: 0.1
+
+  # Registers below come from the official map ("Modbus variables", i-32V5 controller manual).
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: machine_mode_raw
+    internal: true
+    register_type: holding
+    address: 200
+    value_type: U_WORD
+    on_value:
+      then:
+        - text_sensor.template.publish:
+            id: machine_mode
+            state: !lambda |-
+              switch ((int) x) {
+                case 0: return std::string("Stand-by");
+                case 1: return std::string("Raffrescamento");
+                case 2: return std::string("Riscaldamento");
+                case 4: return std::string("Solo sanitario");
+                case 5: return std::string("Raffrescamento + sanitario");
+                case 6: return std::string("Riscaldamento + sanitario");
+                default: return "Sconosciuto (" + to_string((int) x) + ")";
+              }
+
+  # Saturation temperatures derived from the pressure transducers
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Temperatura evaporazione"
+    register_type: holding
+    address: 253
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Temperatura condensazione"
+    register_type: holding
+    address: 254
+    value_type: S_WORD
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Counters are spaced two registers apart (305, 307, 309) and 306 reads 0: a 32-bit value, low word first.
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Ore funzionamento compressore"
+    register_type: holding
+    address: 305
+    value_type: U_DWORD_R
+    unit_of_measurement: "h"
+    device_class: duration
+    state_class: total_increasing
+    accuracy_decimals: 0
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Pressione di alta"
+    register_type: holding
+    address: 406
+    value_type: S_WORD
+    unit_of_measurement: "bar"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Pressione di bassa"
+    register_type: holding
+    address: 414
+    value_type: S_WORD
+    unit_of_measurement: "bar"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 2
+    filters:
+      - multiply: 0.01
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Ventilatore condensazione"
+    register_type: holding
+    address: 7000
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    name: "Circolatore"
+    register_type: holding
+    address: 7001
+    value_type: U_WORD
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 1
+    filters:
+      - multiply: 0.1
+
+  # Alarm bitmasks 950-956, decoded into codes by the "Allarmi" text sensor
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_950
+    internal: true
+    register_type: holding
+    address: 950
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_951
+    internal: true
+    register_type: holding
+    address: 951
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_952
+    internal: true
+    register_type: holding
+    address: 952
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_953
+    internal: true
+    register_type: holding
+    address: 953
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_954
+    internal: true
+    register_type: holding
+    address: 954
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_955
+    internal: true
+    register_type: holding
+    address: 955
+    value_type: U_WORD
+  - platform: modbus_controller
+    modbus_controller_id: modbus_hvac
+    id: alarm_956
+    internal: true
+    register_type: holding
+    address: 956
+    value_type: U_WORD
+
+text_sensor:
+  - platform: template
+    id: machine_mode
+    name: "Modalita macchina"
+    icon: mdi:heat-pump
+
+  - platform: template
+    id: alarm_codes
+    name: "Allarmi"
+    icon: mdi:alert
+    update_interval: 15s
+    lambda: |-
+      // Codes per bit, as listed in the manual; empty entries are undocumented bits. 956 bit 12 (E060,
+      // anti-legionella completed) is an outcome rather than a fault, so it is left out.
+      static const char *const codes[7][16] = {
+        {"E001","E002","E003","E004","E005","E006","E007","E008","E009","E010","","","E013","E014","","E016"},
+        {"","E018","E019","E020","","","E023","E024","","E026","","E041","E042","E050","E101","E102"},
+        {"E611","E621","E631","E641","E651","E661","E671","E681","E691","E701","E711","E612","E622","E632","E642","E652"},
+        {"E662","E672","E682","E692","E702","E712","E613","E623","E633","E643","E653","E663","E673","E683","E693","E703"},
+        {"E713","E801","E802","E803","E851","E852","E853","E861","E862","E863","E871","E872","E873","E881","E882","E883"},
+        {"E891","E892","E893","E901","E902","E903","E911","E912","E913","E921","E922","E923","E931","E932","E933","E941"},
+        {"E942","E943","E951","E952","E953","E961","E962","E963","E971","E972","E973","E029","","E061","",""},
+      };
+      const sensor::Sensor *regs[7] = {id(alarm_950), id(alarm_951), id(alarm_952), id(alarm_953),
+                                       id(alarm_954), id(alarm_955), id(alarm_956)};
+      std::string out;
+      for (int r = 0; r < 7; r++) {
+        if (!regs[r]->has_state()) return {};
+        uint16_t mask = (uint16_t) regs[r]->state;
+        for (int b = 0; b < 16; b++) {
+          if (!(mask & (1u << b))) continue;
+          if (!out.empty()) out += ", ";
+          if (codes[r][b][0]) out += codes[r][b];
+          else out += "bit " + to_string(950 + r) + "." + to_string(b);
+        }
+      }
+      return out.empty() ? std::string("Nessuno") : out;
 
 # Input per scegliere il registro da leggere
 number:
