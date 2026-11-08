@@ -715,6 +715,44 @@ the Primary's node-id, and checking `out-of-sync:0` between them:
 mise exec -- kubectl exec -n miroir-system <agent-pod> -c agent -- drbdsetup get-gi <pvc> <primary-node-id> 0
 ```
 
+### A one-sided `WFBitMapS` connection blocks every snapshot of that volume
+
+A third way a volume's backups die while everything reports healthy. No process hangs and
+nothing fails to parse: one DRBD connection is simply stuck halfway through a resync
+handshake, and only **one end** knows it.
+
+Hit 2026-11-06 with tdarr's volume, when its pod moved from charmander to bulbasaur. From
+then on squirtle showed its connection to charmander as `replication:WFBitMapS`, while
+charmander showed the same link `Established`. Data kept flowing, all three disks stayed
+`UpToDate`, and the MiroirVolume said `Ready 3/3` for two days.
+
+What breaks is the `MiroirSnapshot`: it must freeze I/O on every replica, and the stuck node
+never acknowledges. Its `status.perNode` leaves that node at `Pending` while the others
+suspend and resume I/O every ~30 s, until kopiur gives up with `StagingTimedOut` after
+10 minutes — **every night, until someone notices the backup alert**. The app stalls in
+those bursts too.
+
+Find it by comparing each node's view of the same link, not by reading one node:
+
+```sh
+for p in $(mise exec -- kubectl get pods -n miroir-system -l app.kubernetes.io/component=agent -o name); do
+  echo "-- $p"; mise exec -- kubectl exec -n miroir-system "$p" -c agent -- drbdadm status <pvc> 2>/dev/null
+done
+```
+
+The fix is to bounce only that connection, from the stuck side. The resource, its disk and
+its other peers stay up, and the pod is not touched:
+
+```sh
+R=<pvc>
+drbdadm disconnect "${R}:<peer>"
+drbdadm adjust "${R}"
+```
+
+It came back `Established` in ~5 s with `out-of-sync:0`, a test snapshot was ready in 10 s
+with every node `Done`, and a manual backup succeeded. Prove it the same way before
+trusting the next scheduled run.
+
 ### Testing that data survived a reboot: never use a Pod that can restart
 
 A bare Pod defaults to `restartPolicy: Always`. If its command writes the fixture, a node
