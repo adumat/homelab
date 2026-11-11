@@ -15,7 +15,7 @@ spec:
           main:
             image:
               # renovate: datasource=docker depName=ghcr.io/immich-app/immich-server
-              tag: v3.3.6
+              tag: v3.4.0
             env:
               TZ: Europe/Rome
               REDIS_HOSTNAME: dragonfly.database.svc.cluster.local
