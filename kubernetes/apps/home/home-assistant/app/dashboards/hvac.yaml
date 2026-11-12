@@ -367,6 +367,25 @@ views:
           - type: heading
             heading: Schedule
             icon: mdi:calendar-clock
+          - type: tile
+            entity: automation.hvac_schedule
+            name: Weekly Schedule
+            color: green
+            features:
+              - type: toggle
+          - type: tile
+            entity: schedule.hvac_schedule_gf
+            name: Ground Floor
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: schedule.hvac_schedule_1f
+            name: First Floor
+            grid_options:
+              columns: 6
+          - type: heading
+            heading: Legacy
+            heading_style: subtitle
           - type: entities
             show_header_toggle: false
             entities:
