@@ -26,7 +26,7 @@ spec:
               # so a tag revert stays a valid rollback. Before the next major,
               # raise it to the running major or mongod will refuse to start:
               #   db.adminCommand({setFeatureCompatibilityVersion: "9.0", confirm: true})
-              tag: '9.0.4'
+              tag: '9.0.8'
             envFrom:
               - secretRef:
                   name: unifi-mongo-secret
