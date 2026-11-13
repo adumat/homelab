@@ -10,3 +10,4 @@ resources:
   - ./mcpservers.yaml
   - ./virtualkey.yaml
   - ./virtualkey-paperless.yaml
+  - ./virtualkey-criork.yaml
