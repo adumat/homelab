@@ -1,0 +1,13 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMVirtualKey
+metadata:
+  name: criork
+spec:
+  budgetDuration: 30d
+  keyAlias: criork
+  # Anyone with the game's access code spends through this key: the budget caps it.
+  maxBudget: "5"
+  proxyRef: main
+  secretKey: LITELLM_API_KEY
+  secretName: litellm-key-criork

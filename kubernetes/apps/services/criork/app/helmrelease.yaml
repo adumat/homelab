@@ -1,0 +1,82 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: criork
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      criork:
+        annotations:
+          reloader.stakater.com/auto: "true"
+        containers:
+          app:
+            image:
+              repository: ghcr.io/adumat/criork
+              tag: "0.1.0"
+            env:
+              TZ: Europe/Rome
+              CRIORK_LLM_CLIENT: openai-compatible
+              # The trailing slash matters: the client appends `chat/completions` to this address.
+              CRIORK_LLM_BASE_URL: http://main.ai.svc.cluster.local:4000/v1/
+              CRIORK_MODEL_INTERPRETER: &model gemini-flash-lite
+              CRIORK_MODEL_NARRATOR: *model
+              CRIORK_MODEL_COMMENTARY: *model
+            envFrom:
+              - secretRef:
+                  name: criork-secret
+            probes:
+              # /api/health answers 503 while Postgres is away. As a liveness probe that would
+              # restart a healthy pod for a database outage, so liveness asks for the static page.
+              liveness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: { path: /, port: &port 8080 }
+                  periodSeconds: 10
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  httpGet: { path: /api/health, port: *port }
+                  periodSeconds: 10
+            resources:
+              requests: { cpu: 20m, memory: 128Mi }
+              limits: { memory: 384Mi }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      # The image is private: its repository holds text from internal procedures.
+      imagePullSecrets:
+        - name: criork-ghcr
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        ports:
+          http: { port: *port }
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Sul Posto
+          gethomepage.dev/description: Rescuer training game
+        # Players see the game as "Sul Posto"; criork is only its code name.
+        hostnames: ["sulposto.${DOMAIN}"]
+        parentRefs:
+          - name: envoy-internal
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs: [{ identifier: app, port: *port }]
