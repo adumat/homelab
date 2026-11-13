@@ -19,6 +19,17 @@ spec:
           resourceClaims:
             - name: gpu
               resourceClaimTemplateName: frigate
+          # jellyfin's miroir-local transcode volume pins it to bulbasaur, whose
+          # single GPU it needs. If frigate claims that GPU first, jellyfin stays
+          # Pending with no other node able to take it.
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: NotIn
+                        values: ["bulbasaur"]
         containers:
           app:
             image:
