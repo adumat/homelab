@@ -149,8 +149,8 @@ spec:
         type: persistentVolumeClaim
         existingClaim: jellyfin-cache
       transcodes:
-        type: persistentVolumeClaim
-        existingClaim: jellyfin-transcode
+        type: emptyDir
+        sizeLimit: 20Gi
       tmp:
         type: emptyDir
       hwa:

@@ -10,15 +10,3 @@ spec:
   resources:
     requests:
       storage: 10Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: jellyfin-transcode
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: miroir-local
-  resources:
-    requests:
-      storage: 30Gi
