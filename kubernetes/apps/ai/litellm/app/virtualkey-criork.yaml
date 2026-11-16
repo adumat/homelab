@@ -1,0 +1,14 @@
+---
+apiVersion: litellm.home-operations.com/v1alpha1
+kind: LiteLLMVirtualKey
+metadata:
+  name: criork
+spec:
+  budgetDuration: 30d
+  keyAlias: criork
+  # Its own budget so the game's spend is attributable and cannot exhaust the
+  # other keys. Each turn is two or three short calls to a flash-lite model.
+  maxBudget: "5"
+  proxyRef: main
+  secretKey: LITELLM_API_KEY
+  secretName: litellm-key-criork
