@@ -1,0 +1,103 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/main/charts/other/app-template/schemas/helmrelease-helm-v2.schema.json
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: criork
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: app-template
+  values:
+    controllers:
+      criork:
+        # The schema is brought up to date at start: two pods must not do it at once.
+        strategy: Recreate
+        annotations:
+          reloader.stakater.com/auto: "true"
+        initContainers:
+          init-db:
+            image:
+              repository: ghcr.io/home-operations/postgres-init
+              tag: 18
+            envFrom:
+              - secretRef:
+                  name: criork-secret
+        containers:
+          app:
+            image:
+              repository: ghcr.io/adumat/criork
+              tag: "0.1.0"
+            env:
+              TZ: Europe/Rome
+              CRIORK_ACCESS_CODE:
+                valueFrom:
+                  secretKeyRef: { name: criork-secret, key: CRIORK_ACCESS_CODE }
+              CRIORK_DATABASE_URL:
+                valueFrom:
+                  secretKeyRef: { name: criork-secret, key: CRIORK_DATABASE_URL }
+              CRIORK_LLM_API_KEY:
+                valueFrom:
+                  secretKeyRef: { name: criork-secret, key: CRIORK_LLM_API_KEY }
+              CRIORK_LLM_CLIENT: openai-compatible
+              CRIORK_LLM_BASE_URL: http://main.ai.svc.cluster.local:4000
+              CRIORK_MODEL_INTERPRETER: &model gemini-3.5-flash-lite
+              CRIORK_MODEL_NARRATOR: *model
+              CRIORK_MODEL_COMMENTARY: *model
+              CRIORK_DOCUMENTS_DIR: /documents
+              # On while the owner tries the cases: messages can be taken back.
+              CRIORK_PLAYTEST: "on"
+            probes:
+              liveness:
+                enabled: true
+              readiness:
+                enabled: true
+                custom: true
+                spec:
+                  # Answers once the database does.
+                  httpGet: { path: /api/health, port: &port 8080 }
+                  periodSeconds: 10
+            resources:
+              requests: { cpu: 20m, memory: 128Mi }
+              limits: { memory: 512Mi }
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities: { drop: ["ALL"] }
+    defaultPodOptions:
+      imagePullSecrets:
+        - name: criork-ghcr
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+    service:
+      app:
+        ports:
+          http: { port: *port }
+    route:
+      app:
+        annotations:
+          gethomepage.dev/enabled: "true"
+          gethomepage.dev/group: Services
+          gethomepage.dev/name: Sul Posto
+          gethomepage.dev/description: Simulatore di soccorso
+        hostnames: ["sulposto.${DOMAIN}"]
+        parentRefs:
+          - name: envoy-external
+            namespace: network
+            sectionName: https
+        rules:
+          - backendRefs: [{ identifier: app, port: *port }]
+    persistence:
+      documents:
+        type: nfs
+        server: elizabeth.lan
+        path: /mnt/user/media/criork
+        globalMounts:
+          - path: /documents
+            readOnly: true
+      tmp:
+        type: emptyDir
+        globalMounts:
+          - path: /tmp
