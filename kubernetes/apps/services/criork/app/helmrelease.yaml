@@ -70,6 +70,10 @@ spec:
         - name: criork-ghcr
       securityContext:
         runAsNonRoot: true
+        # The image's own `app` user; postgres-init names its user (nobody), which
+        # runAsNonRoot cannot verify without a numeric id.
+        runAsUser: 1654
+        runAsGroup: 1654
         seccompProfile: { type: RuntimeDefault }
     service:
       app:
