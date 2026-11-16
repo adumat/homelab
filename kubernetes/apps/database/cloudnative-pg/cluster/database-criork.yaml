@@ -1,0 +1,30 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: criork
+spec:
+  name: criork
+  owner: criork
+  cluster:
+    name: cluster18
+---
+# yaml-language-server: $schema=https://schemas.tholinka.dev/external-secrets.io/externalsecret_v1.json
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: criork-db
+spec:
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: bitwarden
+  target:
+    name: criork-db-secret
+    template:
+      type: kubernetes.io/basic-auth
+      data:
+        username: criork
+        password: '{{ .CRIORK_DB_PASSWORD }}'
+  dataFrom:
+    - extract:
+        key: criork-secret
