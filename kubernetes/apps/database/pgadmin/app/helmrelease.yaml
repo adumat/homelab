@@ -28,16 +28,15 @@ spec:
             image:
               repository: docker.io/dpage/pgadmin4
               tag: 9.19.0
+            # $$ escapes Flux postBuild substitution, which runs over the script
+            # before the shell sees it. Keep this note out of the script: a
+            # bare dollar-brace name in there, even inside a shell comment, is
+            # substituted too, and an undefined one fails the whole build.
             command:
               - /bin/sh
               - -c
               - |
                 set -eu
-                # $$ escapes Flux postBuild substitution. A bare ${VAR} here is
-                # replaced by envsubst BEFORE the shell ever sees it, and an
-                # undefined name becomes an EMPTY STRING with no error - which
-                # silently produced a passfile with blank user and password
-                # fields that libpq accepted and ignored.
                 SU_USER=$(cat /creds/su/username); SU_PASS=$(cat /creds/su/password)
                 IM_USER=$(cat /creds/immich/username); IM_PASS=$(cat /creds/immich/password)
                 umask 077
