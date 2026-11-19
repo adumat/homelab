@@ -14,7 +14,7 @@ containers on three hosts, and a few home-grown applications.
 
 | Layer | Technology |
 |---|---|
-| Node OS | Talos Linux v1.14.1, config rendered by minijinja + `talosctl machineconfig patch` |
+| Node OS | Talos Linux v1.14.6, config rendered by minijinja + `talosctl machineconfig patch` |
 | Kubernetes | v1.36.3 |
 | GitOps | Flux v2 (flux-operator + flux-instance) |
 | CNI | Cilium — BGP, native routing, kube-proxy replacement, DSR + maglev |
