@@ -375,12 +375,22 @@ which clears the 168h TTL with margin. Keep that invariant when adding a client:
 `oidc-auth` consumer with no `lifespan` inherits 1h30m and reintroduces the loop. `peekaboo` uses
 `long_session` (3 months) instead, for a page left open for hours.
 
-### Flux substitutes an unset variable with the empty string
+### An unset substitution variable fails the whole Kustomization
 
-Not an error — a silently invalid resource. The live case is `oidc-auth`:
+Since Flux v2.9 (kustomize-controller v1.9) `StrictPostBuildSubstitutions` is on by
+default: a `${NAME}` with no value and no default fails the build with
+`variable not set (strict mode)`, and that Kustomization stops reconciling. Before, it
+became an empty string silently.
+
+Substitution runs over every string in the rendered objects, **including shell comments
+inside a block scalar**. pgadmin's init script held a `${VAR}` example in a comment, and
+the Flux v2.10 upgrade broke its Kustomization on that line alone. Escape as `$${NAME}`,
+or keep such notes in YAML comments, which do not survive the build.
+
+The live case for a required variable is `oidc-auth`:
 `components/oidc-auth/authentication.yaml` uses `name: ${OIDC_ROUTE}` **with no default**,
-and every consumer must set both `APP` and `OIDC_ROUTE`. Forget the second and you get a
-`SecurityPolicy` with `targetRefs[0].name: ""` and no message at all.
+and every consumer must set both `APP` and `OIDC_ROUTE`. Forget the second and the
+Kustomization fails on `OIDC_ROUTE`.
 
 `APP` is the identity (client_id, Bitwarden item, policy name); `OIDC_ROUTE` is the
 HTTPRoute to attach to. They usually match, but not for chart-generated routes
