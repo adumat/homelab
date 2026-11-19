@@ -29,6 +29,18 @@
       ],
       datasourceTemplate: "docker",
       versioningTemplate: "redhat",
-    }
+    },
+    {
+      // The FluxInstance artifact pins the Flux version. An `oci://...:tag`
+      // string matches neither annotation pattern above, so it went untracked
+      // and left Flux three minors behind the operator.
+      customType: "regex",
+      description: "Process the FluxInstance manifests artifact",
+      managerFilePatterns: ["/(^|/)kubernetes/apps/flux-system/flux-instance/.+\\.ya?ml$/"],
+      matchStrings: [
+        "oci://(?<depName>ghcr\\.io/controlplaneio-fluxcd/flux-operator-manifests):(?<currentValue>v[0-9.]+)",
+      ],
+      datasourceTemplate: "docker",
+    },
   ],
 }
